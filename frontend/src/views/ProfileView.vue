@@ -6,13 +6,14 @@ import { useAuthStore } from '@/stores/auth'
 import { mediaUrl } from '@/utils/media'
 import { toggleUserFollow } from '@/utils/follows'
 import MixListItem from '@/components/MixListItem.vue'
-import UserListItem from '@/components/UserListItem.vue'
 import PlaylistCard from '@/components/PlaylistCard.vue'
+import AvatarStack from '@/components/AvatarStack.vue'
 import { createPlaylist, fetchUserPlaylists } from '@/utils/playlists'
 import topographyPattern from '@/assets/img/topography.svg'
 import type { AuthorSummary, Mix, PlaylistSummary, UserProfile } from '@/types'
 
-type Tab = 'mixes' | 'playlists' | 'favorites' | 'followers' | 'following'
+/** Followers, following and playlists now live in the two-column section, not in tabs. */
+type Tab = 'mixes' | 'favorites'
 
 const route = useRoute()
 const router = useRouter()
@@ -233,15 +234,29 @@ onMounted(loadProfile)
             <h1 class="text-2xl font-bold">{{ profile.displayName }}</h1>
             <p class="text-tambouille-muted">@{{ profile.username }}</p>
             <p v-if="profile.bio" class="mt-2 whitespace-pre-line text-sm">{{ profile.bio }}</p>
+            <!-- Nudge the owner to fill it in; visitors just see nothing. -->
+            <button
+              v-else-if="isOwnProfile"
+              class="mt-2 text-sm text-tambouille-muted hover:text-tambouille-accent hover:underline"
+              @click="editing = true"
+            >
+              + Ajoutez une description
+            </button>
 
             <div class="mt-2 flex justify-center gap-4 text-xs text-tambouille-muted sm:justify-start">
               <span>{{ profile.mixesCount }} mixs</span>
-              <button class="hover:text-tambouille-text hover:underline" @click="activeTab = 'followers'">
+              <RouterLink
+                :to="{ name: 'user-followers', params: { username: profile.username } }"
+                class="hover:text-tambouille-text hover:underline"
+              >
                 {{ profile.followersCount }} abonnés
-              </button>
-              <button class="hover:text-tambouille-text hover:underline" @click="activeTab = 'following'">
+              </RouterLink>
+              <RouterLink
+                :to="{ name: 'user-following', params: { username: profile.username } }"
+                class="hover:text-tambouille-text hover:underline"
+              >
                 {{ profile.followingCount }} abonnements
-              </button>
+              </RouterLink>
             </div>
 
             <button
@@ -266,20 +281,33 @@ onMounted(loadProfile)
             </button>
           </template>
 
-          <form v-else class="mx-auto max-w-sm space-y-3 sm:mx-0" @submit.prevent="saveProfile">
-            <input
-              v-model="editDisplayName"
-              type="text"
-              maxlength="50"
-              class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
-            />
-            <textarea
-              v-model="editBio"
-              rows="3"
-              maxlength="280"
-              placeholder="Bio"
-              class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
-            />
+          <form v-else class="mx-auto max-w-md space-y-3 sm:mx-0" @submit.prevent="saveProfile">
+            <label class="block text-left">
+              <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted">
+                Nom affiché
+              </span>
+              <input
+                v-model="editDisplayName"
+                type="text"
+                maxlength="50"
+                class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+              />
+            </label>
+            <label class="block text-left">
+              <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted">
+                Description
+              </span>
+              <textarea
+                v-model="editBio"
+                rows="5"
+                maxlength="280"
+                placeholder="Présentez-vous, votre style, vos résidences..."
+                class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+              />
+              <span class="mt-1 block text-right text-xs text-tambouille-muted">
+                {{ editBio.length }}/280
+              </span>
+            </label>
             <div class="flex gap-2">
               <button
                 type="submit"
@@ -300,118 +328,102 @@ onMounted(loadProfile)
         </div>
       </div>
 
-      <div class="mb-4 flex items-center gap-4 border-b border-tambouille-border">
-        <button
-          class="border-b-2 pb-2 text-sm font-medium transition"
-          :class="
-            activeTab === 'mixes'
-              ? 'border-tambouille-accent text-tambouille-text'
-              : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
-          "
-          @click="activeTab = 'mixes'"
-        >
-          Mixs
-        </button>
-        <button
-          class="border-b-2 pb-2 text-sm font-medium transition"
-          :class="
-            activeTab === 'playlists'
-              ? 'border-tambouille-accent text-tambouille-text'
-              : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
-          "
-          @click="activeTab = 'playlists'"
-        >
-          Playlists
-        </button>
-        <button
-          v-if="isOwnProfile"
-          class="border-b-2 pb-2 text-sm font-medium transition"
-          :class="
-            activeTab === 'favorites'
-              ? 'border-tambouille-accent text-tambouille-text'
-              : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
-          "
-          @click="activeTab = 'favorites'"
-        >
-          Favoris
-        </button>
-        <button
-          class="border-b-2 pb-2 text-sm font-medium transition"
-          :class="
-            activeTab === 'followers'
-              ? 'border-tambouille-accent text-tambouille-text'
-              : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
-          "
-          @click="activeTab = 'followers'"
-        >
-          Abonnés
-        </button>
-        <button
-          class="border-b-2 pb-2 text-sm font-medium transition"
-          :class="
-            activeTab === 'following'
-              ? 'border-tambouille-accent text-tambouille-text'
-              : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
-          "
-          @click="activeTab = 'following'"
-        >
-          Abonnements
-        </button>
-      </div>
-
-      <template v-if="activeTab === 'mixes'">
-        <div v-if="mixes.length === 0" class="py-8 text-center text-tambouille-muted">Aucun mix pour l'instant.</div>
-        <div v-else class="space-y-3">
-          <MixListItem v-for="mix in mixes" :key="mix.id" :mix="mix" />
-        </div>
-      </template>
-
-      <template v-else-if="activeTab === 'playlists'">
-        <form v-if="isOwnProfile" class="mb-6 flex items-center gap-3" @submit.prevent="submitNewPlaylist">
-          <input
-            v-model="newPlaylistTitle"
-            type="text"
-            maxlength="120"
-            placeholder="Nom de la nouvelle playlist..."
-            class="min-w-0 flex-1 rounded-full border border-tambouille-border bg-transparent px-4 py-2 text-sm outline-none focus:border-tambouille-accent sm:max-w-xs"
+      <!-- Réseau et playlists en colonne latérale, mixs à droite. -->
+      <div class="grid items-start gap-10 lg:grid-cols-3">
+        <aside class="space-y-8">
+          <AvatarStack
+            title="Abonnés"
+            :count="profile.followersCount"
+            :users="followers"
+            :see-all-to="{ name: 'user-followers', params: { username: profile.username } }"
+            empty-label="Aucun abonné pour l’instant."
           />
-          <button
-            type="submit"
-            :disabled="creatingPlaylist || !newPlaylistTitle.trim()"
-            class="shrink-0 rounded-full bg-tambouille-accent px-5 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
-          >
-            {{ creatingPlaylist ? 'Création...' : 'Créer' }}
-          </button>
-        </form>
+          <AvatarStack
+            title="Abonnements"
+            :count="profile.followingCount"
+            :users="following"
+            :see-all-to="{ name: 'user-following', params: { username: profile.username } }"
+            empty-label="Aucun abonnement pour l’instant."
+          />
 
-        <div v-if="playlists.length === 0" class="py-8 text-center text-tambouille-muted">
-          Aucune playlist pour l'instant.
-        </div>
-        <div v-else class="flex flex-wrap gap-4">
-          <PlaylistCard v-for="playlist in playlists" :key="playlist.id" :playlist="playlist" />
-        </div>
-      </template>
+          <section>
+          <div class="mb-3 flex items-baseline justify-between gap-4">
+            <h2 class="text-xl font-semibold">Playlists ({{ playlists.length }})</h2>
+            <RouterLink
+              v-if="playlists.length"
+              :to="{ name: 'user-playlists', params: { username: profile.username } }"
+              class="shrink-0 text-sm text-tambouille-muted hover:underline"
+            >
+              Voir tout
+            </RouterLink>
+          </div>
 
-      <template v-else-if="activeTab === 'favorites'">
-        <div v-if="favorites.length === 0" class="py-8 text-center text-tambouille-muted">Aucun favori pour l'instant.</div>
-        <div v-else class="space-y-3">
-          <MixListItem v-for="mix in favorites" :key="mix.id" :mix="mix" />
-        </div>
-      </template>
+          <form v-if="isOwnProfile" class="mb-4 flex items-center gap-3" @submit.prevent="submitNewPlaylist">
+            <input
+              v-model="newPlaylistTitle"
+              type="text"
+              maxlength="120"
+              placeholder="Nom de la nouvelle playlist..."
+              class="min-w-0 flex-1 rounded-full border border-tambouille-border bg-transparent px-4 py-2 text-sm outline-none focus:border-tambouille-accent"
+            />
+            <button
+              type="submit"
+              :disabled="creatingPlaylist || !newPlaylistTitle.trim()"
+              class="shrink-0 rounded-full bg-tambouille-accent px-5 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+            >
+              {{ creatingPlaylist ? 'Création...' : 'Créer' }}
+            </button>
+          </form>
 
-      <template v-else-if="activeTab === 'followers'">
-        <div v-if="followers.length === 0" class="py-8 text-center text-tambouille-muted">Aucun abonné pour l'instant.</div>
-        <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <UserListItem v-for="user in followers" :key="user.id" :user="user" />
-        </div>
-      </template>
+            <p v-if="!playlists.length" class="text-sm text-tambouille-muted">Aucune playlist pour l’instant.</p>
+            <div v-else class="flex flex-wrap gap-4">
+              <PlaylistCard v-for="playlist in playlists.slice(0, 4)" :key="playlist.id" :playlist="playlist" />
+            </div>
+          </section>
+        </aside>
 
-      <template v-else>
-        <div v-if="following.length === 0" class="py-8 text-center text-tambouille-muted">Aucun abonnement pour l'instant.</div>
-        <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <UserListItem v-for="user in following" :key="user.id" :user="user" />
+        <div class="lg:col-span-2">
+          <div class="mb-4 flex items-center gap-4 border-b border-tambouille-border">
+            <button
+              class="border-b-2 pb-2 text-sm font-medium transition"
+              :class="
+                activeTab === 'mixes'
+                  ? 'border-tambouille-accent text-tambouille-text'
+                  : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
+              "
+              @click="activeTab = 'mixes'"
+            >
+              Mixs
+            </button>
+            <button
+              v-if="isOwnProfile"
+              class="border-b-2 pb-2 text-sm font-medium transition"
+              :class="
+                activeTab === 'favorites'
+                  ? 'border-tambouille-accent text-tambouille-text'
+                  : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
+              "
+              @click="activeTab = 'favorites'"
+            >
+              Favoris
+            </button>
+          </div>
+
+          <template v-if="activeTab === 'mixes'">
+            <div v-if="mixes.length === 0" class="py-8 text-center text-tambouille-muted">Aucun mix pour l'instant.</div>
+            <div v-else class="space-y-3">
+              <MixListItem v-for="mix in mixes" :key="mix.id" :mix="mix" />
+            </div>
+          </template>
+
+          <template v-else-if="activeTab === 'favorites'">
+            <div v-if="favorites.length === 0" class="py-8 text-center text-tambouille-muted">Aucun favori pour l'instant.</div>
+            <div v-else class="space-y-3">
+              <MixListItem v-for="mix in favorites" :key="mix.id" :mix="mix" />
+            </div>
+          </template>
         </div>
-      </template>
+      </div>
       </div>
     </template>
   </div>

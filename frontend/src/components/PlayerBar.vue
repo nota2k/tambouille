@@ -91,7 +91,7 @@ function onEnded() {
 <template>
   <div
     v-if="playerStore.currentMix"
-    class="fixed inset-x-0 bottom-0 z-40 border-t border-tambouille-border bg-tambouille-surface"
+    class="fixed inset-x-0 bottom-0 z-40 border-t border-tambouille-text-black bg-tambouille-action"
   >
     <audio
       ref="audioEl"
@@ -112,7 +112,7 @@ function onEnded() {
       <div v-else class="h-12 w-12 shrink-0 rounded bg-tambouille-surface-hover"></div>
 
       <button
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tambouille-accent text-white hover:bg-tambouille-accent-hover"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tambouille-action-hover text-tambouille-text-black hover:bg-tambouille-accent-hover"
         @click="playerStore.toggle()"
       >
         <svg v-if="!playerStore.isPlaying" viewBox="0 0 24 24" class="ml-0.5 h-5 w-5 fill-current">
@@ -124,14 +124,14 @@ function onEnded() {
       </button>
 
       <div class="min-w-0 flex-1">
-        <div class="flex items-baseline justify-between gap-2">
+        <div class="flex items-baseline justify-between gap-2 text-tambouille-text-black">
           <RouterLink
             :to="{ name: 'mix-detail', params: { id: playerStore.currentMix.id } }"
             class="truncate text-sm font-semibold hover:underline"
           >
             {{ playerStore.currentMix.title }}
           </RouterLink>
-          <span class="shrink-0 text-xs text-tambouille-muted">
+          <span class="shrink-0 text-xs text-tambouille-text-black">
             {{ formatTime(playerStore.currentTime) }} / {{ formatTime(duration) }}
           </span>
         </div>
@@ -139,13 +139,13 @@ function onEnded() {
         <div class="flex items-baseline gap-1.5 truncate text-xs">
           <RouterLink
             :to="{ name: 'profile', params: { username: playerStore.currentMix.user.username } }"
-            class="shrink-0 text-tambouille-muted hover:underline"
+            class="shrink-0 text-tambouille-text-black hover:underline"
           >
             {{ playerStore.currentMix.user.displayName }}
           </RouterLink>
           <template v-if="currentTrack">
-            <span class="text-tambouille-muted">·</span>
-            <span class="truncate text-tambouille-accent">
+            <span class="text-tambouille-text-black">·</span>
+            <span class="truncate text-tambouille-text-black">
               {{ currentTrack.artist }} – {{ currentTrack.title }}
             </span>
           </template>
@@ -153,7 +153,7 @@ function onEnded() {
 
         <input
           type="range"
-          class="mt-1 h-1 w-full cursor-pointer accent-tambouille-accent"
+          class="mt-1 h-1 w-full cursor-pointer accent-tambouille-text-black"
           min="0"
           :max="duration || 0"
           :value="playerStore.currentTime"

@@ -32,9 +32,9 @@ function toggleFavorite(event: Event) {
 <template>
   <RouterLink
     :to="{ name: 'mix-detail', params: { id: mix.id } }"
-    class="group flex items-center gap-4 rounded-xl border border-tambouille-border bg-tambouille-surface p-3 transition hover:border-tambouille-accent"
+    class="group flex gap-10 bg-tambouille-surface p-3 transition hover:border-tambouille-accent"
   >
-    <div class="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-tambouille-surface-hover">
+    <div class="relative h-[150px] aspect-square shrink-0 overflow-hidden bg-tambouille-surface-hover">
       <img v-if="mix.coverUrl" :src="mediaUrl(mix.coverUrl)" class="h-full w-full object-cover" alt="" />
       <div v-else class="flex h-full w-full items-center justify-center text-tambouille-muted">
         <svg viewBox="0 0 24 24" class="h-7 w-7 fill-current opacity-40">
@@ -52,8 +52,8 @@ function toggleFavorite(event: Event) {
       </button>
     </div>
 
-    <div class="min-w-0 flex-1">
-      <p class="truncate text-sm font-semibold">{{ mix.title }}</p>
+    <div class="min-w-0 flex-1 py-6">
+      <p class="truncate text-2xl font-semibold">{{ mix.title }}</p>
       <p class="truncate text-xs text-tambouille-muted">{{ mix.user.displayName }}</p>
 
       <div v-if="mix.tags.length" class="mt-1.5 flex flex-wrap gap-1.5">

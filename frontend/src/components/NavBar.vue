@@ -41,7 +41,7 @@ function logout() {
 
           <div class="relative">
             <button
-              class="flex items-center gap-2 rounded-full border border-tambouille-border px-2 py-1 hover:bg-tambouille-surface-hover"
+              class="flex items-center gap-2 rounded-full border border-tambouille-border hover:bg-tambouille-surface-hover"
               @click="menuOpen = !menuOpen"
             >
               <img

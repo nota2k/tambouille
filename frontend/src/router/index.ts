@@ -48,6 +48,21 @@ const router = createRouter({
       name: 'profile',
       component: () => import('@/views/ProfileView.vue'),
     },
+    {
+      path: '/users/:username/followers',
+      name: 'user-followers',
+      component: () => import('@/views/UserConnectionsView.vue'),
+    },
+    {
+      path: '/users/:username/following',
+      name: 'user-following',
+      component: () => import('@/views/UserConnectionsView.vue'),
+    },
+    {
+      path: '/users/:username/playlists',
+      name: 'user-playlists',
+      component: () => import('@/views/UserPlaylistsView.vue'),
+    },
   ],
 })
 

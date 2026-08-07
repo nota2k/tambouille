@@ -15,7 +15,7 @@ function removeRow(index: number) {
 <template>
   <div>
     <div class="space-y-2">
-      <div v-for="(row, index) in rows" :key="index" class="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+      <div v-for="(row, index) in rows" :key="index" class="flex flex-wrap items-center gap-2 sm:flex-nowrap text-tambouille-accent">
         <input
           v-model="row.timecode"
           type="text"
