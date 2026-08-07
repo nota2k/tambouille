@@ -1,18 +1,28 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { mediaUrl } from '@/utils/media'
-import MixCard from '@/components/MixCard.vue'
-import type { Mix, UserProfile } from '@/types'
+import { toggleUserFollow } from '@/utils/follows'
+import MixListItem from '@/components/MixListItem.vue'
+import UserListItem from '@/components/UserListItem.vue'
+import type { AuthorSummary, Mix, UserProfile } from '@/types'
+
+type Tab = 'mixes' | 'favorites' | 'followers' | 'following'
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 
 const profile = ref<UserProfile | null>(null)
 const mixes = ref<Mix[]>([])
+const favorites = ref<Mix[]>([])
+const followers = ref<AuthorSummary[]>([])
+const following = ref<AuthorSummary[]>([])
+const activeTab = ref<Tab>('mixes')
 const loading = ref(true)
+const followBusy = ref(false)
 
 const editing = ref(false)
 const editDisplayName = ref('')
@@ -24,16 +34,31 @@ const isOwnProfile = computed(() => authStore.user?.username === route.params.us
 
 async function loadProfile() {
   loading.value = true
+  activeTab.value = 'mixes'
   try {
     const username = route.params.username as string
-    const [{ data: userData }, { data: mixesData }] = await Promise.all([
-      apiClient.get<UserProfile>(`/users/${username}`),
-      apiClient.get<{ items: Mix[] }>('/mixes', { params: { username, limit: 50 } }),
-    ])
+    const [{ data: userData }, { data: mixesData }, { data: followersData }, { data: followingData }] =
+      await Promise.all([
+        apiClient.get<UserProfile>(`/users/${username}`),
+        apiClient.get<{ items: Mix[] }>('/mixes', { params: { username, limit: 50 } }),
+        apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/followers`, { params: { limit: 50 } }),
+        apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/following`, { params: { limit: 50 } }),
+      ])
     profile.value = userData
     mixes.value = mixesData.items
+    followers.value = followersData.items
+    following.value = followingData.items
     editDisplayName.value = userData.displayName
     editBio.value = userData.bio ?? ''
+
+    if (authStore.user?.username === username) {
+      const { data: favoritesData } = await apiClient.get<{ items: Mix[] }>('/mixes/me/favorites', {
+        params: { limit: 50 },
+      })
+      favorites.value = favoritesData.items
+    } else {
+      favorites.value = []
+    }
   } finally {
     loading.value = false
   }
@@ -67,6 +92,28 @@ async function onAvatarChange(event: Event) {
   })
   profile.value = data
   if (authStore.user) authStore.user.avatarUrl = data.avatarUrl
+}
+
+async function toggleFollow() {
+  if (!profile.value) return
+  if (!authStore.isAuthenticated) {
+    router.push({ name: 'login' })
+    return
+  }
+  followBusy.value = true
+  try {
+    await toggleUserFollow(profile.value)
+    // Keep the followers list in sync with the count shown next to it.
+    if (authStore.user) {
+      if (profile.value.isFollowing) {
+        followers.value = [authStore.user, ...followers.value]
+      } else {
+        followers.value = followers.value.filter((u) => u.id !== authStore.user!.id)
+      }
+    }
+  } finally {
+    followBusy.value = false
+  }
 }
 
 watch(() => route.params.username, loadProfile)
@@ -112,13 +159,36 @@ onMounted(loadProfile)
             <h1 class="text-2xl font-bold">{{ profile.displayName }}</h1>
             <p class="text-tambouille-muted">@{{ profile.username }}</p>
             <p v-if="profile.bio" class="mt-2 whitespace-pre-line text-sm">{{ profile.bio }}</p>
-            <p class="mt-2 text-xs text-tambouille-muted">{{ profile.mixesCount }} mixs</p>
+
+            <div class="mt-2 flex justify-center gap-4 text-xs text-tambouille-muted sm:justify-start">
+              <span>{{ profile.mixesCount }} mixs</span>
+              <button class="hover:text-tambouille-text hover:underline" @click="activeTab = 'followers'">
+                {{ profile.followersCount }} abonnés
+              </button>
+              <button class="hover:text-tambouille-text hover:underline" @click="activeTab = 'following'">
+                {{ profile.followingCount }} abonnements
+              </button>
+            </div>
+
             <button
               v-if="isOwnProfile"
               class="mt-3 rounded-full border border-tambouille-border px-4 py-1.5 text-sm hover:bg-tambouille-surface-hover"
               @click="editing = true"
             >
               Modifier le profil
+            </button>
+            <button
+              v-else
+              :disabled="followBusy"
+              class="mt-3 rounded-full px-4 py-1.5 text-sm font-semibold transition disabled:opacity-50"
+              :class="
+                profile.isFollowing
+                  ? 'border border-tambouille-border hover:bg-tambouille-surface-hover'
+                  : 'bg-tambouille-accent text-white hover:bg-tambouille-accent-hover'
+              "
+              @click="toggleFollow"
+            >
+              {{ profile.isFollowing ? 'Abonné' : "S'abonner" }}
             </button>
           </template>
 
@@ -156,11 +226,81 @@ onMounted(loadProfile)
         </div>
       </div>
 
-      <h2 class="mb-4 text-lg font-semibold">Mixs</h2>
-      <div v-if="mixes.length === 0" class="py-8 text-center text-tambouille-muted">Aucun mix pour l'instant.</div>
-      <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        <MixCard v-for="mix in mixes" :key="mix.id" :mix="mix" />
+      <div class="mb-4 flex items-center gap-4 border-b border-tambouille-border">
+        <button
+          class="border-b-2 pb-2 text-sm font-medium transition"
+          :class="
+            activeTab === 'mixes'
+              ? 'border-tambouille-accent text-tambouille-text'
+              : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
+          "
+          @click="activeTab = 'mixes'"
+        >
+          Mixs
+        </button>
+        <button
+          v-if="isOwnProfile"
+          class="border-b-2 pb-2 text-sm font-medium transition"
+          :class="
+            activeTab === 'favorites'
+              ? 'border-tambouille-accent text-tambouille-text'
+              : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
+          "
+          @click="activeTab = 'favorites'"
+        >
+          Favoris
+        </button>
+        <button
+          class="border-b-2 pb-2 text-sm font-medium transition"
+          :class="
+            activeTab === 'followers'
+              ? 'border-tambouille-accent text-tambouille-text'
+              : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
+          "
+          @click="activeTab = 'followers'"
+        >
+          Abonnés
+        </button>
+        <button
+          class="border-b-2 pb-2 text-sm font-medium transition"
+          :class="
+            activeTab === 'following'
+              ? 'border-tambouille-accent text-tambouille-text'
+              : 'border-transparent text-tambouille-muted hover:text-tambouille-text'
+          "
+          @click="activeTab = 'following'"
+        >
+          Abonnements
+        </button>
       </div>
+
+      <template v-if="activeTab === 'mixes'">
+        <div v-if="mixes.length === 0" class="py-8 text-center text-tambouille-muted">Aucun mix pour l'instant.</div>
+        <div v-else class="space-y-3">
+          <MixListItem v-for="mix in mixes" :key="mix.id" :mix="mix" />
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'favorites'">
+        <div v-if="favorites.length === 0" class="py-8 text-center text-tambouille-muted">Aucun favori pour l'instant.</div>
+        <div v-else class="space-y-3">
+          <MixListItem v-for="mix in favorites" :key="mix.id" :mix="mix" />
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'followers'">
+        <div v-if="followers.length === 0" class="py-8 text-center text-tambouille-muted">Aucun abonné pour l'instant.</div>
+        <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <UserListItem v-for="user in followers" :key="user.id" :user="user" />
+        </div>
+      </template>
+
+      <template v-else>
+        <div v-if="following.length === 0" class="py-8 text-center text-tambouille-muted">Aucun abonnement pour l'instant.</div>
+        <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <UserListItem v-for="user in following" :key="user.id" :user="user" />
+        </div>
+      </template>
     </template>
   </div>
 </template>

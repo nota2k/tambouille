@@ -6,6 +6,8 @@ import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
 import { mediaUrl } from '@/utils/media'
 import { formatTime } from '@/utils/time'
+import { formatDate } from '@/utils/date'
+import { toggleMixFavorite } from '@/utils/favorites'
 import type { Mix, TracklistEntry } from '@/types'
 
 const route = useRoute()
@@ -35,8 +37,13 @@ function playFromTrack(entry: TracklistEntry) {
   if (mix.value) playerStore.playAt(mix.value, entry.timecodeSec)
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+function toggleFavorite() {
+  if (!mix.value) return
+  if (!authStore.isAuthenticated) {
+    router.push({ name: 'login' })
+    return
+  }
+  toggleMixFavorite(mix.value).catch(() => {})
 }
 
 async function removeMix() {
@@ -90,6 +97,24 @@ onMounted(loadMix)
             Écouter
           </button>
           <span class="text-sm text-tambouille-muted">{{ mix.playsCount }} écoutes</span>
+
+          <button
+            class="flex items-center gap-1.5 rounded-full border border-tambouille-border px-3 py-2 text-sm hover:bg-tambouille-surface-hover"
+            :class="{ 'border-tambouille-accent text-tambouille-accent': mix.isFavorited }"
+            @click="toggleFavorite"
+          >
+            <svg v-if="mix.isFavorited" viewBox="0 0 24 24" class="h-4 w-4 fill-current">
+              <path
+                d="M12 21s-6.716-4.35-9.428-8.108C.688 10.09 1.2 6.6 4.05 5.02c2.19-1.213 4.766-.62 6.2 1.02l1.75 2 1.75-2c1.434-1.64 4.01-2.233 6.2-1.02 2.85 1.58 3.362 5.07 1.478 7.872C18.716 16.65 12 21 12 21z"
+              />
+            </svg>
+            <svg v-else viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current stroke-2">
+              <path
+                d="M12 21s-6.716-4.35-9.428-8.108C.688 10.09 1.2 6.6 4.05 5.02c2.19-1.213 4.766-.62 6.2 1.02l1.75 2 1.75-2c1.434-1.64 4.01-2.233 6.2-1.02 2.85 1.58 3.362 5.07 1.478 7.872C18.716 16.65 12 21 12 21z"
+              />
+            </svg>
+            {{ mix.isFavorited ? 'Favori' : 'Ajouter aux favoris' }}
+          </button>
         </div>
 
         <p v-if="mix.description" class="mt-4 whitespace-pre-line text-sm text-tambouille-text/90">

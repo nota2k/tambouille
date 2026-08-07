@@ -1,14 +1,25 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Gulax";
+  src:
+    url("./fonts/Gulax-Regular.woff2") format("woff2"),
+    url("./fonts/Gulax-Regular.woff") format("woff"),
+    url("./fonts/Gulax-Regular.eot") format("embedded-opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --color-tambouille-bg: #0f0f13;
-  --color-tambouille-surface: #17171d;
-  --color-tambouille-surface-hover: #202027;
-  --color-tambouille-border: #2a2a33;
-  --color-tambouille-text: #f2f2f5;
-  --color-tambouille-muted: #9a9aa5;
-  --color-tambouille-accent: #ff5f2e;
-  --color-tambouille-accent-hover: #ff7a4f;
+  --color-tambouille-bg: #f5f5f7;
+  --color-tambouille-surface: #ffffff;
+  --color-tambouille-surface-hover: #ededf0;
+  --color-tambouille-border: #d5d5dc;
+  --color-tambouille-text: #FE2370;
+  --color-tambouille-muted: #6b6b7b;
+  --color-tambouille-accent: #FE2370;
+  --color-tambouille-accent-hover: #e8501f;
 }
 
 html,
@@ -20,6 +31,10 @@ body,
 body {
   background-color: var(--color-tambouille-bg);
   color: var(--color-tambouille-text);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Gulax", sans-serif;
 }
 
 ::-webkit-scrollbar {

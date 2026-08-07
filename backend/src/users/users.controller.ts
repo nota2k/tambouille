@@ -2,10 +2,14 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -13,8 +17,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { PaginationDto } from './dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUserId } from '../auth/decorators/current-user.decorator';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
 import { diskStorageFor, fileFilterFor, IMAGE_MIME_TYPES } from '../common/upload.utils';
 
 @Controller('users')
@@ -22,8 +28,33 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get(':username')
-  getProfile(@Param('username') username: string) {
-    return this.usersService.getPublicProfile(username);
+  @UseGuards(OptionalJwtAuthGuard)
+  getProfile(@Param('username') username: string, @OptionalUserId() currentUserId?: string) {
+    return this.usersService.getPublicProfile(username, currentUserId);
+  }
+
+  @Get(':username/followers')
+  listFollowers(@Param('username') username: string, @Query() query: PaginationDto) {
+    return this.usersService.listFollowers(username, query);
+  }
+
+  @Get(':username/following')
+  listFollowing(@Param('username') username: string, @Query() query: PaginationDto) {
+    return this.usersService.listFollowing(username, query);
+  }
+
+  @Post(':username/follow')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  follow(@Param('username') username: string, @CurrentUserId() userId: string) {
+    return this.usersService.follow(userId, username);
+  }
+
+  @Delete(':username/follow')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  unfollow(@Param('username') username: string, @CurrentUserId() userId: string) {
+    return this.usersService.unfollow(userId, username);
   }
 
   @Patch('me')

@@ -20,6 +20,8 @@ export interface Mix {
   coverUrl: string | null
   durationSec: number | null
   playsCount: number
+  favoritesCount: number
+  isFavorited: boolean
   tags: string[]
   tracklist: TracklistEntry[]
   createdAt: string
@@ -36,6 +38,14 @@ export interface MixListResponse {
   totalPages: number
 }
 
+export interface UserListResponse {
+  items: AuthorSummary[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
 export interface UserProfile {
   id: string
   username: string
@@ -44,6 +54,9 @@ export interface UserProfile {
   avatarUrl: string | null
   createdAt: string
   mixesCount: number
+  followersCount: number
+  followingCount: number
+  isFollowing: boolean
 }
 
 export interface AuthUser {

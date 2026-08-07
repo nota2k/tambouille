@@ -21,7 +21,8 @@ import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUserId } from '../auth/decorators/current-user.decorator';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
 import {
   AUDIO_MIME_TYPES,
   diskStorageByField,
@@ -41,19 +42,54 @@ export class MixesController {
   constructor(private readonly mixesService: MixesService) {}
 
   @Get()
-  findAll(@Query() query: QueryMixesDto) {
-    return this.mixesService.findAll(query);
+  @UseGuards(OptionalJwtAuthGuard)
+  findAll(@Query() query: QueryMixesDto, @OptionalUserId() currentUserId?: string) {
+    return this.mixesService.findAll(query, currentUserId);
+  }
+
+  @Get('me/favorites')
+  @UseGuards(JwtAuthGuard)
+  listFavorites(@CurrentUserId() userId: string, @Query() query: QueryMixesDto) {
+    return this.mixesService.listFavorites(userId, query);
+  }
+
+  @Get('me/recent')
+  @UseGuards(JwtAuthGuard)
+  listRecentlyPlayed(@CurrentUserId() userId: string, @Query() query: QueryMixesDto) {
+    return this.mixesService.listRecentlyPlayed(userId, query);
+  }
+
+  @Get('feed/following')
+  @UseGuards(JwtAuthGuard)
+  listFollowingFeed(@CurrentUserId() userId: string, @Query() query: QueryMixesDto) {
+    return this.mixesService.listFollowingFeed(userId, query);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.mixesService.findOne(id);
+  @UseGuards(OptionalJwtAuthGuard)
+  findOne(@Param('id') id: string, @OptionalUserId() currentUserId?: string) {
+    return this.mixesService.findOne(id, currentUserId);
   }
 
   @Post(':id/play')
+  @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  registerPlay(@Param('id') id: string) {
-    return this.mixesService.registerPlay(id);
+  registerPlay(@Param('id') id: string, @OptionalUserId() currentUserId?: string) {
+    return this.mixesService.registerPlay(id, currentUserId);
+  }
+
+  @Post(':id/favorite')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  addFavorite(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.mixesService.addFavorite(userId, id);
+  }
+
+  @Delete(':id/favorite')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeFavorite(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.mixesService.removeFavorite(userId, id);
   }
 
   @Post()

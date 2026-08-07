@@ -18,8 +18,8 @@ function logout() {
 <template>
   <header class="sticky top-0 z-30 border-b border-tambouille-border bg-tambouille-bg/90 backdrop-blur">
     <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-      <RouterLink to="/" class="flex items-center gap-2 text-xl font-bold tracking-tight">
-        <span class="text-tambouille-accent">Tambouille</span>
+      <RouterLink to="/" class="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <span class="text-tambouille-accent" style="font-family: 'Gulax', sans-serif">Tambouille</span>
       </RouterLink>
 
       <nav class="flex items-center gap-4">

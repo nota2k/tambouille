@@ -58,16 +58,31 @@ function parseTracklist(tracklist?: string): TracklistEntryInput[] {
   return entries.sort((a, b) => a.timecodeSec - b.timecodeSec);
 }
 
-const mixWithAuthor = {
-  include: {
-    user: {
-      select: { id: true, username: true, displayName: true, avatarUrl: true },
+/** Mix include shape. When `currentUserId` is set, also fetches whether that user favorited each mix. */
+function buildMixInclude(currentUserId?: string) {
+  return {
+    include: {
+      user: {
+        select: { id: true, username: true, displayName: true, avatarUrl: true },
+      },
+      tracklist: {
+        orderBy: { timecodeSec: 'asc' as const },
+      },
+      _count: { select: { favorites: true } },
+      ...(currentUserId ? { favorites: { where: { userId: currentUserId }, select: { id: true } } } : {}),
     },
-    tracklist: {
-      orderBy: { timecodeSec: 'asc' as const },
-    },
-  },
-} as const;
+  } as const;
+}
+
+/** Flattens the raw Prisma include (`_count`, `favorites`) into public `favoritesCount` / `isFavorited` fields. */
+function toMixResponse(mix: any) {
+  const { _count, favorites, ...rest } = mix;
+  return {
+    ...rest,
+    favoritesCount: _count?.favorites ?? 0,
+    isFavorited: Array.isArray(favorites) && favorites.length > 0,
+  };
+}
 
 @Injectable()
 export class MixesService {
@@ -78,7 +93,7 @@ export class MixesService {
     dto: CreateMixDto,
     files: { audioUrl: string; coverUrl?: string },
   ) {
-    return this.prisma.mix.create({
+    const mix = await this.prisma.mix.create({
       data: {
         title: dto.title,
         description: dto.description,
@@ -88,11 +103,12 @@ export class MixesService {
         userId,
         tracklist: { create: parseTracklist(dto.tracklist) },
       },
-      ...mixWithAuthor,
+      ...buildMixInclude(userId),
     });
+    return toMixResponse(mix);
   }
 
-  async findAll(query: QueryMixesDto) {
+  async findAll(query: QueryMixesDto, currentUserId?: string) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
@@ -114,7 +130,7 @@ export class MixesService {
     const [items, total] = await Promise.all([
       this.prisma.mix.findMany({
         where,
-        ...mixWithAuthor,
+        ...buildMixInclude(currentUserId),
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -123,7 +139,7 @@ export class MixesService {
     ]);
 
     return {
-      items,
+      items: items.map(toMixResponse),
       total,
       page,
       limit,
@@ -131,12 +147,12 @@ export class MixesService {
     };
   }
 
-  async findOne(id: string) {
-    const mix = await this.prisma.mix.findUnique({ where: { id }, ...mixWithAuthor });
+  async findOne(id: string, currentUserId?: string) {
+    const mix = await this.prisma.mix.findUnique({ where: { id }, ...buildMixInclude(currentUserId) });
     if (!mix) {
       throw new NotFoundException('Mix not found');
     }
-    return mix;
+    return toMixResponse(mix);
   }
 
   async update(id: string, userId: string, dto: UpdateMixDto, coverUrl?: string) {
@@ -157,11 +173,12 @@ export class MixesService {
       data.tracklist = { deleteMany: {}, create: parseTracklist(dto.tracklist) };
     }
 
-    return this.prisma.mix.update({
+    const updated = await this.prisma.mix.update({
       where: { id },
       data,
-      ...mixWithAuthor,
+      ...buildMixInclude(userId),
     });
+    return toMixResponse(updated);
   }
 
   async remove(id: string, userId: string) {
@@ -175,10 +192,120 @@ export class MixesService {
     await this.prisma.mix.delete({ where: { id } });
   }
 
-  async registerPlay(id: string) {
+  async registerPlay(id: string, userId?: string) {
     await this.prisma.mix.update({
       where: { id },
       data: { playsCount: { increment: 1 } },
     });
+
+    if (userId) {
+      await this.prisma.playHistory.upsert({
+        where: { userId_mixId: { userId, mixId: id } },
+        create: { userId, mixId: id },
+        update: { playedAt: new Date() },
+      });
+    }
+  }
+
+  async listRecentlyPlayed(userId: string, query: QueryMixesDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = { userId };
+
+    const [plays, total] = await Promise.all([
+      this.prisma.playHistory.findMany({
+        where,
+        orderBy: { playedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: { mix: { include: buildMixInclude(userId).include } },
+      }),
+      this.prisma.playHistory.count({ where }),
+    ]);
+
+    return {
+      items: plays.map((play) => toMixResponse(play.mix)),
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+  }
+
+  async listFollowingFeed(userId: string, query: QueryMixesDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const follows = await this.prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followingId: true },
+    });
+    const followedIds = follows.map((f) => f.followingId);
+
+    if (followedIds.length === 0) {
+      return { items: [], total: 0, page, limit, totalPages: 1 };
+    }
+
+    const where = { userId: { in: followedIds } };
+
+    const [items, total] = await Promise.all([
+      this.prisma.mix.findMany({
+        where,
+        ...buildMixInclude(userId),
+        orderBy: { playsCount: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.mix.count({ where }),
+    ]);
+
+    return {
+      items: items.map(toMixResponse),
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+  }
+
+  async addFavorite(userId: string, mixId: string) {
+    const mix = await this.prisma.mix.findUnique({ where: { id: mixId } });
+    if (!mix) {
+      throw new NotFoundException('Mix not found');
+    }
+    await this.prisma.favorite.upsert({
+      where: { userId_mixId: { userId, mixId } },
+      create: { userId, mixId },
+      update: {},
+    });
+  }
+
+  async removeFavorite(userId: string, mixId: string) {
+    await this.prisma.favorite.deleteMany({ where: { userId, mixId } });
+  }
+
+  async listFavorites(userId: string, query: QueryMixesDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = { userId };
+
+    const [favorites, total] = await Promise.all([
+      this.prisma.favorite.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: { mix: { include: buildMixInclude(userId).include } },
+      }),
+      this.prisma.favorite.count({ where }),
+    ]);
+
+    return {
+      items: favorites.map((favorite) => toMixResponse(favorite.mix)),
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
   }
 }
