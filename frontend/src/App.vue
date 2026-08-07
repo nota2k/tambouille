@@ -14,7 +14,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-tambouille-bg text-tambouille-text">
+  <div class="flex min-h-screen flex-col text-tambouille-text">
     <NavBar />
     <main class="flex-1 pb-28">
       <RouterView />

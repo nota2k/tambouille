@@ -16,17 +16,17 @@ function logout() {
 </script>
 
 <template>
-  <header class="sticky top-0 z-30 border-b border-tambouille-border bg-tambouille-bg/90 backdrop-blur">
+  <header class="sticky top-0 z-30 border-b border-tambouille-border bg-tambouille-accent backdrop-blur">
     <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
       <RouterLink to="/" class="flex items-center gap-2 text-2xl font-bold tracking-tight">
-        <span class="text-tambouille-accent" style="font-family: 'Gulax', sans-serif">Tambouille</span>
+        <span class="text-tambouille-white" style="font-family: 'Gulax', sans-serif">Tambouille</span>
       </RouterLink>
 
       <nav class="flex items-center gap-4">
         <RouterLink
           to="/"
-          class="text-sm font-medium text-tambouille-muted hover:text-tambouille-text"
-          active-class="!text-tambouille-text"
+          class="text-sm font-medium text-tambouille-white hover:text-tambouille-white"
+          active-class="!text-tambouille-white"
         >
           Découvrir
         </RouterLink>
@@ -34,7 +34,7 @@ function logout() {
         <template v-if="authStore.isAuthenticated">
           <RouterLink
             to="/upload"
-            class="rounded-full bg-tambouille-accent px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover"
+            class="rounded-full border px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover"
           >
             Uploader
           </RouterLink>

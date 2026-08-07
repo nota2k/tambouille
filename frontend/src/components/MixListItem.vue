@@ -74,7 +74,7 @@ function toggleFavorite(event: Event) {
       </div>
 
       <button
-        class="flex items-center gap-1 rounded-full p-1.5 text-tambouille-muted hover:bg-tambouille-surface-hover"
+        class="flex items-center gap-1 rounded-full p-1.5 text-tambouille-accent hover:bg-tambouille-surface-hover"
         :class="{ 'text-tambouille-accent': mix.isFavorited }"
         :title="mix.isFavorited ? 'Retirer des favoris' : 'Ajouter aux favoris'"
         @click="toggleFavorite"

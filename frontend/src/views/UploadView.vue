@@ -86,7 +86,7 @@ async function onSubmit() {
 
 <template>
   <div class="mx-auto max-w-2xl px-4 py-8">
-    <h1 class="mb-6 text-2xl font-bold">Uploader un mix</h1>
+    <h1 class="mb-6 text-tambouille-title-big font-bold">Uploader un mix</h1>
 
     <form class="space-y-5" @submit.prevent="onSubmit">
       <div>
@@ -132,7 +132,7 @@ async function onSubmit() {
         <MixAudioPreview :src="audioPreviewUrl" class="mt-3" @capture="onCapture" />
       </div>
 
-      <div>
+      <div class="tracklist-editor border border-tambouille-accent bg-tambouille-surface rounded-lg p-4 text-tambouille-white">
         <label class="mb-2 block text-sm text-tambouille-muted">Tracklist (optionnel)</label>
         <p v-if="audioPreviewUrl" class="mb-2 text-xs text-tambouille-muted">
           Écoutez l'aperçu ci-dessus et cliquez sur « + Ajouter un morceau ici » pour capturer le timecode.
