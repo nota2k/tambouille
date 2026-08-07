@@ -69,7 +69,7 @@ function toggleFavorite(event: Event) {
 
     <div class="flex shrink-0 items-center gap-3">
       <div class="hidden flex-col items-end gap-1 text-xs text-tambouille-muted sm:flex">
-        <span>{{ mix.playsCount }} écoutes</span>
+        <span>{{ mix.playsCount }} écoutes · {{ mix.commentsCount }} commentaires</span>
         <span>{{ formatDate(mix.createdAt) }}</span>
       </div>
 

@@ -7,7 +7,6 @@ import { formatTime } from '@/utils/time'
 
 const playerStore = usePlayerStore()
 const audioEl = ref<HTMLAudioElement | null>(null)
-const currentTime = ref(0)
 const duration = ref(0)
 
 const currentTrack = computed(() => {
@@ -16,7 +15,7 @@ const currentTrack = computed(() => {
 
   let active = null
   for (const entry of tracklist) {
-    if (entry.timecodeSec <= currentTime.value) {
+    if (entry.timecodeSec <= playerStore.currentTime) {
       active = entry
     } else {
       break
@@ -28,14 +27,13 @@ const currentTrack = computed(() => {
 function applyPendingSeek() {
   if (playerStore.pendingSeekSec == null || !audioEl.value) return
   audioEl.value.currentTime = playerStore.pendingSeekSec
-  currentTime.value = playerStore.pendingSeekSec
+  playerStore.setCurrentTime(playerStore.pendingSeekSec)
   playerStore.clearPendingSeek()
 }
 
 watch(
   () => playerStore.currentMix?.id,
   () => {
-    currentTime.value = 0
     duration.value = 0
     if (playerStore.currentMix) {
       apiClient.post(`/mixes/${playerStore.currentMix.id}/play`).catch(() => {})
@@ -68,7 +66,7 @@ watch(
 )
 
 function onTimeUpdate() {
-  if (audioEl.value) currentTime.value = audioEl.value.currentTime
+  if (audioEl.value) playerStore.setCurrentTime(audioEl.value.currentTime)
 }
 
 function onLoadedMetadata() {
@@ -81,7 +79,7 @@ function onSeek(event: Event) {
   const value = Number((event.target as HTMLInputElement).value)
   if (audioEl.value) {
     audioEl.value.currentTime = value
-    currentTime.value = value
+    playerStore.setCurrentTime(value)
   }
 }
 
@@ -134,7 +132,7 @@ function onEnded() {
             {{ playerStore.currentMix.title }}
           </RouterLink>
           <span class="shrink-0 text-xs text-tambouille-muted">
-            {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
+            {{ formatTime(playerStore.currentTime) }} / {{ formatTime(duration) }}
           </span>
         </div>
 
@@ -158,7 +156,7 @@ function onEnded() {
           class="mt-1 h-1 w-full cursor-pointer accent-tambouille-accent"
           min="0"
           :max="duration || 0"
-          :value="currentTime"
+          :value="playerStore.currentTime"
           @input="onSeek"
         />
       </div>

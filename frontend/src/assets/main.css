@@ -20,9 +20,12 @@
   --color-tambouille-surface-hover: #ededf0;
   --color-tambouille-border: #d5d5dc;
   --color-tambouille-text: #FE2370;
+  --color-tambouille-text-black:#083B1E;
   --color-tambouille-muted: #6b6b7b;
   --color-tambouille-accent: #FE2370;
   --color-tambouille-accent-hover: #de1a5f;
+  --color-tambouille-action: #24FF81;
+  --color-tambouille-action-hover: #17A151;
   --text-tambouille-title-big:4em;
 }
 

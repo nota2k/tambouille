@@ -12,6 +12,24 @@ export interface TracklistEntry {
   timecodeSec: number
 }
 
+export interface CommentReply {
+  id: string
+  body: string
+  createdAt: string
+  userId: string
+  user: AuthorSummary
+}
+
+export interface Comment {
+  id: string
+  body: string
+  timecodeSec: number
+  createdAt: string
+  userId: string
+  user: AuthorSummary
+  replies: CommentReply[]
+}
+
 export interface Mix {
   id: string
   title: string
@@ -21,6 +39,7 @@ export interface Mix {
   durationSec: number | null
   playsCount: number
   favoritesCount: number
+  commentsCount: number
   isFavorited: boolean
   tags: string[]
   tracklist: TracklistEntry[]

@@ -27,6 +27,7 @@ model User {
   favorites   Favorite[]
   playHistory PlayHistory[]
   playlists   Playlist[]
+  comments    Comment[]
 
   // Rows where this user is the one doing the following.
   following  Follow[] @relation("Following")
@@ -55,6 +56,7 @@ model Mix {
   favorites     Favorite[]
   playHistory   PlayHistory[]
   playlistItems PlaylistItem[]
+  comments      Comment[]
 
   @@index([userId])
   @@index([createdAt])
@@ -139,6 +141,27 @@ model PlayHistory {
   @@unique([userId, mixId])
   @@index([userId])
   @@map("play_history")
+}
+
+model Comment {
+  id          String   @id @default(uuid())
+  body        String
+  timecodeSec Int?
+  createdAt   DateTime @default(now())
+
+  mixId String
+  mix   Mix    @relation(fields: [mixId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("Replies")
+
+  @@index([mixId])
+  @@index([parentId])
+  @@map("comments")
 }
 
 model TracklistEntry {

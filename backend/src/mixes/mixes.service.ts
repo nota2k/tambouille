@@ -68,7 +68,7 @@ export function buildMixInclude(currentUserId?: string) {
       tracklist: {
         orderBy: { timecodeSec: 'asc' as const },
       },
-      _count: { select: { favorites: true } },
+      _count: { select: { favorites: true, comments: true } },
       ...(currentUserId ? { favorites: { where: { userId: currentUserId }, select: { id: true } } } : {}),
     },
   } as const;
@@ -80,6 +80,7 @@ export function toMixResponse(mix: any) {
   return {
     ...rest,
     favoritesCount: _count?.favorites ?? 0,
+    commentsCount: _count?.comments ?? 0,
     isFavorited: Array.isArray(favorites) && favorites.length > 0,
   };
 }

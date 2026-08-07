@@ -118,7 +118,7 @@ onMounted(loadSections)
     </template>
 
     <template v-else>
-      <section class="mb-10">
+      <section class="mb-10 bg-tambouille-action p-6">
         <h2 class="mb-4 text-lg font-semibold">Derniers uploads</h2>
         <div v-if="latestMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Aucun mix trouvé. Sois le premier à en uploader un !

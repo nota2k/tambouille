@@ -9,6 +9,7 @@ import { formatTime } from '@/utils/time'
 import { formatDate } from '@/utils/date'
 import { toggleMixFavorite } from '@/utils/favorites'
 import UploaderCard from '@/components/UploaderCard.vue'
+import CommentsSection from '@/components/CommentsSection.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import { mixShareUrl } from '@/utils/share'
@@ -69,7 +70,7 @@ onMounted(loadMix)
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl px-4 py-8">
+  <div class="mx-auto max-w-6xl px-4 py-8">
     <div v-if="loading" class="py-16 text-center text-tambouille-muted">Chargement...</div>
 
     <div v-else-if="mix" class="flex flex-col gap-6 sm:flex-row">
@@ -95,7 +96,7 @@ onMounted(loadMix)
 
         <div class="mt-4 flex flex-wrap items-center gap-3">
           <button
-            class="flex items-center gap-2 rounded-full bg-tambouille-accent px-5 py-2 font-semibold text-white hover:bg-tambouille-accent-hover"
+            class="flex items-center w-full gap-2 rounded-full bg-tambouille-action px-5 py-2 font-semibold text-tambouille-text-black hover:bg-tambouille-action-hover"
             @click="play"
           >
             <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current">
@@ -104,6 +105,7 @@ onMounted(loadMix)
             Écouter
           </button>
           <span class="text-sm text-tambouille-muted">{{ mix.playsCount }} écoutes</span>
+          <span class="text-sm text-tambouille-muted">{{ mix.commentsCount }} commentaires</span>
 
           <button
             class="flex items-center gap-1.5 rounded-full border border-tambouille-border px-3 py-2 text-sm hover:bg-tambouille-surface-hover"
@@ -150,37 +152,51 @@ onMounted(loadMix)
         </div>
       </div>
     </div>
-
+    <hr class="color-tambouille-accent my-6 border-2">
+    <div class="mt-8">
     <p v-if="mix?.description" class="mt-8 whitespace-pre-line text-lg text-tambouille-text/90">
       {{ mix.description }}
     </p>
+    </div>
 
     <div class="mt-8 grid items-start gap-6 lg:grid-cols-3">
       <div v-if="mix && mix.tracklist.length > 0" class="lg:col-span-2">
         <h2 class="mb-3 text-lg font-semibold">Tracklist</h2>
-        <ol class="divide-y divide-tambouille-border overflow-hidden rounded-xl border border-tambouille-border">
-          <li v-for="(entry, index) in mix.tracklist" :key="entry.id">
-            <button
-              class="flex w-full items-center gap-4 px-4 py-3 text-left transition hover:bg-tambouille-surface-hover"
-              @click="playFromTrack(entry)"
-            >
-              <span class="w-6 shrink-0 text-right text-sm text-tambouille-muted">{{ index + 1 }}</span>
-              <span class="shrink-0 rounded bg-tambouille-surface-hover px-2 py-0.5 font-mono text-xs text-tambouille-muted">
-                {{ formatTime(entry.timecodeSec) }}
-              </span>
-              <span class="min-w-0 flex-1 truncate text-sm">
-                <span class="font-medium">{{ entry.artist }}</span>
-                <span class="text-tambouille-muted"> – {{ entry.title }}</span>
-              </span>
-            </button>
-          </li>
-        </ol>
+        <div class="overflow-hidden bg-tambouille-accent">
+          <!-- Same grid template as the rows below, so headers stay aligned with their columns. -->
+          <div
+            class="grid grid-cols-[1.5rem_4rem_1fr_1fr] items-center gap-4 border-b border-tambouille-white/25 px-4 py-2 text-xs uppercase tracking-wide text-tambouille-white/70"
+          >
+            <span class="text-right">#</span>
+            <span>Time</span>
+            <span>Artist</span>
+            <span>Title</span>
+          </div>
+
+          <ol class="divide-y divide-tambouille-white/15">
+            <li v-for="(entry, index) in mix.tracklist" :key="entry.id">
+              <button
+                class="grid w-full cursor-pointer grid-cols-[1.5rem_4rem_1fr_1fr] items-center gap-4 px-4 py-3 text-left transition hover:bg-tambouille-accent-hover"
+                @click="playFromTrack(entry)"
+              >
+                <span class="text-right text-sm text-tambouille-white">{{ index + 1 }}</span>
+                <span class="font-mono text-xs text-tambouille-white/80">
+                  {{ formatTime(entry.timecodeSec) }}
+                </span>
+                <span class="min-w-0 truncate text-sm font-medium text-tambouille-white">{{ entry.artist }}</span>
+                <span class="min-w-0 truncate text-sm text-tambouille-white">{{ entry.title }}</span>
+              </button>
+            </li>
+          </ol>
+        </div>
       </div>
 
       <!-- Wrapper : UploaderCard rend plusieurs nœuds racines, la classe ne peut pas lui être passée directement. -->
-      <div v-if="uploaderProfile" :class="mix && mix.tracklist.length > 0 ? 'lg:col-span-1' : 'lg:col-span-3'">
+      <div v-if="uploaderProfile" :class="mix && mix.tracklist.length > 0 ? 'lg:col-span-1' : 'lg:col-span-1'">
         <UploaderCard :profile="uploaderProfile" />
       </div>
     </div>
+
+    <CommentsSection v-if="mix" :mix="mix" />
   </div>
 </template>
