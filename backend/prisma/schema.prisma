@@ -19,12 +19,14 @@ model User {
   displayName String
   bio         String?
   avatarUrl   String?
+  coverUrl    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   mixes       Mix[]
   favorites   Favorite[]
   playHistory PlayHistory[]
+  playlists   Playlist[]
 
   // Rows where this user is the one doing the following.
   following  Follow[] @relation("Following")
@@ -49,13 +51,48 @@ model Mix {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tracklist   TracklistEntry[]
-  favorites   Favorite[]
-  playHistory PlayHistory[]
+  tracklist     TracklistEntry[]
+  favorites     Favorite[]
+  playHistory   PlayHistory[]
+  playlistItems PlaylistItem[]
 
   @@index([userId])
   @@index([createdAt])
   @@map("mixes")
+}
+
+model Playlist {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items PlaylistItem[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id       String   @id @default(uuid())
+  // Insertion order. Gaps are expected after removals; reads always sort by this.
+  position Int
+  addedAt  DateTime @default(now())
+
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  mixId String
+  mix   Mix    @relation(fields: [mixId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, mixId])
+  @@index([playlistId, position])
+  @@map("playlist_items")
 }
 
 model Favorite {

@@ -52,11 +52,40 @@ export interface UserProfile {
   displayName: string
   bio: string | null
   avatarUrl: string | null
+  coverUrl: string | null
   createdAt: string
   mixesCount: number
   followersCount: number
   followingCount: number
   isFollowing: boolean
+}
+
+export interface PlaylistSummary {
+  id: string
+  title: string
+  description: string | null
+  createdAt: string
+  updatedAt: string
+  userId: string
+  user: AuthorSummary
+  mixesCount: number
+  /** Covers of the first few mixes that have one, for the mosaic thumbnail. May be empty. */
+  coverUrls: string[]
+  /** Only present on GET /playlists/me?mixId=. */
+  containsMix?: boolean
+}
+
+export interface Playlist extends PlaylistSummary {
+  /** Ordered by position. */
+  mixes: Mix[]
+}
+
+export interface PlaylistListResponse {
+  items: PlaylistSummary[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
 }
 
 export interface AuthUser {

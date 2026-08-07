@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
+import { PlaylistsService } from '../playlists/playlists.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PaginationDto } from './dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,7 +26,10 @@ import { diskStorageFor, fileFilterFor, IMAGE_MIME_TYPES } from '../common/uploa
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly playlistsService: PlaylistsService,
+  ) {}
 
   @Get(':username')
   @UseGuards(OptionalJwtAuthGuard)
@@ -41,6 +45,11 @@ export class UsersController {
   @Get(':username/following')
   listFollowing(@Param('username') username: string, @Query() query: PaginationDto) {
     return this.usersService.listFollowing(username, query);
+  }
+
+  @Get(':username/playlists')
+  listPlaylists(@Param('username') username: string, @Query() query: PaginationDto) {
+    return this.playlistsService.listByUsername(username, query);
   }
 
   @Post(':username/follow')
@@ -77,5 +86,21 @@ export class UsersController {
       throw new BadRequestException('avatar file is required');
     }
     return this.usersService.updateAvatar(userId, `/uploads/avatars/${file.filename}`);
+  }
+
+  @Post('me/cover')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('cover', {
+      storage: diskStorageFor('banners'),
+      fileFilter: fileFilterFor(IMAGE_MIME_TYPES),
+      limits: { fileSize: 8 * 1024 * 1024 },
+    }),
+  )
+  uploadCover(@CurrentUserId() userId: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('cover file is required');
+    }
+    return this.usersService.updateCover(userId, `/uploads/banners/${file.filename}`);
   }
 }

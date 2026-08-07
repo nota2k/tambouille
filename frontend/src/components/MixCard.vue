@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
+import ShareButton from '@/components/ShareButton.vue'
+import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
+import { mixShareUrl } from '@/utils/share'
 import type { Mix } from '@/types'
 
 const props = defineProps<{ mix: Mix }>()
@@ -16,7 +19,7 @@ function play(event: Event) {
 <template>
   <RouterLink
     :to="{ name: 'mix-detail', params: { id: mix.id } }"
-    class="group block w-40 shrink-0 sm:w-48"
+    class="group relative block w-40 shrink-0 sm:w-48"
   >
     <div class="relative aspect-square w-full overflow-hidden rounded-xl bg-tambouille-surface-hover">
       <img v-if="mix.coverUrl" :src="mediaUrl(mix.coverUrl)" class="h-full w-full object-cover" alt="" />
@@ -35,6 +38,10 @@ function play(event: Event) {
         </svg>
       </button>
     </div>
+
+    <!-- Outside the cover: its overflow-hidden would clip the playlist dropdown. -->
+    <ShareButton :url="mixShareUrl(mix.id)" variant="overlay" />
+    <AddToPlaylistButton :mix-id="mix.id" variant="overlay" />
 
     <p class="mt-2 truncate text-sm font-semibold">{{ mix.title }}</p>
     <p class="truncate text-xs text-tambouille-muted">{{ mix.user.displayName }}</p>

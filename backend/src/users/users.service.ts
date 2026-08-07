@@ -39,6 +39,7 @@ export class UsersService {
       displayName: user.displayName,
       bio: user.bio,
       avatarUrl: user.avatarUrl,
+      coverUrl: user.coverUrl,
       createdAt: user.createdAt,
       mixesCount: user._count.mixes,
       followersCount: user._count.followedBy,
@@ -59,6 +60,14 @@ export class UsersService {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { avatarUrl },
+    });
+    return this.getPublicProfile(user.username);
+  }
+
+  async updateCover(userId: string, coverUrl: string) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { coverUrl },
     });
     return this.getPublicProfile(user.username);
   }

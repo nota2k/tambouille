@@ -21,6 +21,11 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/playlists/:id',
+      name: 'playlist-detail',
+      component: () => import('@/views/PlaylistDetailView.vue'),
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),

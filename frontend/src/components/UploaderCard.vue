@@ -19,6 +19,9 @@ function toggleFollow() {
 </script>
 
 <template>
+
+      <h2 class="mb-3 text-lg font-semibold">User</h2>
+
   <div class="rounded-xl border border-tambouille-border bg-tambouille-surface p-4">
     <div class="flex items-center gap-4">
       <RouterLink :to="{ name: 'profile', params: { username: profile.username } }" class="shrink-0">
@@ -47,19 +50,21 @@ function toggleFollow() {
         <p class="truncate text-sm text-tambouille-muted">@{{ profile.username }}</p>
       </div>
 
-      <button
-        v-if="authStore.user?.id !== profile.id"
-        class="shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition"
-        :class="
-          profile.isFollowing
-            ? 'border border-tambouille-border hover:bg-tambouille-surface-hover'
-            : 'bg-tambouille-accent text-white hover:bg-tambouille-accent-hover'
-        "
-        @click="toggleFollow"
-      >
-        {{ profile.isFollowing ? 'Abonné' : "S'abonner" }}
-      </button>
     </div>
+
+    <!-- Sous la rangée plutôt qu'à côté : la carte vit dans une colonne étroite. -->
+    <button
+      v-if="authStore.user?.id !== profile.id"
+      class="mt-3 w-full rounded-full px-4 py-1.5 text-sm font-semibold transition"
+      :class="
+        profile.isFollowing
+          ? 'border border-tambouille-border hover:bg-tambouille-surface-hover'
+          : 'bg-tambouille-accent text-white hover:bg-tambouille-accent-hover'
+      "
+      @click="toggleFollow"
+    >
+      {{ profile.isFollowing ? 'Abonné' : "S'abonner" }}
+    </button>
 
     <p v-if="profile.bio" class="mt-3 whitespace-pre-line text-sm text-tambouille-text/90">{{ profile.bio }}</p>
 

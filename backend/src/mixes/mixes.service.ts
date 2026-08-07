@@ -59,7 +59,7 @@ function parseTracklist(tracklist?: string): TracklistEntryInput[] {
 }
 
 /** Mix include shape. When `currentUserId` is set, also fetches whether that user favorited each mix. */
-function buildMixInclude(currentUserId?: string) {
+export function buildMixInclude(currentUserId?: string) {
   return {
     include: {
       user: {
@@ -75,7 +75,7 @@ function buildMixInclude(currentUserId?: string) {
 }
 
 /** Flattens the raw Prisma include (`_count`, `favorites`) into public `favoritesCount` / `isFavorited` fields. */
-function toMixResponse(mix: any) {
+export function toMixResponse(mix: any) {
   const { _count, favorites, ...rest } = mix;
   return {
     ...rest,
