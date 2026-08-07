@@ -1,0 +1,10 @@
+node_modules
+dist
+# Keep environment variables out of version control
+.env
+
+/generated/prisma
+
+# Uploaded user content (audio, covers, avatars)
+/uploads/*
+!/uploads/**/.gitkeep

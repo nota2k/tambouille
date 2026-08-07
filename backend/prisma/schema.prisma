@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client"
+  output        = "../generated/prisma"
+  moduleFormat  = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  username    String   @unique
+  password    String
+  displayName String
+  bio         String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  mixes Mix[]
+
+  @@map("users")
+}
+
+model Mix {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  audioUrl     String
+  coverUrl     String?
+  durationSec  Int?
+  playsCount   Int      @default(0)
+  tags         String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tracklist TracklistEntry[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("mixes")
+}
+
+model TracklistEntry {
+  id          String @id @default(uuid())
+  artist      String
+  title       String
+  timecodeSec Int
+
+  mixId String
+  mix   Mix    @relation(fields: [mixId], references: [id], onDelete: Cascade)
+
+  @@index([mixId])
+  @@map("tracklist_entries")
+}
