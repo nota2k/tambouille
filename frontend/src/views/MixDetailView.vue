@@ -8,7 +8,8 @@ import { mediaUrl } from '@/utils/media'
 import { formatTime } from '@/utils/time'
 import { formatDate } from '@/utils/date'
 import { toggleMixFavorite } from '@/utils/favorites'
-import type { Mix, TracklistEntry } from '@/types'
+import UploaderCard from '@/components/UploaderCard.vue'
+import type { Mix, TracklistEntry, UserProfile } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,6 +17,7 @@ const playerStore = usePlayerStore()
 const authStore = useAuthStore()
 
 const mix = ref<Mix | null>(null)
+const uploaderProfile = ref<UserProfile | null>(null)
 const loading = ref(true)
 const deleting = ref(false)
 
@@ -24,6 +26,8 @@ async function loadMix() {
   try {
     const { data } = await apiClient.get<Mix>(`/mixes/${route.params.id}`)
     mix.value = data
+    const { data: profileData } = await apiClient.get<UserProfile>(`/users/${data.user.username}`)
+    uploaderProfile.value = profileData
   } finally {
     loading.value = false
   }
@@ -143,6 +147,8 @@ onMounted(loadMix)
         </div>
       </div>
     </div>
+
+    <UploaderCard v-if="uploaderProfile" :profile="uploaderProfile" class="mt-8" />
 
     <div v-if="mix && mix.tracklist.length > 0" class="mt-10">
       <h2 class="mb-3 text-lg font-semibold">Tracklist</h2>

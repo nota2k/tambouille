@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import MixListItem from '@/components/MixListItem.vue'
+import MixSlider from '@/components/MixSlider.vue'
 import type { Mix, MixListResponse } from '@/types'
 
 const authStore = useAuthStore()
@@ -122,9 +123,7 @@ onMounted(loadSections)
         <div v-if="latestMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Aucun mix trouvé. Sois le premier à en uploader un !
         </div>
-        <div v-else class="space-y-3">
-          <MixListItem v-for="mix in latestMixes" :key="mix.id" :mix="mix" />
-        </div>
+        <MixSlider v-else :mixes="latestMixes" />
       </section>
 
       <section v-if="authStore.isAuthenticated" class="mb-10">
