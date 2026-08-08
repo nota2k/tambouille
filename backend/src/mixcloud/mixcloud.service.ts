@@ -9,7 +9,22 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * without them a crafted value turns this relay into a request-forgery tool.
  */
 const USERNAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-const KEY_PATTERN = /^\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+\/$/;
+
+/**
+ * The slug segment additionally allows percent-escapes, but *only* of bytes
+ * >= 0x80: Mixcloud percent-encodes non-ASCII slugs, so a real key such as
+ * `/Notamusic/antimythes-i-emission-ou%C3%AFedire-34/` cannot be expressed
+ * without them (`ï` is `%C3%AF`, and both bytes are >= 0x80).
+ *
+ * Requiring the first hex digit to be 8-F is what keeps traversal impossible:
+ * `%2e` (`.`), `%2f` (`/`), `%5c` (`\`) and `%00` all start below 8, so no
+ * escape of an ASCII byte can be expressed at all — in either hex case, since
+ * the leading digit of those escapes is a digit, not a letter.
+ *
+ * The username segment is deliberately NOT widened: Mixcloud usernames are
+ * ASCII, and there is no reason to loosen what does not need loosening.
+ */
+const KEY_PATTERN = /^\/[A-Za-z0-9_-]+\/(?:[A-Za-z0-9_.-]|%[89A-Fa-f][0-9A-Fa-f])+\/$/;
 
 /** Largest first: the upload form wants the best cover Mixcloud offers. */
 const PICTURE_PREFERENCE = ['1024wx1024h', '768wx768h', '640wx640h', 'extra_large', '320wx320h', 'large', 'medium', 'small'];
@@ -152,6 +167,16 @@ export class MixcloudService {
 
   async getCloudcast(key: string): Promise<CloudcastImport> {
     if (!KEY_PATTERN.test(key)) {
+      throw new BadRequestException('Invalid Mixcloud cloudcast key');
+    }
+
+    // `%C3` on its own satisfies the pattern — it is a well-formed escape of
+    // byte 0xC3 — but it is a truncated UTF-8 sequence, so it is not a key
+    // Mixcloud could have issued. Decoding rejects those. This cannot let
+    // traversal back in: the pattern already forbids escaping any ASCII byte.
+    try {
+      decodeURIComponent(key);
+    } catch {
       throw new BadRequestException('Invalid Mixcloud cloudcast key');
     }
 

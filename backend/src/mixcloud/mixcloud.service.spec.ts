@@ -118,6 +118,37 @@ describe('MixcloudService', () => {
       },
     );
 
+    /**
+     * Mixcloud percent-encodes non-ASCII slugs, so the pattern admits escapes
+     * of bytes >= 0x80 and nothing else. That boundary is the subtlest rule in
+     * the file, so it is pinned from both sides here.
+     */
+    describe('percent-escapes in the slug', () => {
+      it('accepts a real key carrying a UTF-8 escape', async () => {
+        fetchMock.mockResolvedValue(jsonResponse(cloudcastFixture()));
+        const key = '/Notamusic/antimythes-i-emission-ou%C3%AFedire-34/';
+
+        await expect(service.getCloudcast(key)).resolves.toBeDefined();
+        expect(requestedUrl()).toBe('https://api.mixcloud.com/Notamusic/antimythes-i-emission-ou%C3%AFedire-34/');
+      });
+
+      it.each([
+        ['a traversal sequence', '/Notamusic/%2e%2e%2f/'],
+        ['the same traversal in uppercase hex', '/Notamusic/%2E%2E%2F/'],
+        ['an escaped slash', '/Notamusic/vorwerk%2f..%2fadmin/'],
+        ['an escaped backslash', '/Notamusic/vorwerk%5c/'],
+        ['an escaped dot', '/Notamusic/%2e%2e/'],
+        ['a NUL byte', '/Notamusic/vorwerk%00/'],
+        ['an escape of the last ASCII byte', '/Notamusic/vorwerk%7f/'],
+        ['a lone percent sign', '/Notamusic/vorwerk%/'],
+        ['an escape with a single hex digit', '/Notamusic/vorwerk%C/'],
+        ['a truncated UTF-8 sequence', '/Notamusic/vorwerk%C3/'],
+      ])('rejects %s without making a request', async (_label, key) => {
+        await expect(service.getCloudcast(key)).rejects.toBeInstanceOf(BadRequestException);
+        expect(fetchMock).not.toHaveBeenCalled();
+      });
+    });
+
     it('calls the upstream cloudcast URL built from the key', async () => {
       fetchMock.mockResolvedValue(jsonResponse(cloudcastFixture()));
       await service.getCloudcast('/Notamusic/vorwerk-7-passages-pas-sages/');
