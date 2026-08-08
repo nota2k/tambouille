@@ -8,6 +8,13 @@ import { GoogleTokenVerifier } from './google-token-verifier';
 
 const SALT_ROUNDS = 12;
 
+// Prisma's unique-constraint violation. Not importing Prisma's own error
+// class here to keep this check working against the plain mock objects the
+// test suite throws, as well as the real `PrismaClientKnownRequestError`.
+function isUniqueConstraintError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'P2002';
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -122,6 +129,15 @@ export class AuthService {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     // One-shot: this endpoint exists to complete a pending account, not to
     // rename an established one, which would break every link to its profile.
+    //
+    // The two checks below are pre-checks only: they give the common case a
+    // clean, specific error message. They are check-then-act and cannot be
+    // trusted for correctness under concurrency — two requests can both read
+    // past them before either write lands. What actually guarantees "claimed
+    // at most once" and "no two users share a username" is the conditional
+    // `updateMany` (which only touches the row if it is still unclaimed) and
+    // the database's unique constraint on `username` (caught below as
+    // Prisma error P2002).
     if (user.username) {
       throw new ConflictException('Username already set');
     }
@@ -131,10 +147,26 @@ export class AuthService {
       throw new ConflictException('Username already in use');
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { username },
-    });
+    let result: { count: number };
+    try {
+      result = await this.prisma.user.updateMany({
+        where: { id: userId, username: null },
+        data: { username },
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException('Username already in use');
+      }
+      throw error;
+    }
+
+    if (result.count === 0) {
+      // The row no longer matched `username: null` — another request already
+      // claimed a username for this account between our read and this write.
+      throw new ConflictException('Username already set');
+    }
+
+    const updated = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     return this.toPublicUser(updated);
   }
 

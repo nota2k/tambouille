@@ -17,6 +17,7 @@ function createPrismaMock() {
       findUniqueOrThrow: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
   };
 }
@@ -138,18 +139,20 @@ describe('AuthService', () => {
 
   describe('setUsername', () => {
     it('sets the username when the account has none', async () => {
-      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findUniqueOrThrow
+        .mockResolvedValueOnce({ id: 'u1', username: null })
+        .mockResolvedValueOnce({
+          id: 'u1', email: 'n@e.com', username: 'nelly',
+          password: null, displayName: 'Nelly', bio: null, avatarUrl: null,
+          createdAt: new Date(),
+        });
       prisma.user.findFirst.mockResolvedValue(null);
-      prisma.user.update.mockResolvedValue({
-        id: 'u1', email: 'n@e.com', username: 'nelly',
-        password: null, displayName: 'Nelly', bio: null, avatarUrl: null,
-        createdAt: new Date(),
-      });
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
 
       const user = await service.setUsername('u1', 'nelly');
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'u1' },
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'u1', username: null },
         data: { username: 'nelly' },
       });
       expect(user.username).toBe('nelly');
@@ -159,7 +162,7 @@ describe('AuthService', () => {
       prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: 'nelly' });
 
       await expect(service.setUsername('u1', 'autre')).rejects.toBeInstanceOf(ConflictException);
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
     it('refuses a username already taken by someone else', async () => {
@@ -167,7 +170,24 @@ describe('AuthService', () => {
       prisma.user.findFirst.mockResolvedValue({ id: 'u2', username: 'nelly' });
 
       await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(ConflictException);
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses when the claim loses a race to another update', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses when the unique constraint fires on the write', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.updateMany.mockRejectedValue({ code: 'P2002' });
+
+      await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });
