@@ -39,13 +39,13 @@ async function submit() {
         maxlength="30"
         pattern="[a-zA-Z0-9_.\-]+"
         placeholder="djnelly"
-        class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+        class="w-full tb-field"
       />
       <p v-if="error" class="mt-2 text-sm text-red-400">{{ error }}</p>
       <button
         type="submit"
         :disabled="submitting"
-        class="mt-4 w-full rounded-full bg-tambouille-accent py-2 font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+        class="mt-4 w-full tb-btn"
       >
         {{ submitting ? 'Un instant…' : 'Continuer' }}
       </button>

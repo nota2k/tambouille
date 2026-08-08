@@ -44,7 +44,7 @@ async function onSubmit() {
       </p>
       <RouterLink
         to="/login"
-        class="block w-full rounded-full bg-tambouille-accent py-2 text-center font-semibold text-white hover:bg-tambouille-accent-hover"
+        class="block w-full tb-btn"
       >
         Retour à la connexion
       </RouterLink>
@@ -62,7 +62,7 @@ async function onSubmit() {
           type="email"
           required
           autocomplete="email"
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -71,7 +71,7 @@ async function onSubmit() {
       <button
         type="submit"
         :disabled="loading"
-        class="w-full rounded-full bg-tambouille-accent py-2 font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+        class="w-full tb-btn"
       >
         {{ loading ? 'Envoi...' : 'Envoyer le lien' }}
       </button>

@@ -3,13 +3,16 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
+import { formatDate } from '@/utils/date'
+import { formatDuration } from '@/utils/time'
 import MixListItem from '@/components/MixListItem.vue'
-import MixCard from '@/components/MixCard.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
 import type { Mix, MixListResponse, AuthorSummary } from '@/types'
 
 const authStore = useAuthStore()
+const playerStore = usePlayerStore()
 const route = useRoute()
 
 const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
@@ -43,6 +46,46 @@ const page = ref(1)
 const totalPages = ref(1)
 
 let searchTimeout: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * Le mix mis en avant, et la liste qui suit sans lui : la maquette ouvre sur un
+ * seul mix en grand puis enchaîne, plutôt que de répéter le même mix deux fois
+ * comme le faisaient « Derniers uploads » et « Tops ».
+ */
+const featuredMix = computed(() => latestMixes.value[0] ?? null)
+const restOfLatest = computed(() => latestMixes.value.slice(1))
+const featuredDuration = computed(() => formatDuration(featuredMix.value?.durationSec))
+
+/** Tous les mix chargés, pour en tirer les tags et les cuisinier⋅ère⋅s de la colonne. */
+const knownMixes = computed(() => [...latestMixes.value, ...topMixes.value])
+
+/** Les tags les plus portés par les mix affichés — pas un classement, une porte d'entrée. */
+const trendingTags = computed(() => {
+  const counts = new Map<string, number>()
+  for (const mix of knownMixes.value) {
+    for (const tag of mix.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([tag]) => tag)
+})
+
+const cooks = computed(() => {
+  const seen = new Map<string, AuthorSummary>()
+  for (const mix of knownMixes.value) {
+    if (!seen.has(mix.user.id)) seen.set(mix.user.id, mix.user)
+  }
+  return [...seen.values()].slice(0, 4)
+})
+
+/** « Sers-moi quelque chose » : au pif dans ce qui est déjà chargé, sans aller-retour serveur. */
+function playRandomMix() {
+  const pool = knownMixes.value
+  if (!pool.length) return
+  const pick = pool[Math.floor(Math.random() * pool.length)]
+  if (pick) playerStore.play(pick)
+}
 
 async function loadSections() {
   loading.value = true
@@ -124,48 +167,39 @@ onMounted(loadSections)
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl px-4 py-8">
-    <div class="flex flex-col flex-wrap sm:flex-row sm:items-center sm:justify-between min-h-[20vh] my-8">
-      <h1 class="text-tambouille-clamp-big leading-none font-bold w-full">Découvrir des mixs</h1>
-      <div class="flex items-center gap-2">
+  <div class="mx-auto max-w-6xl px-4 py-9">
+    <!-- Titre et filtres sur une seule ligne, posés sur le filet noir : c'est la
+         barre qui donne son échelle à toute la page. -->
+    <div class="flex flex-wrap items-end justify-between gap-4 border-b-2 border-tambouille-rule pb-3">
+      <h1 class="text-tambouille-title-big leading-none">Découvrir</h1>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-tambouille-muted">
         <button
-          class="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm transition"
-          :class="
-            selectedTags.length
-              ? 'border-tambouille-accent bg-tambouille-accent text-white'
-              : 'border-tambouille-border hover:border-tambouille-accent'
-          "
-          @click="showTagsOverlay = true"
+          type="button"
+          class="pb-2 transition"
+          :class="sortBy === 'recent' ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text' : 'hover:text-tambouille-text'"
+          @click="sortBy = 'recent'"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />
-            <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />
-          </svg>
-          Tags
-          <span v-if="selectedTags.length" class="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs">
-            {{ selectedTags.length }}
-          </span>
+          Récents
         </button>
-        <select
-          v-model="sortBy"
-          class="rounded-full border border-tambouille-border bg-tambouille-surface px-3 py-2 text-sm outline-none focus:border-tambouille-accent"
+        <button
+          type="button"
+          class="pb-2 transition"
+          :class="sortBy === 'plays' ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text' : 'hover:text-tambouille-text'"
+          @click="sortBy = 'plays'"
         >
-          <option value="recent">Plus récents</option>
-          <option value="plays">Plus écoutés</option>
-        </select>
+          Plus écoutés
+        </button>
+        <button type="button" class="pb-2 hover:text-tambouille-text" @click="showTagsOverlay = true">
+          Par tag<span v-if="selectedTags.length" class="text-tambouille-accent"> ({{ selectedTags.length }})</span>
+        </button>
+        <button type="button" class="pb-2 hover:text-tambouille-text" @click="playRandomMix">Au hasard</button>
       </div>
     </div>
 
-    <div v-if="selectedTags.length" class="mb-4 flex flex-wrap items-center gap-2">
-      <button
-        v-for="tag in selectedTags"
-        :key="tag"
-        class="flex items-center gap-1 rounded-full bg-tambouille-accent px-3 py-1 text-sm text-white transition hover:bg-tambouille-accent-hover"
-        @click="toggleTag(tag)"
-      >
-        #{{ tag }}
-        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current">
+    <div v-if="selectedTags.length" class="mt-4 flex flex-wrap items-center gap-2">
+      <button v-for="tag in selectedTags" :key="tag" class="tb-chip tb-chip-on" @click="toggleTag(tag)">
+        {{ tag }}
+        <svg viewBox="0 0 24 24" class="h-3 w-3 fill-current">
           <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
         </svg>
       </button>
@@ -183,105 +217,172 @@ onMounted(loadSections)
     </div>
 
     <template v-else-if="isSearching">
-      <section v-if="userResults.length > 0" class="mb-8">
-        <h2 class="cat-title mb-4 text-lg font-semibold">Utilisateurs</h2>
-        <div class="flex flex-wrap gap-4">
+      <section v-if="userResults.length > 0" class="mt-9">
+        <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
+        <div class="flex flex-wrap gap-6 pt-4">
           <RouterLink
             v-for="user in userResults"
             :key="user.id"
             :to="{ name: 'profile', params: { username: user.username } }"
-            class="flex items-center gap-3 rounded-xl border border-tambouille-border bg-tambouille-surface px-4 py-3 transition hover:border-tambouille-accent"
+            class="flex items-center gap-3"
           >
             <img
               v-if="user.avatarUrl"
               :src="mediaUrl(user.avatarUrl)"
-              class="h-10 w-10 rounded-full object-cover"
+              class="h-11 w-11 object-cover"
               alt=""
             />
             <div
               v-else
-              class="flex h-10 w-10 items-center justify-center rounded-full bg-tambouille-accent text-sm font-semibold text-white"
+              class="flex h-11 w-11 items-center justify-center bg-tambouille-accent text-sm font-bold text-white"
             >
               {{ user.displayName?.[0]?.toUpperCase() }}
             </div>
-            <div class="min-w-0">
-              <div class="truncate text-sm font-medium">{{ user.displayName }}</div>
-              <div class="truncate text-xs text-tambouille-muted">@{{ user.username }}</div>
-            </div>
+            <span class="min-w-0">
+              <span class="block truncate font-display text-[15px] font-bold">{{ user.displayName }}</span>
+              <span class="block truncate text-[13px] text-tambouille-muted">@{{ user.username }}</span>
+            </span>
           </RouterLink>
         </div>
       </section>
 
-      <div v-if="searchResults.length === 0 && userResults.length === 0" class="py-16 text-center text-tambouille-muted">Aucun résultat trouvé.</div>
+      <div v-if="searchResults.length === 0 && userResults.length === 0" class="py-16 text-center text-tambouille-muted">
+        Aucun résultat trouvé.
+      </div>
 
-      <div v-if="searchResults.length > 0" class="space-y-3">
+      <div v-if="searchResults.length > 0" class="mt-9">
+        <p class="tb-eyebrow">{{ searchResults.length }} mix</p>
         <MixListItem v-for="mix in searchResults" :key="mix.id" :mix="mix" />
       </div>
 
       <div v-if="totalPages > 1" class="mt-8 flex items-center justify-center gap-4">
-        <button
-          class="rounded-full border border-tambouille-border px-4 py-2 text-sm disabled:opacity-40"
-          :disabled="page <= 1"
-          @click="page--"
-        >
-          Précédent
-        </button>
+        <button class="tb-btn-outline tb-btn-sm" :disabled="page <= 1" @click="page--">Précédent</button>
         <span class="text-sm text-tambouille-muted">Page {{ page }} / {{ totalPages }}</span>
-        <button
-          class="rounded-full border border-tambouille-border px-4 py-2 text-sm disabled:opacity-40"
-          :disabled="page >= totalPages"
-          @click="page++"
-        >
-          Suivant
-        </button>
+        <button class="tb-btn-outline tb-btn-sm" :disabled="page >= totalPages" @click="page++">Suivant</button>
       </div>
     </template>
 
     <template v-else>
-      <section class="flex flex-col justify-center mb-10 bg-tambouille-action py-16 px-12 md:px-8 sm:px-6 min-h-[50vh] h-full">
-        <h2 class="cat-title mb-12 border-b-2 pb-6 border-tambouille-text-dark text-2xl text-tambouille-text-black leading-none">Derniers uploads</h2>
-        <div class="">
-        <div v-if="latestMixes.length === 0" class="py-8 text-center text-tambouille-muted">
-          Aucun mix trouvé. Sois le premier à en uploader un !
+      <!-- Colonne principale + colonne de découverte : le hasard, les tags et les
+           cuisinier⋅ère⋅s remplacent le bloc coloré et le faux classement. -->
+      <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_320px]">
+        <div class="min-w-0">
+          <template v-if="featuredMix">
+            <p class="tb-eyebrow">À la une</p>
+            <div class="flex flex-col gap-6 border-b border-black/15 py-7 sm:flex-row">
+              <RouterLink
+                :to="{ name: 'mix-detail', params: { id: featuredMix.id } }"
+                class="aspect-square w-full max-w-[220px] shrink-0 overflow-hidden bg-tambouille-surface-hover"
+              >
+                <img
+                  v-if="featuredMix.coverUrl"
+                  :src="mediaUrl(featuredMix.coverUrl)"
+                  class="h-full w-full object-cover"
+                  alt=""
+                />
+              </RouterLink>
+
+              <div class="flex min-w-0 flex-1 flex-col">
+                <RouterLink :to="{ name: 'mix-detail', params: { id: featuredMix.id } }">
+                  <span class="font-display text-2xl font-bold leading-tight sm:text-[32px]">
+                    {{ featuredMix.title }}
+                  </span>
+                </RouterLink>
+
+                <p class="pb-1.5 pt-2.5 text-[15px] text-tambouille-muted">
+                  {{ featuredMix.user.displayName }} · {{ formatDate(featuredMix.createdAt) }}
+                </p>
+
+                <p class="flex flex-wrap items-baseline gap-x-2 pb-4 text-sm">
+                  <b v-if="featuredDuration">{{ featuredDuration }}</b>
+                  <span v-if="featuredDuration" class="text-tambouille-faint">·</span>
+                  <span v-if="featuredMix.tracklist.length">{{ featuredMix.tracklist.length }} morceaux</span>
+                  <span v-if="featuredMix.tracklist.length" class="text-tambouille-faint">·</span>
+                  <span v-for="tag in featuredMix.tags.slice(0, 3)" :key="tag" class="text-tambouille-accent">
+                    {{ tag }}
+                  </span>
+                </p>
+
+                <div class="mt-auto flex flex-wrap items-center gap-4">
+                  <button class="tb-btn" @click="playerStore.play(featuredMix)">Écouter</button>
+                  <span v-if="featuredMix.audioUrl" class="text-[13px] text-tambouille-muted">
+                    {{ featuredMix.playsCount }} écoutes
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <section v-if="restOfLatest.length" class="pt-8">
+            <p class="tb-eyebrow">Derniers mix</p>
+            <MixListItem v-for="mix in restOfLatest" :key="mix.id" :mix="mix" />
+          </section>
+
+          <p v-if="!latestMixes.length" class="py-10 text-center text-tambouille-muted">
+            Aucun mix pour l'instant. Sois le premier à en mettre un à la casserole&nbsp;!
+          </p>
+
+          <section v-if="followingTopMixes.length" class="pt-10">
+            <p class="tb-eyebrow">Chez tes abonnements</p>
+            <MixListItem v-for="mix in followingTopMixes" :key="mix.id" :mix="mix" />
+          </section>
+
+          <section v-if="recentlyPlayedMixes.length" class="pt-10">
+            <p class="tb-eyebrow">Repris là où tu t'es arrêté⋅e</p>
+            <MixListItem v-for="mix in recentlyPlayedMixes" :key="mix.id" :mix="mix" />
+          </section>
         </div>
-        <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <MixCard v-for="mix in latestMixes.slice(0, 3)" :key="mix.id" :mix="mix" landscape />
-        </div>
+
+        <aside class="min-w-0">
+          <div class="tb-panel-dark">
+            <p class="tb-eyebrow-plain border-b border-white pb-2.5 text-neutral-400">Au hasard</p>
+            <p class="mb-4 mt-3.5 text-sm leading-relaxed">
+              Pas d'idée&nbsp;? On te sert un mix au pif. L'arbitraire y est roi.
+            </p>
+            <button class="tb-btn" :disabled="!knownMixes.length" @click="playRandomMix">
+              Sers-moi quelque chose
+            </button>
+          </div>
+
+          <div v-if="trendingTags.length" class="pt-8">
+            <p class="tb-eyebrow">Tags du moment</p>
+            <div class="flex flex-wrap gap-2 pt-3.5">
+              <button v-for="tag in trendingTags" :key="tag" class="tb-chip" @click="toggleTag(tag)">
+                {{ tag }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="cooks.length" class="pt-8">
+            <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
+            <div class="flex flex-col gap-3.5 pt-3.5">
+              <RouterLink
+                v-for="cook in cooks"
+                :key="cook.id"
+                :to="{ name: 'profile', params: { username: cook.username } }"
+                class="flex items-center gap-3"
+              >
+                <img
+                  v-if="cook.avatarUrl"
+                  :src="mediaUrl(cook.avatarUrl)"
+                  class="h-11 w-11 shrink-0 object-cover"
+                  alt=""
+                />
+                <span
+                  v-else
+                  class="flex h-11 w-11 shrink-0 items-center justify-center bg-tambouille-surface-hover font-display font-bold"
+                >
+                  {{ cook.displayName?.[0]?.toUpperCase() }}
+                </span>
+                <span class="min-w-0">
+                  <span class="block truncate font-display text-[15px] font-bold">{{ cook.displayName }}</span>
+                  <span class="block truncate text-[12.5px] text-tambouille-muted">@{{ cook.username }}</span>
+                </span>
+              </RouterLink>
+            </div>
+          </div>
+        </aside>
       </div>
-      </section>
-
-      <section class="mb-10">
-        <h2 class="cat-title mb-4 text-xl font-semibold color-tambouille-text-black">Tops</h2>
-        <div v-if="topMixes.length === 0" class="py-8 text-center text-tambouille-muted">
-          Aucun mix écouté pour l'instant.
-        </div>
-        <ol v-else class="space-y-3">
-          <li v-for="(mix, index) in topMixes" :key="mix.id" class="flex items-center gap-4">
-            <span class="w-6 shrink-0 text-right text-lg font-bold text-tambouille-muted">{{ index + 1 }}</span>
-            <MixListItem :mix="mix" class="min-w-0 flex-1" />
-          </li>
-        </ol>
-      </section>
-
-      <section v-if="authStore.isAuthenticated" class="mb-10">
-        <h2 class="cat-title mb-4 text-xl font-semibold color-tambouille-text-black">Les plus écoutés de vos abonnements</h2>
-        <div v-if="followingTopMixes.length === 0" class="py-8 text-center text-tambouille-muted">
-          Suivez d'autres utilisateurs pour voir leurs mixs les plus populaires ici.
-        </div>
-        <div v-else class="space-y-3">
-          <MixListItem v-for="mix in followingTopMixes" :key="mix.id" :mix="mix" />
-        </div>
-      </section>
-
-      <section v-if="authStore.isAuthenticated">
-        <h2 class="cat-title mb-4 text-xl font-semibold color-tambouille-text-black">Vos derniers mixs écoutés</h2>
-        <div v-if="recentlyPlayedMixes.length === 0" class="py-8 text-center text-tambouille-muted">
-          Les mixs que vous écoutez apparaîtront ici.
-        </div>
-        <div v-else class="space-y-3 flex flex-col gap-8">
-          <MixListItem v-for="mix in recentlyPlayedMixes" :key="mix.id" :mix="mix" />
-        </div>
-      </section>
     </template>
   </div>
 </template>

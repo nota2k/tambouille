@@ -43,12 +43,12 @@ const visible = computed(() => props.users.slice(0, props.max))
         <img
           v-if="user.avatarUrl"
           :src="mediaUrl(user.avatarUrl)"
-          class="h-14 w-14 rounded-full object-cover ring-2 ring-white"
+          class="h-14 w-14 rounded-none object-cover ring-2 ring-white"
           :alt="user.displayName"
         />
         <div
           v-else
-          class="flex h-14 w-14 items-center justify-center rounded-full bg-tambouille-surface-hover text-lg font-bold ring-2 ring-white"
+          class="flex h-14 w-14 items-center justify-center rounded-none bg-tambouille-surface-hover text-lg font-bold ring-2 ring-white"
         >
           {{ user.displayName[0]?.toUpperCase() }}
         </div>
@@ -57,7 +57,7 @@ const visible = computed(() => props.users.slice(0, props.max))
       <RouterLink
         v-if="count > visible.length"
         :to="seeAllTo"
-        class="-mr-3 flex h-14 w-14 items-center justify-center rounded-full bg-tambouille-surface-hover text-xs font-semibold text-tambouille-muted ring-2 ring-white transition hover:z-10 hover:-translate-y-1"
+        class="-mr-3 flex h-14 w-14 items-center justify-center rounded-none bg-tambouille-surface-hover text-xs font-semibold text-tambouille-muted ring-2 ring-white transition hover:z-10 hover:-translate-y-1"
         :title="`Voir les ${count} au total`"
       >
         +{{ count - visible.length }}

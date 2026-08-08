@@ -8,17 +8,17 @@ defineProps<{ user: AuthorSummary }>()
 <template>
   <RouterLink
     :to="{ name: 'profile', params: { username: user.username } }"
-    class="flex items-center gap-3 rounded-xl border border-tambouille-border bg-tambouille-surface p-3 transition hover:border-tambouille-accent"
+    class="flex items-center gap-3 rounded-none border border-tambouille-border bg-tambouille-surface p-3 transition hover:border-tambouille-accent"
   >
     <img
       v-if="user.avatarUrl"
       :src="mediaUrl(user.avatarUrl)"
-      class="h-12 w-12 shrink-0 rounded-full object-cover"
+      class="h-12 w-12 shrink-0 rounded-none object-cover"
       alt=""
     />
     <div
       v-else
-      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tambouille-surface-hover text-sm font-semibold"
+      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-none bg-tambouille-surface-hover text-sm font-semibold"
     >
       {{ user.displayName[0]?.toUpperCase() }}
     </div>

@@ -12,7 +12,7 @@ defineProps<{ playlist: PlaylistSummary }>()
   >
     <!-- Mosaic of up to four covers; a single cover fills the square on its own. -->
     <div
-      class="grid aspect-square w-full overflow-hidden rounded-xl bg-tambouille-surface-hover"
+      class="grid aspect-square w-full overflow-hidden rounded-none bg-tambouille-surface-hover"
       :class="playlist.coverUrls.length > 1 ? 'grid-cols-2 grid-rows-2 gap-0.5' : ''"
     >
       <template v-if="playlist.coverUrls.length">

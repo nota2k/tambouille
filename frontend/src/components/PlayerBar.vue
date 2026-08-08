@@ -391,7 +391,7 @@ function onEnded() {
 <template>
   <div
     v-if="playerStore.currentMix"
-    class="fixed inset-x-0 bottom-0 z-40 border-t border-tambouille-text-black bg-tambouille-action"
+    class="fixed inset-x-0 bottom-0 z-40 bg-black text-white"
   >
     <!--
       Exactly one backend is mounted at a time. The Mixcloud widget is an iframe whose
@@ -427,19 +427,19 @@ function onEnded() {
     <p
       v-if="playbackError"
       role="alert"
-      class="border-b border-tambouille-text-black bg-tambouille-accent px-4 py-2 text-sm text-tambouille-white"
+      class="bg-tambouille-accent px-4 py-2 text-sm text-tambouille-white"
     >
       {{ playbackError }}
     </p>
 
-    <div class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+    <div class="mx-auto flex max-w-6xl items-center gap-5 px-4 py-3">
       <img
         v-if="playerStore.currentMix.coverUrl"
         :src="mediaUrl(playerStore.currentMix.coverUrl)"
-        class="h-12 w-12 shrink-0 rounded object-cover"
+        class="h-12 w-12 shrink-0 rounded-none object-cover"
         alt=""
       />
-      <div v-else class="h-12 w-12 shrink-0 rounded bg-tambouille-surface-hover"></div>
+      <div v-else class="h-12 w-12 shrink-0 rounded-none bg-neutral-700"></div>
 
       <!--
         While the Mixcloud widget is still coming up, the button shows a spinner rather
@@ -448,7 +448,7 @@ function onEnded() {
         clickable throughout — pausing is how the user calls off a load that drags.
       -->
       <button
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tambouille-action-hover text-tambouille-text-black hover:bg-tambouille-accent-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-tambouille-action-hover"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-white hover:bg-tambouille-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="!canPlay"
         :aria-label="widgetLoading ? 'Chargement' : playerStore.isPlaying ? 'Pause' : 'Lecture'"
         @click="playerStore.toggle()"
@@ -477,15 +477,15 @@ function onEnded() {
       </button>
 
       <div class="min-w-0 flex-1">
-        <div class="flex items-baseline justify-between gap-2 text-tambouille-text-black">
+        <div class="flex items-baseline justify-between gap-3">
           <RouterLink
             :to="{ name: 'mix-detail', params: { id: playerStore.currentMix.id } }"
-            class="truncate text-sm font-semibold hover:underline"
+            class="truncate font-display text-sm font-bold text-white hover:underline"
           >
             {{ playerStore.currentMix.title }}
           </RouterLink>
           <!-- "0:00 / 0:00" during the load reads as a stalled player; say what is happening. -->
-          <span class="shrink-0 text-xs text-tambouille-text-black">
+          <span class="shrink-0 text-xs text-neutral-400 tabular-nums">
             <template v-if="widgetLoading">Chargement…</template>
             <template v-else>
               {{ formatTime(playerStore.currentTime) }} / {{ formatTime(duration) }}
@@ -493,16 +493,16 @@ function onEnded() {
           </span>
         </div>
 
-        <div class="flex items-baseline gap-1.5 truncate text-xs">
+        <div class="flex items-baseline gap-1.5 truncate text-xs text-neutral-400">
           <RouterLink
             :to="{ name: 'profile', params: { username: playerStore.currentMix.user.username } }"
-            class="shrink-0 text-tambouille-text-black hover:underline"
+            class="shrink-0 hover:underline"
           >
             {{ playerStore.currentMix.user.displayName }}
           </RouterLink>
           <template v-if="currentTrack">
-            <span class="text-tambouille-text-black">·</span>
-            <span class="truncate text-tambouille-text-black">
+            <span>·</span>
+            <span class="truncate text-white">
               {{ currentTrack.artist }} – {{ currentTrack.title }}
             </span>
           </template>
@@ -510,7 +510,7 @@ function onEnded() {
 
         <input
           type="range"
-          class="mt-1 h-1 w-full cursor-pointer accent-tambouille-text-black disabled:cursor-not-allowed disabled:opacity-40"
+          class="player-seek mt-2 h-1 w-full cursor-pointer accent-white disabled:cursor-not-allowed disabled:opacity-40"
           min="0"
           :max="duration || 0"
           :value="playerStore.currentTime"
@@ -521,3 +521,38 @@ function onEnded() {
     </div>
   </div>
 </template>
+
+<style scoped>
+/*
+ * La barre de progression de la maquette est un filet de 4 px : piste grise,
+ * partie lue en blanc, curseur carré. `accent-color` seul donne une piste
+ * arrondie et un curseur rond, alors on redessine les deux.
+ */
+.player-seek {
+  appearance: none;
+  background: #555;
+  height: 4px;
+}
+
+.player-seek::-webkit-slider-thumb {
+  appearance: none;
+  width: 4px;
+  height: 14px;
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+}
+
+.player-seek::-moz-range-thumb {
+  width: 4px;
+  height: 14px;
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+}
+
+.player-seek::-moz-range-progress {
+  background: #fff;
+  height: 4px;
+}
+</style>

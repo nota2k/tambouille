@@ -59,7 +59,7 @@ async function onSubmit() {
           v-model="displayName"
           type="text"
           required
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -70,7 +70,7 @@ async function onSubmit() {
           type="text"
           required
           pattern="[a-zA-Z0-9_.\-]+"
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -80,7 +80,7 @@ async function onSubmit() {
           v-model="email"
           type="email"
           required
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -91,7 +91,7 @@ async function onSubmit() {
           type="password"
           minlength="8"
           required
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -100,7 +100,7 @@ async function onSubmit() {
       <button
         type="submit"
         :disabled="loading"
-        class="w-full rounded-full bg-tambouille-accent py-2 font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+        class="w-full tb-btn"
       >
         {{ loading ? 'Création...' : "S'inscrire" }}
       </button>

@@ -99,22 +99,22 @@ async function submitDelete() {
     <!-- Profile info -->
     <section class="mb-10">
       <h2 class="mb-4 text-lg font-semibold">Informations du profil</h2>
-      <div class="rounded-xl border border-tambouille-border bg-tambouille-surface p-6">
+      <div class="rounded-none border border-tambouille-border bg-tambouille-surface p-6">
         <div class="mb-6 flex items-center gap-4">
           <button class="group relative shrink-0" @click="avatarInput?.click()">
             <img
               v-if="authStore.user?.avatarUrl"
               :src="mediaUrl(authStore.user.avatarUrl)"
-              class="h-16 w-16 rounded-full object-cover"
+              class="h-16 w-16 rounded-none object-cover"
               alt=""
             />
             <div
               v-else
-              class="flex h-16 w-16 items-center justify-center rounded-full bg-tambouille-surface-hover text-xl font-bold"
+              class="flex h-16 w-16 items-center justify-center rounded-none bg-tambouille-surface-hover text-xl font-bold"
             >
               {{ authStore.user?.displayName?.[0]?.toUpperCase() }}
             </div>
-            <div class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition group-hover:opacity-100">
+            <div class="absolute inset-0 flex items-center justify-center rounded-none bg-black/40 opacity-0 transition group-hover:opacity-100">
               <svg viewBox="0 0 24 24" class="h-5 w-5 fill-white">
                 <path d="M9 3l-1.83 2H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2h-3.17L15 3H9zm3 15a5 5 0 110-10 5 5 0 010 10z" />
               </svg>
@@ -133,7 +133,7 @@ async function submitDelete() {
               v-model="editDisplayName"
               type="text"
               maxlength="50"
-              class="w-full rounded-lg border border-tambouille-border bg-tambouille-bg px-3 py-2 outline-none focus:border-tambouille-accent"
+              class="w-full tb-field"
             />
           </label>
           <label class="block">
@@ -145,7 +145,7 @@ async function submitDelete() {
               rows="4"
               maxlength="280"
               placeholder="Présentez-vous, votre style, vos résidences..."
-              class="w-full rounded-lg border border-tambouille-border bg-tambouille-bg px-3 py-2 outline-none focus:border-tambouille-accent"
+              class="w-full tb-field"
             />
             <span class="mt-1 block text-right text-xs text-tambouille-muted">
               {{ editBio.length }}/280
@@ -154,7 +154,7 @@ async function submitDelete() {
           <button
             type="submit"
             :disabled="savingProfile"
-            class="rounded-full bg-tambouille-accent px-5 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+            class="tb-btn"
           >
             Enregistrer
           </button>
@@ -165,7 +165,7 @@ async function submitDelete() {
     <!-- Password -->
     <section v-if="authStore.user && !authStore.user.hasPassword" class="mb-10">
       <h2 class="mb-4 text-lg font-semibold">Mot de passe</h2>
-      <div class="rounded-xl border border-tambouille-border bg-tambouille-surface p-6">
+      <div class="rounded-none border border-tambouille-border bg-tambouille-surface p-6">
         <p class="mb-4 text-sm text-tambouille-muted">
           Ton compte se connecte avec Google. Un mot de passe te donnera un second
           moyen d'accès si tu perds ce compte Google.
@@ -178,11 +178,11 @@ async function submitDelete() {
             minlength="8"
             maxlength="72"
             placeholder="Nouveau mot de passe"
-            class="flex-1 rounded-lg border border-tambouille-border bg-tambouille-bg px-4 py-2 outline-none focus:border-tambouille-accent"
+            class="flex-1 tb-field"
           />
           <button
             type="submit"
-            class="rounded-full bg-tambouille-accent px-5 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover"
+            class="tb-btn"
           >
             Enregistrer
           </button>
@@ -195,7 +195,7 @@ async function submitDelete() {
     <!-- Google -->
     <section v-if="authStore.user" class="mb-10">
       <h2 class="mb-4 text-lg font-semibold">Compte Google</h2>
-      <div class="rounded-xl border border-tambouille-border bg-tambouille-surface p-6">
+      <div class="rounded-none border border-tambouille-border bg-tambouille-surface p-6">
         <template v-if="!authStore.user.hasGoogle">
           <p class="mb-4 text-sm text-tambouille-muted">
             Associe ton compte Google pour te connecter en un clic. Ton mot de passe
@@ -218,7 +218,7 @@ async function submitDelete() {
     <!-- Delete account -->
     <section>
       <h2 class="mb-4 text-lg font-semibold text-red-500">Zone de danger</h2>
-      <div class="rounded-xl border border-red-300 bg-red-50 p-6 dark:border-red-500/30 dark:bg-red-500/5">
+      <div class="rounded-none border border-red-300 bg-red-50 p-6 dark:border-red-500/30 dark:bg-red-500/5">
         <p class="mb-1 text-sm font-medium">Supprimer mon compte</p>
         <p class="mb-4 text-sm text-tambouille-muted">
           Cette action est irréversible. Tous tes mixs, playlists, commentaires et
@@ -233,13 +233,13 @@ async function submitDelete() {
               v-model="deleteConfirm"
               type="text"
               autocomplete="off"
-              class="w-full max-w-xs rounded-lg border border-red-300 bg-tambouille-bg px-3 py-2 outline-none focus:border-red-500 dark:border-red-500/40"
+              class="w-full max-w-xs rounded-none border border-red-300 bg-tambouille-bg px-3 py-2 outline-none focus:border-red-500 dark:border-red-500/40"
             />
           </label>
           <button
             type="submit"
             :disabled="deleteConfirm !== 'SUPPRIMER' || deleting"
-            class="rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40"
+            class="rounded-none bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40"
           >
             {{ deleting ? 'Suppression...' : 'Supprimer définitivement' }}
           </button>

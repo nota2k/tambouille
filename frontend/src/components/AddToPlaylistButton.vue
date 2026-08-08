@@ -118,8 +118,8 @@ onUnmounted(() => {
       ref="trigger"
       :class="
         variant === 'overlay'
-          ? 'absolute right-2 top-11 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
-          : 'flex items-center gap-1.5 rounded-full border border-tambouille-border px-3 py-2 text-sm hover:bg-tambouille-surface-hover'
+          ? 'absolute right-2 top-11 flex h-8 w-8 items-center justify-center rounded-none bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
+          : 'flex items-center gap-1.5 tb-btn-outline tb-btn-sm'
       "
       :aria-expanded="open"
       aria-haspopup="true"
@@ -135,7 +135,7 @@ onUnmounted(() => {
 
     <div
       v-if="open"
-      class="absolute z-30 mt-2 w-64 overflow-hidden rounded-xl border border-tambouille-border bg-tambouille-surface shadow-lg"
+      class="absolute z-30 mt-2 w-64 overflow-hidden rounded-none border border-tambouille-border bg-tambouille-surface shadow-lg"
       :class="variant === 'overlay' ? 'right-2 top-20' : 'left-0 top-full'"
       @click.stop
     >
@@ -158,7 +158,7 @@ onUnmounted(() => {
               @click="toggle(playlist)"
             >
               <span
-                class="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                class="flex h-4 w-4 shrink-0 items-center justify-center rounded-none border"
                 :class="
                   playlist.containsMix
                     ? 'border-tambouille-accent bg-tambouille-accent text-white'
@@ -182,13 +182,13 @@ onUnmounted(() => {
             type="text"
             maxlength="120"
             placeholder="Nouvelle playlist..."
-            class="w-full rounded-lg border border-tambouille-border bg-transparent px-3 py-1.5 text-sm outline-none focus:border-tambouille-accent"
+            class="w-full tb-field text-sm"
           />
           <button
             v-if="newTitle.trim()"
             type="submit"
             :disabled="creating"
-            class="mt-2 w-full rounded-lg bg-tambouille-accent px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-tambouille-accent-hover disabled:opacity-50"
+            class="mt-2 w-full tb-btn"
           >
             {{ creating ? 'Création...' : 'Créer et ajouter' }}
           </button>

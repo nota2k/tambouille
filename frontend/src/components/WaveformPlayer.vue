@@ -184,7 +184,7 @@ function onToggle(event: Event) {
 <template>
   <div class="flex items-center gap-3 w-full">
     <button
-      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tambouille-accent text-white hover:bg-tambouille-accent-hover transition"
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-white hover:bg-tambouille-accent-hover transition"
       @click="onToggle"
     >
       <svg v-if="!isPlaying" viewBox="0 0 24 24" class="ml-0.5 h-3.5 w-3.5 fill-current">

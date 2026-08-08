@@ -55,7 +55,7 @@ function capture() {
 </script>
 
 <template>
-  <div v-if="src" class="rounded-lg border border-tambouille-border bg-tambouille-surface p-3">
+  <div v-if="src" class="rounded-none border border-tambouille-border bg-tambouille-surface p-3">
     <audio
       ref="audioEl"
       :src="src"
@@ -69,7 +69,7 @@ function capture() {
     <div class="flex flex-wrap items-center gap-3">
       <button
         type="button"
-        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tambouille-accent text-white hover:bg-tambouille-accent-hover"
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-white hover:bg-tambouille-accent-hover"
         @click="toggle"
       >
         <svg v-if="!isPlaying" viewBox="0 0 24 24" class="ml-0.5 h-4 w-4 fill-current">
@@ -82,14 +82,14 @@ function capture() {
 
       <button
         type="button"
-        class="shrink-0 rounded-full px-2 py-1 text-xs text-tambouille-muted hover:bg-tambouille-surface-hover"
+        class="shrink-0 rounded-none px-2 py-1 text-xs text-tambouille-muted hover:bg-tambouille-surface-hover"
         @click="skip(-10)"
       >
         -10s
       </button>
       <button
         type="button"
-        class="shrink-0 rounded-full px-2 py-1 text-xs text-tambouille-muted hover:bg-tambouille-surface-hover"
+        class="shrink-0 rounded-none px-2 py-1 text-xs text-tambouille-muted hover:bg-tambouille-surface-hover"
         @click="skip(10)"
       >
         +10s
@@ -109,7 +109,7 @@ function capture() {
 
       <button
         type="button"
-        class="shrink-0 rounded-full border border-tambouille-accent px-3 py-1.5 text-xs font-semibold text-tambouille-accent hover:bg-tambouille-accent hover:text-white"
+        class="shrink-0 rounded-none border border-tambouille-accent px-3 py-1.5 text-xs font-semibold text-tambouille-accent hover:bg-tambouille-accent hover:text-white"
         @click="capture"
       >
         + Ajouter un morceau ici

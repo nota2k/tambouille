@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
 import { mediaUrl } from '@/utils/media'
-import { formatTime } from '@/utils/time'
+import { formatTime, formatDuration } from '@/utils/time'
 import { formatDate } from '@/utils/date'
 import { toggleMixFavorite } from '@/utils/favorites'
 import UploaderCard from '@/components/UploaderCard.vue'
 import CommentsSection from '@/components/CommentsSection.vue'
 import MixCard from '@/components/MixCard.vue'
+import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import { mixShareUrl } from '@/utils/share'
@@ -57,10 +58,6 @@ async function loadAll(id: string) {
   await Promise.all([loadMix(), loadSuggestions(id)])
 }
 
-function play() {
-  if (mix.value) playerStore.play(mix.value)
-}
-
 function playFromTrack(entry: TracklistEntry) {
   if (mix.value) playerStore.playAt(mix.value, entry.timecodeSec)
 }
@@ -71,7 +68,7 @@ function toggleFavorite() {
     router.push({ name: 'login' })
     return
   }
-  toggleMixFavorite(mix.value).catch(() => { })
+  toggleMixFavorite(mix.value).catch(() => {})
 }
 
 async function removeMix() {
@@ -84,6 +81,30 @@ async function removeMix() {
   } finally {
     deleting.value = false
   }
+}
+
+const duration = computed(() => formatDuration(mix.value?.durationSec))
+const isCurrent = computed(() => mix.value != null && playerStore.currentMix?.id === mix.value.id)
+const isPlaying = computed(() => isCurrent.value && playerStore.isPlaying)
+
+/**
+ * Le morceau en cours, d'après la position de lecture : c'est ce qui rend la
+ * tracklist vivante au lieu d'être une liste morte saisie à l'upload.
+ */
+const currentTrackId = computed(() => {
+  if (!isCurrent.value || !mix.value) return null
+  let active: string | null = null
+  for (const entry of mix.value.tracklist) {
+    if (entry.timecodeSec <= playerStore.currentTime) active = entry.id
+    else break
+  }
+  return active
+})
+
+function togglePlay() {
+  if (!mix.value) return
+  if (isCurrent.value) playerStore.toggle()
+  else playerStore.play(mix.value)
 }
 
 // Une carte de suggestion mène d'un mix à un autre : même route, même composant, que Vue
@@ -99,132 +120,166 @@ watch(
 </script>
 
 <template>
-  <div class="page-grid mx-auto py-18" style="--page-width: 62rem">
+  <div class="mx-auto max-w-5xl px-4 py-10">
     <div v-if="loading" class="py-16 text-center text-tambouille-muted">Chargement...</div>
 
-    <div v-else-if="mix" class="flex flex-col gap-6 sm:flex-row">
-      <div class="mx-auto w-78 shrink-0 sm:mx-0">
-        <div class="aspect-square w-full overflow-hidden bg-tambouille-surface-hover">
-          <img v-if="mix.coverUrl" :src="mediaUrl(mix.coverUrl)" class="h-full w-full object-cover" alt="" />
-          <div v-else class="flex h-full w-full items-center justify-center text-tambouille-muted">
-            <svg viewBox="0 0 24 24" class="h-16 w-16 fill-current opacity-40">
+    <template v-else-if="mix">
+      <!-- En-tête : la pochette carrée, le titre en grand, et la ligne d'infos
+           qui manquait — durée, nombre de morceaux, tags. -->
+      <div class="flex flex-col gap-7 sm:flex-row">
+        <div
+          class="aspect-square w-full max-w-[260px] shrink-0 overflow-hidden bg-tambouille-surface-hover"
+        >
+          <img
+            v-if="mix.coverUrl"
+            :src="mediaUrl(mix.coverUrl)"
+            class="h-full w-full object-cover"
+            alt=""
+          />
+          <div v-else class="flex h-full w-full items-center justify-center text-tambouille-faint">
+            <svg viewBox="0 0 24 24" class="h-16 w-16 fill-current">
               <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z" />
             </svg>
           </div>
         </div>
-      </div>
 
-      <div class="min-w-0 flex-1">
-        <h1 class="text-tambouille-title-big font-bold pb-2 leading-tight mb-6 border-b border-tambouille-accent">{{
-          mix.title }}</h1>
-        <RouterLink :to="{ name: 'profile', params: { username: mix.user.username } }"
-          class="text-tambouille-muted hover:underline">
-          {{ mix.user.displayName }}
-        </RouterLink>
+        <div class="min-w-0 flex-1">
+          <h1 class="text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.05]">{{ mix.title }}</h1>
 
-        <div class="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            class="flex items-center w-full gap-2 rounded-full bg-tambouille-action px-5 py-2 font-semibold text-tambouille-text-black hover:bg-tambouille-action-hover"
-            @click="play">
-            <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-            Écouter
-          </button>
-          <span v-if="mix.audioUrl" class="text-sm text-tambouille-muted">{{ mix.playsCount }} écoutes</span>
-          <span class="text-sm text-tambouille-muted">{{ mix.commentsCount }} commentaires</span>
+          <p class="pb-2.5 pt-3.5 text-base text-tambouille-muted">
+            Mijoté par
+            <RouterLink
+              :to="{ name: 'profile', params: { username: mix.user.username } }"
+              class="font-bold text-tambouille-text hover:underline"
+            >
+              {{ mix.user.displayName }}
+            </RouterLink>
+            · {{ formatDate(mix.createdAt) }}
+          </p>
 
-          <button
-            class="flex items-center gap-1.5 rounded-full border border-tambouille-border px-3 py-2 text-sm hover:bg-tambouille-surface-hover"
-            :class="{ 'border-tambouille-accent text-tambouille-accent': mix.isFavorited }" @click="toggleFavorite">
-            <svg v-if="mix.isFavorited" viewBox="0 0 24 24" class="h-4 w-4 fill-current">
-              <path
-                d="M12 21s-6.716-4.35-9.428-8.108C.688 10.09 1.2 6.6 4.05 5.02c2.19-1.213 4.766-.62 6.2 1.02l1.75 2 1.75-2c1.434-1.64 4.01-2.233 6.2-1.02 2.85 1.58 3.362 5.07 1.478 7.872C18.716 16.65 12 21 12 21z" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current stroke-2">
-              <path
-                d="M12 21s-6.716-4.35-9.428-8.108C.688 10.09 1.2 6.6 4.05 5.02c2.19-1.213 4.766-.62 6.2 1.02l1.75 2 1.75-2c1.434-1.64 4.01-2.233 6.2-1.02 2.85 1.58 3.362 5.07 1.478 7.872C18.716 16.65 12 21 12 21z" />
-            </svg>
-            {{ mix.isFavorited ? 'Favori' : 'Ajouter aux favoris' }}
-          </button>
+          <p class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 pb-5 text-sm">
+            <b v-if="duration">{{ duration }}</b>
+            <span v-if="duration" class="text-tambouille-faint">·</span>
+            <span v-if="mix.tracklist.length">{{ mix.tracklist.length }} morceaux</span>
+            <span v-if="mix.tracklist.length" class="text-tambouille-faint">·</span>
+            <span v-for="tag in mix.tags" :key="tag" class="text-tambouille-accent">{{ tag }}</span>
+          </p>
 
-          <AddToPlaylistButton :mix-id="mix.id" />
+          <div class="flex flex-wrap items-center gap-3">
+            <button class="tb-btn" @click="togglePlay">
+              {{ isPlaying ? 'Pause' : 'Écouter' }}
+            </button>
+            <button
+              class="tb-btn-outline"
+              :class="{ '!border-tambouille-accent !text-tambouille-accent': mix.isFavorited }"
+              @click="toggleFavorite"
+            >
+              {{ mix.isFavorited ? 'Favori' : 'Mettre en favori' }}
+            </button>
+            <AddToPlaylistButton :mix-id="mix.id" />
+            <ShareButton :url="mixShareUrl(mix.id)" />
+          </div>
 
-          <ShareButton :url="mixShareUrl(mix.id)" />
-        </div>
-
-        <div v-if="mix.tags.length" class="mt-4 flex flex-wrap gap-2">
-          <span v-for="tag in mix.tags" :key="tag"
-            class="rounded-full bg-tambouille-surface-hover px-3 py-1 text-xs text-tambouille-muted">
-            #{{ tag }}
-          </span>
-        </div>
-
-        <p class="mt-4 text-xs text-tambouille-muted">Publié le {{ formatDate(mix.createdAt) }}</p>
-
-        <div v-if="authStore.user?.id === mix.userId" class="mt-6 flex items-center gap-4">
-          <RouterLink :to="{ name: 'mix-edit', params: { id: mix.id } }"
-            class="text-sm text-tambouille-muted hover:underline">
-            Modifier ce mix
-          </RouterLink>
-          <button :disabled="deleting" class="text-sm text-red-400 hover:underline disabled:opacity-50"
-            @click="removeMix">
-            Supprimer ce mix
-          </button>
-        </div>
-      </div>
-    </div>
-    <hr class="color-tambouille-text-black my-6 border-2">
-    <div class="mt-8 flex gap-8 flex-wrap">
-      <div class="min-w-55 flex-[2] flex flex-col gap-6 row-gap-8">
-        <div class="min-h-[10vh] border-b border-tambouille-border bg-tambouille-white rounded-lg p-6">
-        <p v-if="mix?.description" class="whitespace-pre-line text-lg text-tambouille-text/90">
-          {{ mix.description }}
-        </p>
-        </div>
-
-        <div v-if="mix && mix.tracklist.length > 0">
-          <h2 class="mb-3 text-xl font-semibold color-tambouille-text-black">Tracklist</h2>
-          <div class="overflow-hidden bg-tambouille-accent">
-            <div
-              class="grid grid-cols-[1.5rem_4rem_1fr_1fr] items-center gap-4 border-b border-tambouille-white/25 px-4 py-2 text-xs uppercase tracking-wide text-tambouille-white/70">
-              <span class="text-right">#</span>
-              <span>Time</span>
-              <span>Artist</span>
-              <span>Title</span>
-            </div>
-
-            <ol class="divide-y divide-tambouille-white/15">
-              <li v-for="(entry, index) in mix.tracklist" :key="entry.id">
-                <button
-                  class="grid w-full cursor-pointer grid-cols-[1.5rem_4rem_1fr_1fr] items-center gap-4 px-4 py-3 text-left transition hover:bg-tambouille-accent-hover"
-                  @click="playFromTrack(entry)">
-                  <span class="text-right text-sm text-tambouille-white">{{ index + 1 }}</span>
-                  <span class="font-mono text-xs text-tambouille-white/80">
-                    {{ formatTime(entry.timecodeSec) }}
-                  </span>
-                  <span class="min-w-0 truncate text-sm font-medium text-tambouille-white">{{ entry.artist }}</span>
-                  <span class="min-w-0 truncate text-sm text-tambouille-white">{{ entry.title }}</span>
-                </button>
-              </li>
-            </ol>
+          <div
+            v-if="authStore.user?.id === mix.userId"
+            class="mt-5 flex items-center gap-5 text-sm"
+          >
+            <RouterLink
+              :to="{ name: 'mix-edit', params: { id: mix.id } }"
+              class="text-tambouille-muted hover:underline"
+            >
+              Modifier ce mix
+            </RouterLink>
+            <button
+              :disabled="deleting"
+              class="text-tambouille-accent hover:underline disabled:opacity-50"
+              @click="removeMix"
+            >
+              Supprimer ce mix
+            </button>
           </div>
         </div>
-
-        <CommentsSection v-if="mix" :mix="mix" />
       </div>
 
-      <div v-if="uploaderProfile" class="flex-1">
-        <UploaderCard :profile="uploaderProfile" />
+      <!-- La vague n'est plus décorative : pleine largeur, elle sert de barre de
+           progression et de zone de navigation. -->
+      <div class="mt-9 border-b border-tambouille-rule pb-2">
+        <WaveformPlayer :mix="mix" />
       </div>
-    </div>
-    <section v-if="suggestions.length" class="mt-[6em] w-full bg-tambouille-action p-10 full-bleed">
+      <p class="flex items-baseline justify-between pt-2 text-xs text-tambouille-muted">
+        <span v-if="mix.audioUrl">{{ mix.playsCount }} écoutes</span>
+        <span v-else>Audio hébergé sur Mixcloud</span>
+        <span v-if="duration">{{ duration }}</span>
+      </p>
 
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-        <h2 class="mb-2 text-2xl font-semibold col-span-1 sm:col-span-2 lg:col-span-3">À écouter ensuite</h2>
+      <!-- Deux colonnes seulement quand il y a une tracklist à mettre en face du
+           texte : sans elle, la colonne de gauche resterait une moitié de page
+           vide sous un titre qui annonce son propre vide. -->
+      <div
+        class="mt-10 grid gap-12"
+        :class="{ 'lg:grid-cols-[1.15fr_1fr]': mix.tracklist.length > 0 }"
+      >
+        <div v-if="mix.tracklist.length > 0" class="min-w-0">
+          <p class="tb-eyebrow">Tracklist — {{ mix.tracklist.length }} morceaux</p>
+          <ol>
+            <li v-for="entry in mix.tracklist" :key="entry.id">
+              <button
+                class="grid w-full cursor-pointer grid-cols-[4.5rem_1fr] items-baseline gap-x-4 border-b border-black/10 px-2 py-3 text-left transition"
+                :class="
+                  entry.id === currentTrackId
+                    ? 'bg-tambouille-accent-wash'
+                    : 'hover:bg-tambouille-surface-hover'
+                "
+                @click="playFromTrack(entry)"
+              >
+                <span
+                  class="text-sm tabular-nums"
+                  :class="
+                    entry.id === currentTrackId
+                      ? 'font-bold text-tambouille-accent'
+                      : 'text-tambouille-muted'
+                  "
+                >
+                  {{ formatTime(entry.timecodeSec) }}
+                </span>
+                <span class="min-w-0 text-[15px] text-tambouille-text">
+                  <span :class="{ 'font-bold': entry.id === currentTrackId }">{{
+                    entry.artist
+                  }}</span>
+                  <span class="text-tambouille-muted"> — {{ entry.title }}</span>
+                </span>
+              </button>
+            </li>
+          </ol>
+        </div>
 
-        <MixCard v-for="suggestion in suggestions" :key="suggestion.id" :mix="suggestion" landscape />
+        <div class="min-w-0">
+          <template v-if="mix.description">
+            <p class="tb-eyebrow">Le mot de la cuisine</p>
+            <p class="mb-9 mt-4 whitespace-pre-line text-base leading-relaxed">
+              {{ mix.description }}
+            </p>
+          </template>
+
+          <CommentsSection :mix="mix" />
+
+          <div v-if="uploaderProfile" class="pt-9">
+            <UploaderCard :profile="uploaderProfile" />
+          </div>
+        </div>
       </div>
-    </section>
+
+      <section v-if="suggestions.length" class="mt-14">
+        <p class="tb-eyebrow">Dans la même casserole</p>
+        <div class="grid grid-cols-2 gap-5 pt-5 sm:grid-cols-3">
+          <MixCard
+            v-for="suggestion in suggestions"
+            :key="suggestion.id"
+            :mix="suggestion"
+            landscape
+          />
+        </div>
+      </section>
+    </template>
   </div>
 </template>

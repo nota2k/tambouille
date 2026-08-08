@@ -15,7 +15,7 @@ function scroll(direction: 1 | -1) {
 <template>
   <div class="relative">
     <button
-      class="absolute -left-3 top-[38%] z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-tambouille-border bg-tambouille-surface shadow hover:bg-tambouille-surface-hover sm:flex"
+      class="absolute -left-3 top-[38%] z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-none border border-tambouille-border bg-tambouille-surface shadow hover:bg-tambouille-surface-hover sm:flex"
       aria-label="Précédent"
       @click="scroll(-1)"
     >
@@ -29,7 +29,7 @@ function scroll(direction: 1 | -1) {
     </div>
 
     <button
-      class="absolute -right-3 top-[38%] z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-tambouille-border bg-tambouille-surface shadow hover:bg-tambouille-surface-hover sm:flex"
+      class="absolute -right-3 top-[38%] z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-none border border-tambouille-border bg-tambouille-surface shadow hover:bg-tambouille-surface-hover sm:flex"
       aria-label="Suivant"
       @click="scroll(1)"
     >

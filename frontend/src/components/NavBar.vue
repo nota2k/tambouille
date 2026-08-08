@@ -135,10 +135,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <header class="sticky top-0 z-[1001] border-b border-tambouille-border bg-tambouille-accent backdrop-blur">
-    <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-      <RouterLink to="/" class="flex items-center gap-2 text-2xl font-bold tracking-tight">
-        <span class="text-tambouille-white flex items-center gap-4" style="font-family: 'Gulax', sans-serif">Tambouille
+  <header class="sticky top-0 z-[1001] bg-tambouille-accent">
+    <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 lg:gap-9">
+      <RouterLink to="/" class="shrink-0 text-2xl font-bold tracking-tight">
+        <span class="font-wordmark text-tambouille-white flex items-center gap-4">Tambouille
           <svg class="logo-waves" width="46" height="40" viewBox="0 0 46 19" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path class="wave wave-1" d="M0.951891 8.81886L10.6947 1.81886L21.3805 8.81886L33.3233 1.81886L44.9519 8.81886" stroke="#fff"
               stroke-width="3" />
@@ -148,22 +148,22 @@ onUnmounted(() => {
         </span>
       </RouterLink>
 
-      <form class="hidden flex-1 justify-center px-4 sm:flex" @submit.prevent="onSearch">
-        <div ref="searchContainer" class="relative w-full max-w-md">
+      <form class="hidden flex-1 sm:flex" @submit.prevent="onSearch">
+        <div ref="searchContainer" class="relative w-full max-w-[520px]">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round"
-            class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60">
+            class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-tambouille-faint">
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
-          <input v-model="headerSearch" type="search" placeholder="Rechercher..."
-            class="w-full rounded-full bg-white/15 py-1.5 pl-9 pr-4 text-sm text-white placeholder-white/60 outline-none focus:bg-white/25"
+          <input v-model="headerSearch" type="search" placeholder="Chercher un mix, un⋅e cuisinier⋅ère, un tag…"
+            class="w-full rounded-none bg-white py-[9px] pl-10 pr-4 text-sm text-tambouille-text placeholder-tambouille-faint outline-none"
             @keydown="onKeydown" @focus="showDropdown = searchResults.length > 0" />
 
           <div v-if="showDropdown"
-            class="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-lg border border-tambouille-border bg-tambouille-surface shadow-xl">
-            <div class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-tambouille-muted">
-              Utilisateurs
+            class="absolute left-0 right-0 top-full overflow-hidden rounded-none border border-tambouille-rule bg-tambouille-surface">
+            <div class="tb-eyebrow-plain px-3 py-2">
+              Cuisinier⋅ère⋅s
             </div>
             <template v-for="(user, i) in searchResults" :key="user.id">
               <!-- Pas de username = pas de profil public : on n'émet aucun lien
@@ -173,10 +173,10 @@ onUnmounted(() => {
                 class="flex items-center gap-3 px-3 py-2 transition"
                 :class="i === activeIndex ? 'bg-tambouille-surface-hover' : 'hover:bg-tambouille-surface-hover'"
                 @click="closeDropdown(); headerSearch = ''">
-                <img v-if="user.avatarUrl" :src="mediaUrl(user.avatarUrl)" class="h-8 w-8 rounded-full object-cover"
+                <img v-if="user.avatarUrl" :src="mediaUrl(user.avatarUrl)" class="h-9 w-9 rounded-none object-cover"
                   alt="" />
                 <div v-else
-                  class="flex h-8 w-8 items-center justify-center rounded-full bg-tambouille-accent text-xs font-semibold text-white">
+                  class="flex h-9 w-9 items-center justify-center rounded-none bg-tambouille-accent text-xs font-semibold text-white">
                   {{ user.displayName?.[0]?.toUpperCase() }}
                 </div>
                 <div class="min-w-0">
@@ -189,35 +189,35 @@ onUnmounted(() => {
         </div>
       </form>
 
-      <nav class="flex items-center gap-4">
+      <nav class="ml-auto flex items-center gap-4">
         <!-- Sous 400px de large les entrées ne tiennent plus : elles passent
              dans l'overlay ouvert par le bouton hamburger. -->
-        <div class="flex items-center gap-4 max-[400px]:hidden">
-          <RouterLink to="/" class="text-sm font-medium text-tambouille-white hover:text-tambouille-white"
+        <div class="flex items-center gap-5 max-[400px]:hidden lg:gap-6">
+          <RouterLink to="/" class="text-sm text-tambouille-white hover:underline"
             active-class="!text-tambouille-white">
             Découvrir
           </RouterLink>
 
           <template v-if="authStore.isAuthenticated">
             <RouterLink to="/upload"
-              class="rounded-full border px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover">
+              class="rounded-none border border-white px-4 py-2 text-[13px] font-bold text-white hover:bg-white hover:text-tambouille-accent">
               Uploader
             </RouterLink>
 
             <div class="relative">
               <button
-                class="flex items-center gap-2 rounded-full border border-tambouille-border hover:bg-tambouille-surface-hover"
+                class="flex h-[34px] w-[34px] items-center justify-center overflow-hidden rounded-none bg-white"
                 @click="menuOpen = !menuOpen">
                 <img v-if="authStore.user?.avatarUrl" :src="mediaUrl(authStore.user.avatarUrl)"
-                  class="h-7 w-7 rounded-full object-cover" alt="" />
-                <div v-else
-                  class="flex h-7 w-7 items-center justify-center rounded-full bg-tambouille-surface-hover text-xs font-semibold">
+                  class="h-full w-full rounded-none object-cover" alt="" />
+                <span v-else
+                  class="text-xs font-bold text-tambouille-accent">
                   {{ authStore.user?.displayName?.[0]?.toUpperCase() }}
-                </div>
+                </span>
               </button>
 
               <div v-if="menuOpen"
-                class="absolute right-0 mt-2 w-48 rounded-lg border border-tambouille-border bg-tambouille-surface py-1 shadow-xl z-1000"
+                class="absolute right-0 w-48 rounded-none border border-tambouille-rule bg-tambouille-surface py-1 z-1000"
                 @mouseleave="menuOpen = false">
                 <RouterLink v-if="authStore.user?.username"
                   :to="{ name: 'profile', params: { username: authStore.user.username } }"
@@ -244,18 +244,18 @@ onUnmounted(() => {
           </template>
 
           <template v-else>
-            <RouterLink to="/login" class="text-sm font-medium text-tambouille-white rounded-full px-4 py-1 border border-tambouille-white hover:bg-tambouille-accent-dark">
+            <RouterLink to="/login" class="text-sm text-tambouille-white hover:underline">
               Connexion
             </RouterLink>
             <RouterLink to="/register"
-              class="text-sm font-medium text-tambouille-white rounded-full px-4 py-1 border border-tambouille-white hover:bg-tambouille-accent-dark">
+              class="rounded-none border border-white px-4 py-2 text-[13px] font-bold text-white hover:bg-white hover:text-tambouille-accent">
               S'inscrire
             </RouterLink>
           </template>
         </div>
 
         <button type="button"
-          class="hidden h-10 w-10 items-center justify-center rounded-lg text-tambouille-white hover:bg-white/15 max-[400px]:flex"
+          class="hidden h-10 w-10 items-center justify-center rounded-none text-tambouille-white hover:bg-white/15 max-[400px]:flex"
           aria-label="Ouvrir le menu" aria-controls="mobile-menu" :aria-expanded="mobileMenuOpen"
           @click="mobileMenuOpen = true">
           <svg viewBox="0 0 24 24" class="h-6 w-6 fill-none stroke-current stroke-2" aria-hidden="true">
@@ -284,7 +284,7 @@ onUnmounted(() => {
               </svg>
             </RouterLink>
 
-            <button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-white/15"
+            <button type="button" class="flex h-10 w-10 items-center justify-center rounded-none hover:bg-white/15"
               aria-label="Fermer le menu" @click="closeMobileMenu">
               <svg viewBox="0 0 24 24" class="h-6 w-6 fill-none stroke-current stroke-2" aria-hidden="true">
                 <path stroke-linecap="round" d="M6 6l12 12M6 18L18 6" />
@@ -293,40 +293,40 @@ onUnmounted(() => {
           </div>
 
           <nav class="flex flex-1 flex-col gap-1 overflow-y-auto px-4 pb-8 pt-4">
-            <RouterLink to="/" class="rounded-lg px-4 py-3 text-base font-medium hover:bg-white/15"
+            <RouterLink to="/" class="rounded-none px-4 py-3 text-base font-medium hover:bg-white/15"
               @click="closeMobileMenu">
               Découvrir
             </RouterLink>
 
             <template v-if="authStore.isAuthenticated">
-              <RouterLink to="/upload" class="rounded-lg px-4 py-3 text-base font-medium hover:bg-white/15"
+              <RouterLink to="/upload" class="rounded-none px-4 py-3 text-base font-medium hover:bg-white/15"
                 @click="closeMobileMenu">
                 Uploader
               </RouterLink>
 
               <RouterLink v-if="authStore.user?.username"
                 :to="{ name: 'profile', params: { username: authStore.user.username } }"
-                class="rounded-lg px-4 py-3 text-base font-medium hover:bg-white/15" @click="closeMobileMenu">
+                class="rounded-none px-4 py-3 text-base font-medium hover:bg-white/15" @click="closeMobileMenu">
                 Mon profil
               </RouterLink>
 
               <RouterLink :to="{ name: 'settings' }"
-                class="rounded-lg px-4 py-3 text-base font-medium hover:bg-white/15" @click="closeMobileMenu">
+                class="rounded-none px-4 py-3 text-base font-medium hover:bg-white/15" @click="closeMobileMenu">
                 Réglages
               </RouterLink>
 
-              <button type="button" class="rounded-lg px-4 py-3 text-left text-base font-medium hover:bg-white/15"
+              <button type="button" class="rounded-none px-4 py-3 text-left text-base font-medium hover:bg-white/15"
                 @click="logoutFromMobileMenu">
                 Se déconnecter
               </button>
             </template>
 
             <template v-else>
-              <RouterLink to="/login" class="rounded-lg px-4 py-3 text-base font-medium hover:bg-white/15"
+              <RouterLink to="/login" class="rounded-none px-4 py-3 text-base font-medium hover:bg-white/15"
                 @click="closeMobileMenu">
                 Connexion
               </RouterLink>
-              <RouterLink to="/register" class="rounded-lg px-4 py-3 text-base font-medium hover:bg-white/15"
+              <RouterLink to="/register" class="rounded-none px-4 py-3 text-base font-medium hover:bg-white/15"
                 @click="closeMobileMenu">
                 S'inscrire
               </RouterLink>
