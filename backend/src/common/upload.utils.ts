@@ -30,6 +30,7 @@ export function r2StorageFor(subdir: string) {
   return multerS3({
     s3: r2Client,
     bucket: process.env.R2_BUCKET_NAME ?? '',
+    contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (_req, file, callback) => {
       callback(null, objectKey(subdir, file.originalname));
     },
@@ -41,6 +42,7 @@ export function r2StorageByField(fieldToSubdir: Record<string, string>) {
   return multerS3({
     s3: r2Client,
     bucket: process.env.R2_BUCKET_NAME ?? '',
+    contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (_req, file, callback) => {
       const subdir = fieldToSubdir[file.fieldname] ?? 'misc';
       callback(null, objectKey(subdir, file.originalname));
