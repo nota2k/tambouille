@@ -3,3 +3,6 @@
 .idea/
 .superpowers/
 .worktrees/
+
+# Sauvegardes locales : peuvent contenir des secrets
+*.bak
