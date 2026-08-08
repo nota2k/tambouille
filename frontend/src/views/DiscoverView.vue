@@ -246,7 +246,7 @@ onMounted(loadSections)
       </section>
 
       <section v-if="authStore.isAuthenticated" class="mb-10">
-        <h2 class="mb-4 text-lg font-semibold">Les plus écoutés de vos abonnements</h2>
+        <h2 class="mb-4 text-xl font-semibold color-tambouille-text-black">Les plus écoutés de vos abonnements</h2>
         <div v-if="followingTopMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Suivez d'autres utilisateurs pour voir leurs mixs les plus populaires ici.
         </div>
@@ -256,7 +256,7 @@ onMounted(loadSections)
       </section>
 
       <section v-if="authStore.isAuthenticated">
-        <h2 class="mb-4 text-lg font-semibold">Vos derniers mixs écoutés</h2>
+        <h2 class="mb-4 text-xl font-semibold color-tambouille-text-black">Vos derniers mixs écoutés</h2>
         <div v-if="recentlyPlayedMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Les mixs que vous écoutez apparaîtront ici.
         </div>

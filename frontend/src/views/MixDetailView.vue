@@ -174,7 +174,7 @@ watch(
         </div>
       </div>
     </div>
-    <hr class="color-tambouille-accent my-6 border-2">
+    <hr class="color-tambouille-text-black my-6 border-2">
     <div class="mt-8 flex gap-8 flex-wrap">
       <div class="min-w-55 flex-[2] flex flex-col gap-6 row-gap-8">
         <div class="min-h-[10vh] border-b border-tambouille-border bg-tambouille-white rounded-lg p-6">
@@ -184,7 +184,7 @@ watch(
         </div>
 
         <div v-if="mix && mix.tracklist.length > 0">
-          <h2 class="mb-3 text-xl font-semibold">Tracklist</h2>
+          <h2 class="mb-3 text-xl font-semibold color-tambouille-text-black">Tracklist</h2>
           <div class="overflow-hidden bg-tambouille-accent">
             <div
               class="grid grid-cols-[1.5rem_4rem_1fr_1fr] items-center gap-4 border-b border-tambouille-white/25 px-4 py-2 text-xs uppercase tracking-wide text-tambouille-white/70">
