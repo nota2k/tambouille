@@ -275,16 +275,41 @@ export class MailService {
     }
     this.from = from;
 
+    const host = config.get<string>('SMTP_HOST');
+    if (!host) {
+      // nodemailer silently falls back to "localhost" when host is falsy
+      // (smtp-connection/index.js), which is invisible in dev and only
+      // bites in production.
+      throw new Error('SMTP_HOST is required');
+    }
+
+    const rawPort = config.get<string>('SMTP_PORT');
+    const port = Number(rawPort);
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+      // nodemailer does `Number(port) || (secure ? 465 : 587)`, so NaN or a
+      // missing port silently becomes 587 instead of erroring — and since
+      // many relays really do listen on 587, that can produce a *working*
+      // connection to the wrong port with no error anywhere.
+      throw new Error(`SMTP_PORT must be a port number, got "${rawPort}"`);
+    }
+
+    const rawSecure = config.get<string>('SMTP_SECURE');
+    if (rawSecure !== 'true' && rawSecure !== 'false') {
+      // Keep the boolean strict rather than accepting a dialect of
+      // truthy-ish strings: silently reading "True" as false is the bug,
+      // not the narrowness of the accepted spelling.
+      throw new Error(`SMTP_SECURE must be "true" or "false", got "${rawSecure}"`);
+    }
+    const secure = rawSecure === 'true';
+
     const user = config.get<string>('SMTP_USER');
     const pass = config.get<string>('SMTP_PASS');
 
     this.transporter = createTransport({
-      host: config.get<string>('SMTP_HOST'),
-      // Env values are strings: Number() for the port, and an explicit
-      // comparison for secure because the string "false" is truthy.
-      port: Number(config.get<string>('SMTP_PORT')),
-      secure: config.get<string>('SMTP_SECURE') === 'true',
-      ...(user ? { auth: { user, pass } } : {}),
+      host,
+      port,
+      secure,
+      ...(user ? { auth: { user, pass: pass ?? '' } } : {}),
       // nodemailer's defaults (2min / 30s / 10min) would let a hung relay hold
       // an awaited HTTP request open for minutes.
       connectionTimeout: 5000,
@@ -301,7 +326,7 @@ export class MailService {
 npm test -- mail.service
 ```
 
-Expected: PASS, 7 passed.
+Expected: PASS, 13 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -400,7 +425,7 @@ Add this method as the last member of the class, after the constructor:
 npm test -- mail.service
 ```
 
-Expected: PASS, 9 passed.
+Expected: PASS, 15 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -545,7 +570,7 @@ function maskAddress(address: string): string {
 npm test -- mail.service
 ```
 
-Expected: PASS, 15 passed.
+Expected: PASS, 21 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -826,7 +851,7 @@ git commit -m "test(mail): assert the app boots with an unreachable SMTP relay"
 
 ## Done when
 
-- `npm test` is green, 15 mail unit tests included.
+- `npm test` is green, 21 mail unit tests included.
 - `npm run test:e2e -- mail-boot` is green.
 - `npm run mail:test -- <address>` delivers to Mailpit and exits 0; with `SMTP_PORT=1` it exits non-zero within a couple of seconds.
 - `npm run start:dev` logs `SMTP transport ready`.
