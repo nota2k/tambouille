@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { COVER_MAX_BYTES } from '../common/mime.constants';
 import { safeFetch } from '../common/safe-fetch';
 import { stripHtml } from '../common/strip-html';
 import {
@@ -32,6 +33,67 @@ function isAudioFormat(format: unknown): boolean {
   if (typeof format !== 'string') return false;
   const lower = format.toLowerCase();
   return AUDIO_FORMAT_HINTS.some((hint) => lower.includes(hint));
+}
+
+/** `format` values Archive.org uses for images, plus its own generated tile. */
+const IMAGE_FORMAT_HINTS = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'item tile'];
+
+/** Archive.org's generated square tile — a fallback, never a first choice. */
+const ITEM_TILE = '__ia_thumb.jpg';
+
+function isImageFormat(format: unknown): boolean {
+  if (typeof format !== 'string') return false;
+  const lower = format.toLowerCase();
+  return IMAGE_FORMAT_HINTS.some((hint) => lower.includes(hint));
+}
+
+function downloadUrl(identifier: string, fileName: string): string {
+  return `https://archive.org/download/${encodeURIComponent(identifier)}/${encodeURIComponent(fileName)}`;
+}
+
+/**
+ * The item's cover, or undefined when it has none worth using.
+ *
+ * Every audio item on Archive.org is full of images that are not covers: one
+ * PNG spectrogram per track, plus a thumbnail beside every uploaded photo.
+ * Both are derivatives and say so in `original` — a spectrogram points at an
+ * audio file, a thumbnail at the image it shrank. Taking anything with an
+ * `original` out of the running leaves the genuine uploads and the tile.
+ *
+ * The tile (`__ia_thumb.jpg`) is Archive.org's own square crop, around 9 kB.
+ * It works, but it is small enough to look poor at cover size, so it is the
+ * fallback rather than the pick.
+ *
+ * An image over `COVER_MAX_BYTES` is skipped rather than chosen: `fetchCover`
+ * would refuse it, and since the cover import is best-effort the mix would end
+ * up with no cover at all while a usable one sat in the same item.
+ */
+export function pickCoverUrl(
+  identifier: string,
+  payload: unknown,
+): string | undefined {
+  const files = isRecord(payload) && Array.isArray(payload.files) ? payload.files : [];
+
+  const candidates = files.filter(
+    (file): file is Record<string, unknown> =>
+      isRecord(file) &&
+      typeof file.name === 'string' &&
+      isImageFormat(file.format) &&
+      // A derivative: a spectrogram of a track, or a thumbnail of a photo.
+      file.original === undefined &&
+      !oversized(file.size),
+  );
+
+  const uploaded = candidates.find((file) => file.name !== ITEM_TILE);
+  const chosen = uploaded ?? candidates.find((file) => file.name === ITEM_TILE);
+
+  return chosen ? downloadUrl(identifier, chosen.name as string) : undefined;
+}
+
+function oversized(size: unknown): boolean {
+  if (typeof size !== 'string') return false;
+  const bytes = Number(size);
+  return Number.isFinite(bytes) && bytes > COVER_MAX_BYTES;
 }
 
 function formatRank(format: unknown): number {
@@ -93,6 +155,10 @@ export function parseArchiveItem(
     }
   }
 
+  // The cover belongs to the item, not the track, so every entry carries it —
+  // otherwise the picker is a wall of grey squares for a whole concert.
+  const coverUrl = pickCoverUrl(identifier, payload);
+
   return [...groups.values()].map((file) => {
     const title = file.title;
     return {
@@ -102,6 +168,7 @@ export function parseArchiveItem(
           ? title.trim()
           : (file.name as string),
       durationSec: parseLength(file.length),
+      coverUrl,
     };
   });
 }
@@ -170,6 +237,7 @@ export class ArchiveImporter implements SourceImporter {
       // Le nom du créateur rejoint les tags : le mix appartiendra au compte
       // Tambouille qui l'importe, donc sans ça plus rien ne dit de qui il est.
       tags: creator ? [creator] : [],
+      coverSourceUrl: item.coverUrl,
       durationSec: item.durationSec,
       tracklist: [],
       sourceType: 'remote',
