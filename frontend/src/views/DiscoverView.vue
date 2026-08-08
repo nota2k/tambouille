@@ -5,7 +5,7 @@ import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { mediaUrl } from '@/utils/media'
 import MixListItem from '@/components/MixListItem.vue'
-import MixSlider from '@/components/MixSlider.vue'
+import MixCard from '@/components/MixCard.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
 import type { Mix, MixListResponse, AuthorSummary } from '@/types'
 
@@ -233,12 +233,14 @@ onMounted(loadSections)
     </template>
 
     <template v-else>
-      <section class="mb-10 bg-tambouille-action p-6">
-        <h2 class="mb-4 text-lg font-semibold">Derniers uploads</h2>
+      <section class="mb-10 bg-tambouille-action py-6 px-12">
+        <h2 class="mb-4 text-tambouille-clamp-big text-tambouille-white font-semibold">Derniers uploads</h2>
         <div v-if="latestMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Aucun mix trouvé. Sois le premier à en uploader un !
         </div>
-        <MixSlider v-else :mixes="latestMixes" />
+        <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <MixCard v-for="mix in latestMixes.slice(0, 3)" :key="mix.id" :mix="mix" landscape />
+        </div>
       </section>
 
       <section v-if="authStore.isAuthenticated" class="mb-10">
