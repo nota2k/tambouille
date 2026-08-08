@@ -15,6 +15,10 @@ jest.mock('../common/upload.utils', () => ({
   fileFilterFor: () => () => undefined,
   fileFilterByField: () => () => undefined,
   putBufferToR2: jest.fn(),
+  // Imported by `mixes.service`, which this file pulls in for
+  // `assertExactlyOneAudioSource`. Absent from the mock, it would be
+  // `undefined` and only blow up the day someone adds a delete test here.
+  deleteFromR2: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { MixesController } from './mixes.controller';
