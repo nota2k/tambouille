@@ -124,3 +124,26 @@ export interface AuthResponse {
   accessToken: string
   user: AuthUser
 }
+
+export interface MixcloudCloudcastSummary {
+  key: string
+  name: string
+  tags: string[]
+  pictureUrl?: string
+  audioLengthSec?: number
+  createdAt?: string
+}
+
+export interface MixcloudTracklistEntry {
+  artist: string
+  title: string
+  timecodeSec: number
+}
+
+export interface MixcloudCloudcastImport {
+  title: string
+  description: string
+  tags: string[]
+  coverSourceUrl?: string
+  tracklist: MixcloudTracklistEntry[]
+}

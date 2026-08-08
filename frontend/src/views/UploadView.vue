@@ -6,7 +6,7 @@ import { formatTime } from '@/utils/time'
 import { buildTracklist, type TrackRow } from '@/utils/tracklist'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
-import type { Mix } from '@/types'
+import type { Mix, MixcloudCloudcastImport, MixcloudCloudcastSummary } from '@/types'
 
 const router = useRouter()
 
@@ -22,6 +22,57 @@ const trackRows = ref<TrackRow[]>([{ timecode: '', artist: '', title: '' }])
 const uploading = ref(false)
 const progress = ref(0)
 const error = ref('')
+
+// Mixcloud import: a starting point that pre-fills the form below. The user
+// still picks the audio file and can edit everything before publishing.
+const mixcloudUsername = ref('')
+const mixcloudLoading = ref(false)
+const mixcloudError = ref('')
+const mixcloudMixes = ref<MixcloudCloudcastSummary[]>([])
+const mixcloudImportingKey = ref<string | null>(null)
+const coverSourceUrl = ref<string | null>(null)
+
+async function fetchMixcloudMixes() {
+  const username = mixcloudUsername.value.trim()
+  if (!username || mixcloudLoading.value) return
+
+  mixcloudLoading.value = true
+  mixcloudError.value = ''
+  mixcloudMixes.value = []
+
+  try {
+    const { data } = await apiClient.get<MixcloudCloudcastSummary[]>(`/mixcloud/${encodeURIComponent(username)}/cloudcasts`)
+    mixcloudMixes.value = data
+    if (data.length === 0) mixcloudError.value = 'Aucun mix trouvé pour ce compte Mixcloud.'
+  } catch (err: any) {
+    mixcloudError.value = err.response?.data?.message ?? 'Impossible de récupérer les mixes Mixcloud'
+  } finally {
+    mixcloudLoading.value = false
+  }
+}
+
+async function importMixcloudMix(mix: MixcloudCloudcastSummary) {
+  if (mixcloudImportingKey.value) return
+
+  mixcloudImportingKey.value = mix.key
+  mixcloudError.value = ''
+
+  try {
+    const { data } = await apiClient.get<MixcloudCloudcastImport>('/mixcloud/cloudcast', { params: { key: mix.key } })
+    title.value = data.title
+    description.value = data.description
+    tags.value = data.tags.join(', ')
+    trackRows.value =
+      data.tracklist.length > 0
+        ? data.tracklist.map((entry) => ({ timecode: formatTime(entry.timecodeSec), artist: entry.artist, title: entry.title }))
+        : [{ timecode: '', artist: '', title: '' }]
+    coverSourceUrl.value = data.coverSourceUrl ?? null
+  } catch (err: any) {
+    mixcloudError.value = err.response?.data?.message ?? "Impossible d'importer ce mix"
+  } finally {
+    mixcloudImportingKey.value = null
+  }
+}
 
 function onAudioChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0] ?? null
@@ -67,6 +118,7 @@ async function onSubmit() {
   if (tracklist.entries.length > 0) formData.append('tracklist', JSON.stringify(tracklist.entries))
   formData.append('audio', audioFile.value)
   if (coverFile.value) formData.append('cover', coverFile.value)
+  if (coverSourceUrl.value) formData.append('coverSourceUrl', coverSourceUrl.value)
 
   try {
     const { data } = await apiClient.post<Mix>('/mixes', formData, {
@@ -87,6 +139,57 @@ async function onSubmit() {
 <template>
   <div class="mx-auto max-w-2xl px-4 py-8">
     <h1 class="mb-6 text-tambouille-title-big font-bold">Uploader un mix</h1>
+
+    <div class="mb-8 rounded-lg border border-tambouille-border bg-tambouille-surface p-4">
+      <h2 class="mb-1 text-sm font-semibold">Importer depuis Mixcloud</h2>
+      <p class="mb-3 text-xs text-tambouille-muted">
+        Seuls le titre, la description, les tags, la tracklist et la pochette sont importés.
+        L'audio n'est pas récupéré automatiquement : vous devrez choisir le fichier audio vous-même ci-dessous.
+      </p>
+
+      <div class="flex gap-2">
+        <input
+          v-model="mixcloudUsername"
+          type="text"
+          placeholder="Nom d'utilisateur Mixcloud"
+          class="w-full rounded-lg border border-tambouille-border bg-tambouille-bg px-3 py-2 outline-none focus:border-tambouille-accent"
+          @keyup.enter="fetchMixcloudMixes"
+        />
+        <button
+          type="button"
+          :disabled="mixcloudLoading || !mixcloudUsername.trim()"
+          class="shrink-0 rounded-full bg-tambouille-accent px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+          @click="fetchMixcloudMixes"
+        >
+          {{ mixcloudLoading ? 'Recherche...' : 'Rechercher' }}
+        </button>
+      </div>
+
+      <p v-if="mixcloudError" class="mt-2 text-sm text-red-400">{{ mixcloudError }}</p>
+
+      <ul v-if="mixcloudMixes.length > 0" class="mt-3 max-h-96 space-y-2 overflow-y-auto">
+        <li v-for="mix in mixcloudMixes" :key="mix.key">
+          <button
+            type="button"
+            :disabled="mixcloudImportingKey !== null"
+            class="flex w-full items-center gap-3 rounded-lg border border-tambouille-border p-2 text-left hover:bg-tambouille-surface-hover disabled:opacity-50"
+            @click="importMixcloudMix(mix)"
+          >
+            <img v-if="mix.pictureUrl" :src="mix.pictureUrl" class="h-12 w-12 shrink-0 rounded object-cover" alt="" />
+            <div v-else class="h-12 w-12 shrink-0 rounded bg-tambouille-surface-hover" />
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">{{ mix.name }}</p>
+              <p class="truncate text-xs text-tambouille-muted">
+                <span v-if="mix.tags.length > 0">{{ mix.tags.join(', ') }}</span>
+                <span v-if="mix.tags.length > 0 && mix.audioLengthSec"> · </span>
+                <span v-if="mix.audioLengthSec">{{ formatTime(mix.audioLengthSec) }}</span>
+              </p>
+            </div>
+            <span v-if="mixcloudImportingKey === mix.key" class="shrink-0 text-xs text-tambouille-muted">Import...</span>
+          </button>
+        </li>
+      </ul>
+    </div>
 
     <form class="space-y-5" @submit.prevent="onSubmit">
       <div>
