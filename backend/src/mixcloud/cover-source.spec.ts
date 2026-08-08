@@ -19,12 +19,36 @@ function imageResponse(body: Buffer, contentType = 'image/jpeg', extraHeaders: R
   });
 }
 
+/**
+ * An image response whose headers have landed but whose body never yields a
+ * byte. The size cap cannot save the request from this — a stalled body sends
+ * nothing to count — so only the deadline can, and only if it is still armed.
+ */
+function stalledBodyResponse(signal: AbortSignal): Response {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      signal.addEventListener('abort', () => {
+        controller.error(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+      });
+    },
+  });
+
+  return new Response(body, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+}
+
+/** Comfortably past COVER_FETCH_TIMEOUT_MS. */
+const PAST_THE_DEADLINE_MS = 30_000;
+
 describe('the Mixcloud cover guard', () => {
   let fetchMock: jest.Mock;
 
   beforeEach(() => {
     fetchMock = jest.fn().mockResolvedValue(imageResponse(Buffer.from('jpegbytes')));
     global.fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   afterAll(() => {
@@ -143,6 +167,29 @@ describe('the Mixcloud cover guard', () => {
     it('turns a refused redirect into a 502', async () => {
       fetchMock.mockRejectedValue(new TypeError('fetch failed: unexpected redirect'));
       await expect(fetchMixcloudCover(VALID_COVER_URL)).rejects.toBeInstanceOf(BadGatewayException);
+    });
+
+    /**
+     * The deadline has to outlive the headers. If it is cleared as soon as
+     * `fetch` resolves, the body is read on a signal nothing can fire any
+     * more, and a host that answers and then stops sending holds the request
+     * open for as long as it likes.
+     */
+    it('aborts a body that stalls after the headers have arrived', async () => {
+      jest.useFakeTimers();
+      let signal: AbortSignal | undefined;
+      fetchMock.mockImplementation(async (_url: string, options: RequestInit) => {
+        signal = options.signal as AbortSignal;
+        return stalledBodyResponse(signal);
+      });
+
+      // The assertion is attached before the clock moves so the rejection it
+      // is waiting for is never an unhandled one.
+      const settled = expect(fetchMixcloudCover(VALID_COVER_URL)).rejects.toBeInstanceOf(BadGatewayException);
+      await jest.advanceTimersByTimeAsync(PAST_THE_DEADLINE_MS);
+
+      expect(signal?.aborted).toBe(true);
+      await settled;
     });
   });
 });

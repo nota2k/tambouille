@@ -85,6 +85,13 @@ function onCoverChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0] ?? null
   coverFile.value = file
   coverPreview.value = file ? URL.createObjectURL(file) : null
+  // A file the user picked always wins over the cover an import attached, and
+  // the imported one is dropped rather than left waiting silently behind it.
+  if (file) coverSourceUrl.value = null
+}
+
+function removeImportedCover() {
+  coverSourceUrl.value = null
 }
 
 function onCapture(seconds: number) {
@@ -252,6 +259,21 @@ async function onSubmit() {
           @change="onCoverChange"
         />
         <img v-if="coverPreview" :src="coverPreview" class="mt-3 h-32 w-32 rounded-lg object-cover" alt="" />
+        <div v-else-if="coverSourceUrl" class="mt-3 flex items-start gap-3">
+          <img :src="coverSourceUrl" class="h-32 w-32 shrink-0 rounded-lg object-cover" alt="" />
+          <div class="min-w-0">
+            <p class="text-xs text-tambouille-muted">
+              Pochette importée depuis Mixcloud. Choisissez un fichier ci-dessus pour la remplacer.
+            </p>
+            <button
+              type="button"
+              class="mt-2 rounded-full border border-tambouille-border px-3 py-1 text-xs font-semibold hover:bg-tambouille-surface-hover"
+              @click="removeImportedCover"
+            >
+              Retirer la pochette importée
+            </button>
+          </div>
+        </div>
       </div>
 
       <p v-if="error" class="text-sm text-red-400">{{ error }}</p>

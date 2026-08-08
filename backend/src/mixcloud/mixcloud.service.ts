@@ -107,10 +107,11 @@ export function parseSections(sections: unknown): TracklistEntry[] {
   for (const section of sections) {
     if (!isRecord(section)) continue;
 
-    // A chapter marker names a passage of the mix, not a track.
+    // A `chapter` names a passage of the mix rather than a track, but naming
+    // one does not stop a section from also carrying a track: only sections
+    // carrying *nothing but* a chapter are skipped, and they are skipped by
+    // the artist/title test below, which they cannot satisfy.
     const track = isRecord(section.track) ? section.track : undefined;
-    if (section.chapter !== undefined && !track) continue;
-
     const source: Record<string, unknown> = track ?? section;
 
     const artist = readName(source.artist) ?? readName(source.artist_name);
@@ -157,7 +158,7 @@ export function toCloudcastImport(raw: unknown): CloudcastImport {
 export class MixcloudService {
   async listCloudcasts(username: string): Promise<CloudcastSummary[]> {
     if (!USERNAME_PATTERN.test(username)) {
-      throw new BadRequestException('Invalid Mixcloud username');
+      throw new BadRequestException("Nom d'utilisateur Mixcloud invalide");
     }
 
     const payload = await this.getJson(`${MIXCLOUD_API_BASE}/${username}/cloudcasts/?limit=50`);
@@ -167,7 +168,7 @@ export class MixcloudService {
 
   async getCloudcast(key: string): Promise<CloudcastImport> {
     if (!KEY_PATTERN.test(key)) {
-      throw new BadRequestException('Invalid Mixcloud cloudcast key');
+      throw new BadRequestException('Identifiant de mix Mixcloud invalide');
     }
 
     // `%C3` on its own satisfies the pattern — it is a well-formed escape of
@@ -177,7 +178,7 @@ export class MixcloudService {
     try {
       decodeURIComponent(key);
     } catch {
-      throw new BadRequestException('Invalid Mixcloud cloudcast key');
+      throw new BadRequestException('Identifiant de mix Mixcloud invalide');
     }
 
     const payload = await this.getJson(`${MIXCLOUD_API_BASE}${key}`);
@@ -188,34 +189,45 @@ export class MixcloudService {
    * A missing account or mix stays a 404; anything else upstream — an error
    * status, a transport failure, a timeout, unreadable JSON — becomes a 502,
    * so the caller can tell "no such Mixcloud account" from "Mixcloud is down".
+   *
+   * The deadline is cleared in a `finally` around the whole exchange rather
+   * than around `fetch` alone: clearing it once the headers land would leave
+   * `response.json()` reading on a dead signal with no deadline, so a host that
+   * answers and then stalls the body would hold the request open indefinitely.
    */
   private async getJson(url: string): Promise<unknown> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    let response: Response;
     try {
-      response = await fetch(url, {
-        signal: controller.signal,
-        headers: { accept: 'application/json' },
-      });
-    } catch {
-      throw new BadGatewayException('Could not reach Mixcloud');
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          signal: controller.signal,
+          // Same reasoning as the cover fetch: a 3xx from Mixcloud could point
+          // anywhere, including back inside the network, and the body of what
+          // it points at would be relayed to the caller verbatim.
+          redirect: 'error',
+          headers: { accept: 'application/json' },
+        });
+      } catch {
+        throw new BadGatewayException('Mixcloud est injoignable');
+      }
+
+      if (response.status === 404) {
+        throw new NotFoundException("Ce compte ou ce mix Mixcloud n'existe pas");
+      }
+      if (!response.ok) {
+        throw new BadGatewayException(`Mixcloud a répondu ${response.status}`);
+      }
+
+      try {
+        return await response.json();
+      } catch {
+        throw new BadGatewayException('Réponse illisible de Mixcloud');
+      }
     } finally {
       clearTimeout(timer);
-    }
-
-    if (response.status === 404) {
-      throw new NotFoundException('No such Mixcloud account or mix');
-    }
-    if (!response.ok) {
-      throw new BadGatewayException(`Mixcloud returned ${response.status}`);
-    }
-
-    try {
-      return await response.json();
-    } catch {
-      throw new BadGatewayException('Mixcloud returned an unreadable response');
     }
   }
 }

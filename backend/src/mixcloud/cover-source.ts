@@ -1,4 +1,4 @@
-import { BadGatewayException, BadRequestException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, HttpException } from '@nestjs/common';
 import { COVER_MAX_BYTES, IMAGE_EXTENSIONS, IMAGE_MIME_TYPES } from '../common/mime.constants';
 
 /**
@@ -32,16 +32,16 @@ export function assertMixcloudCoverUrl(rawUrl: string): URL {
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new BadRequestException('coverSourceUrl must be a valid URL');
+    throw new BadRequestException("L'URL de la pochette est invalide");
   }
 
   if (url.protocol !== 'https:') {
-    throw new BadRequestException('coverSourceUrl must use https');
+    throw new BadRequestException("L'URL de la pochette doit utiliser https");
   }
 
   const hostname = url.hostname.toLowerCase();
   if (!hostname.endsWith(MIXCLOUD_HOST_SUFFIX)) {
-    throw new BadRequestException('coverSourceUrl must be hosted on mixcloud.com');
+    throw new BadRequestException("L'URL de la pochette doit être hébergée sur mixcloud.com");
   }
 
   return url;
@@ -51,7 +51,7 @@ export function assertMixcloudCoverUrl(rawUrl: string): URL {
 async function readCappedBody(response: Response): Promise<Buffer> {
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new BadGatewayException('Mixcloud returned an empty cover image');
+    throw new BadGatewayException('Mixcloud a renvoyé une pochette vide');
   }
 
   const chunks: Buffer[] = [];
@@ -63,7 +63,7 @@ async function readCappedBody(response: Response): Promise<Buffer> {
     total += value.byteLength;
     if (total > COVER_MAX_BYTES) {
       await reader.cancel().catch(() => undefined);
-      throw new BadRequestException('Cover image is larger than the allowed size');
+      throw new BadRequestException('La pochette dépasse la taille autorisée');
     }
     chunks.push(Buffer.from(value));
   }
@@ -71,42 +71,60 @@ async function readCappedBody(response: Response): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-/** Validates `rawUrl`, fetches it from Mixcloud's CDN and returns the image bytes. */
+/**
+ * Validates `rawUrl`, fetches it from Mixcloud's CDN and returns the image bytes.
+ *
+ * The deadline is cleared in a `finally` around the *whole* exchange, not just
+ * around `fetch`. Clearing it once the headers land would leave the body read
+ * running on a dead signal with no deadline at all, so a host that answers and
+ * then stops sending would hold the request open for as long as it liked — and
+ * the size cap would never trip, because a stalled body sends no bytes to count.
+ */
 export async function fetchMixcloudCover(rawUrl: string): Promise<FetchedCover> {
   const url = assertMixcloudCoverUrl(rawUrl);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), COVER_FETCH_TIMEOUT_MS);
 
-  let response: Response;
   try {
-    response = await fetch(url.toString(), {
-      signal: controller.signal,
-      // A redirect could point anywhere, including back inside the network:
-      // refuse rather than follow one out of the fence checked above.
-      redirect: 'error',
-    });
-  } catch {
-    throw new BadGatewayException('Could not fetch the cover image from Mixcloud');
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        signal: controller.signal,
+        // A redirect could point anywhere, including back inside the network:
+        // refuse rather than follow one out of the fence checked above.
+        redirect: 'error',
+      });
+    } catch {
+      throw new BadGatewayException('Impossible de récupérer la pochette depuis Mixcloud');
+    }
+
+    if (!response.ok) {
+      throw new BadGatewayException(`Mixcloud a répondu ${response.status} pour la pochette`);
+    }
+
+    const contentType = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+    if (!IMAGE_MIME_TYPES.includes(contentType)) {
+      throw new BadRequestException(`Type de pochette non pris en charge : ${contentType || 'inconnu'}`);
+    }
+
+    const declaredLength = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > COVER_MAX_BYTES) {
+      throw new BadRequestException('La pochette dépasse la taille autorisée');
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = await readCappedBody(response);
+    } catch (err) {
+      // The size cap and the empty-body case already say what went wrong; a
+      // torn or aborted stream is an upstream failure like any other.
+      if (err instanceof HttpException) throw err;
+      throw new BadGatewayException('Impossible de récupérer la pochette depuis Mixcloud');
+    }
+
+    return { buffer, contentType, extension: IMAGE_EXTENSIONS[contentType] };
   } finally {
     clearTimeout(timer);
   }
-
-  if (!response.ok) {
-    throw new BadGatewayException(`Mixcloud returned ${response.status} for the cover image`);
-  }
-
-  const contentType = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
-  if (!IMAGE_MIME_TYPES.includes(contentType)) {
-    throw new BadRequestException(`Unsupported cover image type: ${contentType || 'unknown'}`);
-  }
-
-  const declaredLength = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declaredLength) && declaredLength > COVER_MAX_BYTES) {
-    throw new BadRequestException('Cover image is larger than the allowed size');
-  }
-
-  const buffer = await readCappedBody(response);
-
-  return { buffer, contentType, extension: IMAGE_EXTENSIONS[contentType] };
 }

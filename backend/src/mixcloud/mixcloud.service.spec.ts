@@ -22,6 +22,26 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+/**
+ * A response whose headers have landed but whose body never yields a byte —
+ * the shape a host takes to hold a request open. The stream only ever ends if
+ * the request's own deadline aborts it, which is exactly what is under test.
+ */
+function stalledBodyResponse(signal: AbortSignal): Response {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      signal.addEventListener('abort', () => {
+        controller.error(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+      });
+    },
+  });
+
+  return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
+}
+
+/** Comfortably past the service's own REQUEST_TIMEOUT_MS. */
+const PAST_THE_DEADLINE_MS = 30_000;
+
 function cloudcastFixture(overrides: Record<string, unknown> = {}) {
   return {
     key: '/Notamusic/vorwerk-7-passages-pas-sages/',
@@ -52,6 +72,10 @@ describe('MixcloudService', () => {
     fetchMock = jest.fn().mockResolvedValue(jsonResponse({ data: [cloudcastFixture()] }));
     global.fetch = fetchMock as unknown as typeof fetch;
     service = new MixcloudService();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   afterAll(() => {
@@ -248,6 +272,50 @@ describe('MixcloudService', () => {
       await service.listCloudcasts('Notamusic');
       expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
     });
+
+    /**
+     * The deadline has to outlive the headers. If it is cleared as soon as
+     * `fetch` resolves, `response.json()` reads on a signal nothing can fire
+     * any more, and a host that answers and then stops sending holds the
+     * request open for as long as it likes.
+     */
+    it('aborts a body that stalls after the headers have arrived', async () => {
+      jest.useFakeTimers();
+      let signal: AbortSignal | undefined;
+      fetchMock.mockImplementation(async (_url: string, options: RequestInit) => {
+        signal = options.signal as AbortSignal;
+        return stalledBodyResponse(signal);
+      });
+
+      // The assertion is attached before the clock moves so the rejection it
+      // is waiting for is never an unhandled one.
+      const settled = expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(BadGatewayException);
+      await jest.advanceTimersByTimeAsync(PAST_THE_DEADLINE_MS);
+
+      expect(signal?.aborted).toBe(true);
+      await settled;
+    });
+
+    /**
+     * A 3xx from `api.mixcloud.com` could name any host, including one inside
+     * the network, and the relay hands the body it receives back to the
+     * caller — so the hop is refused rather than followed. The mock honours
+     * `redirect` the way the real `fetch` does: refuse and it throws, follow
+     * and the caller gets whatever answered at the other end.
+     */
+    it('asks fetch to refuse redirects', async () => {
+      await service.listCloudcasts('Notamusic');
+      expect(fetchMock.mock.calls[0][1].redirect).toBe('error');
+    });
+
+    it('turns a redirect into a 502 instead of relaying what it points at', async () => {
+      fetchMock.mockImplementation(async (_url: string, options: RequestInit) => {
+        if (options.redirect === 'error') throw new TypeError('fetch failed: unexpected redirect');
+        return jsonResponse({ data: [cloudcastFixture({ name: 'internal metadata' })] });
+      });
+
+      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(BadGatewayException);
+    });
   });
 });
 
@@ -293,6 +361,23 @@ describe('parseSections', () => {
         { artist: 'Cerrone', song: 'Supernature', start_time: 60 },
       ]),
     ).toEqual([{ artist: 'Cerrone', title: 'Supernature', timecodeSec: 60 }]);
+  });
+
+  /**
+   * Only sections carrying *nothing but* a chapter are skipped. Naming a
+   * passage of the mix does not stop a section from also naming the track
+   * playing in it, and dropping those would lose importable entries.
+   */
+  it('keeps a section that names a chapter alongside a usable track', () => {
+    expect(
+      parseSections([
+        { chapter: 'Intro', artist: 'Cerrone', song: 'Supernature', start_time: 0 },
+        { chapter: 'Peak time', start_time: 600, track: { artist: 'Daft Punk', name: 'One More Time' } },
+      ]),
+    ).toEqual([
+      { artist: 'Cerrone', title: 'Supernature', timecodeSec: 0 },
+      { artist: 'Daft Punk', title: 'One More Time', timecodeSec: 600 },
+    ]);
   });
 
   it('drops an entry missing its artist rather than importing half of it', () => {
