@@ -3,8 +3,5 @@ dist
 # Keep environment variables out of version control
 .env
 
+uploads
 /generated/prisma
-
-# Uploaded user content (audio, covers, avatars)
-/uploads/*
-!/uploads/**/.gitkeep
