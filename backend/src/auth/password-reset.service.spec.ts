@@ -77,12 +77,26 @@ describe('PasswordResetService', () => {
   }
 
   describe('forgot', () => {
+    // Fake timers throughout, so the fixed response floor costs the suite
+    // nothing. The one test that has to observe the floor really elapsing
+    // lives outside this block, on real timers.
     beforeEach(() => {
-      prisma.passwordResetToken.findFirst.mockResolvedValue(null); // no live token
+      jest.useFakeTimers();
       prisma.passwordResetToken.create.mockImplementation(({ data }: { data: unknown }) =>
         Promise.resolve({ id: 't1', ...(data as object) }),
       );
     });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    /** Runs `forgot` to completion, stepping the clock past the floor. */
+    async function forgotNow(email: string, callerIp?: string): Promise<void> {
+      const call = service.forgot(email, callerIp);
+      await jest.advanceTimersByTimeAsync(RESPONSE_FLOOR_MS);
+      return call;
+    }
 
     // The property the whole endpoint is built around. Everything else about
     // this flow can be rebuilt; if this breaks, the form becomes a way of
@@ -94,7 +108,7 @@ describe('PasswordResetService', () => {
       // `resolves` is the assertion that matters: no thrown 404, no rejection
       // of any kind, so the controller's 204 is the same 204 a registered
       // address gets.
-      await expect(service.forgot('inconnu@example.com', '203.0.113.1')).resolves.toBeUndefined();
+      await expect(forgotNow('inconnu@example.com', '203.0.113.1')).resolves.toBeUndefined();
 
       expect(mailer.send).not.toHaveBeenCalled();
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
@@ -102,10 +116,10 @@ describe('PasswordResetService', () => {
 
     it('resolves identically for a registered and an unregistered address', async () => {
       prisma.user.findFirst.mockResolvedValue(USER);
-      const known = await service.forgot('nelly@example.com', '203.0.113.1');
+      const known = await forgotNow('nelly@example.com', '203.0.113.1');
 
       prisma.user.findFirst.mockResolvedValue(null);
-      const unknown = await service.forgot('personne@example.com', '203.0.113.2');
+      const unknown = await forgotNow('personne@example.com', '203.0.113.2');
 
       // Same value, and neither threw — the two cases are indistinguishable
       // from outside.
