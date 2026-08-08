@@ -26,6 +26,12 @@ const router = createRouter({
       component: () => import('@/views/PlaylistDetailView.vue'),
     },
     {
+      path: '/bienvenue',
+      name: 'choose-username',
+      component: () => import('@/views/ChooseUsernameView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
@@ -75,6 +81,18 @@ router.beforeEach((to) => {
 
   if (to.meta.guestOnly && authStore.isAuthenticated) {
     return { name: 'discover' }
+  }
+
+  // An account created through Google has no username until it picks one.
+  // Nothing else is reachable until then: without a handle it has no public
+  // profile, and its uploads could not be attributed.
+  if (
+    authStore.isAuthenticated &&
+    authStore.user &&
+    !authStore.user.username &&
+    to.name !== 'choose-username'
+  ) {
+    return { name: 'choose-username' }
   }
 })
 

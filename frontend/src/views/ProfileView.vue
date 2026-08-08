@@ -147,7 +147,20 @@ async function toggleFollow() {
     // Keep the followers list in sync with the count shown next to it.
     if (authStore.user) {
       if (profile.value.isFollowing) {
-        followers.value = [authStore.user, ...followers.value]
+        // A null username means no public profile yet, so this account cannot
+        // actually be following anyone (the router guard blocks it beforehand);
+        // guard anyway so the type holds honestly.
+        if (authStore.user.username) {
+          followers.value = [
+            {
+              id: authStore.user.id,
+              username: authStore.user.username,
+              displayName: authStore.user.displayName,
+              avatarUrl: authStore.user.avatarUrl,
+            },
+            ...followers.value,
+          ]
+        }
       } else {
         followers.value = followers.value.filter((u) => u.id !== authStore.user!.id)
       }

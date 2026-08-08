@@ -198,7 +198,7 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
               @mouseleave="menuOpen = false"
             >
               <RouterLink
-                v-if="authStore.user"
+                v-if="authStore.user?.username"
                 :to="{ name: 'profile', params: { username: authStore.user.username } }"
                 class="block px-4 py-2 text-sm hover:bg-tambouille-surface-hover"
                 @click="menuOpen = false"

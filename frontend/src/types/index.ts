@@ -110,7 +110,7 @@ export interface PlaylistListResponse {
 export interface AuthUser {
   id: string
   email: string
-  username: string
+  username: string | null
   displayName: string
   bio: string | null
   avatarUrl: string | null
