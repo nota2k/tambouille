@@ -245,11 +245,33 @@ export class MixesService {
     await this.prisma.mix.delete({ where: { id } });
   }
 
+  /**
+   * `playsCount` counts plays that happened *on Tambouille*. A Mixcloud-hosted mix is
+   * streamed by Mixcloud — that is the whole point of importing one — and its play count
+   * lives there, which is why the UI never shows one for it. Counting those plays anyway
+   * would leave an invisible number ranking `sort=plays` and the following feed, so the
+   * increment is skipped here rather than in the client: the endpoint is public, and the
+   * rule has to hold whatever any client does with it.
+   *
+   * The listen still enters the user's own play history. That list is "what did *I* play
+   * recently", a personal trail rather than a public score, and dropping Mixcloud mixes
+   * from it would only make it lie about the user's own listening.
+   */
   async registerPlay(id: string, userId?: string) {
-    await this.prisma.mix.update({
+    const mix = await this.prisma.mix.findUnique({
       where: { id },
-      data: { playsCount: { increment: 1 } },
+      select: { mixcloudKey: true },
     });
+    if (!mix) {
+      throw new NotFoundException('Mix not found');
+    }
+
+    if (!mix.mixcloudKey) {
+      await this.prisma.mix.update({
+        where: { id },
+        data: { playsCount: { increment: 1 } },
+      });
+    }
 
     if (userId) {
       await this.prisma.playHistory.upsert({

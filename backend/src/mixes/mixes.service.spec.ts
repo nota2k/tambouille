@@ -15,6 +15,9 @@ function createPrismaMock() {
       create: jest.fn(),
       update: jest.fn(),
     },
+    playHistory: {
+      upsert: jest.fn(),
+    },
   };
 }
 
@@ -149,6 +152,58 @@ describe('MixesService', () => {
       await expect(service.update(MIX_ID, USER_ID, { mixcloudKey: MIXCLOUD_KEY })).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  /**
+   * `playsCount` is Tambouille's own number and it drives public ordering —
+   * `sort=plays` on Discover, and the following feed. A Mixcloud-hosted mix is
+   * streamed by Mixcloud, so its plays belong to Mixcloud's counter and the UI
+   * never shows one for it. Counting them here would leave an invisible number
+   * ranking those lists, so the endpoint itself refuses to move the counter —
+   * not the client, which anyone can bypass by POSTing the public route.
+   */
+  describe('registerPlay — only a Tambouille-hosted play counts', () => {
+    it('increments the count for a mix whose audio Tambouille serves', async () => {
+      prisma.mix.findUnique.mockResolvedValue({ mixcloudKey: null });
+
+      await service.registerPlay(MIX_ID);
+
+      expect(prisma.mix.update).toHaveBeenCalledWith({
+        where: { id: MIX_ID },
+        data: { playsCount: { increment: 1 } },
+      });
+    });
+
+    it('leaves the count alone for a Mixcloud-hosted mix', async () => {
+      prisma.mix.findUnique.mockResolvedValue({ mixcloudKey: MIXCLOUD_KEY });
+
+      await service.registerPlay(MIX_ID);
+
+      // Not "no increment among other writes": no write to the mix row at all.
+      // The counter is the only thing this route may touch on it.
+      expect(prisma.mix.update).not.toHaveBeenCalled();
+    });
+
+    it('still records a Mixcloud-hosted play in the listener’s own history', async () => {
+      prisma.mix.findUnique.mockResolvedValue({ mixcloudKey: MIXCLOUD_KEY });
+
+      await service.registerPlay(MIX_ID, USER_ID);
+
+      // "What I played recently" is a personal trail, not a public score, and
+      // it would lie about the user's own listening if it skipped these.
+      expect(prisma.playHistory.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId_mixId: { userId: USER_ID, mixId: MIX_ID } } }),
+      );
+      expect(prisma.mix.update).not.toHaveBeenCalled();
+    });
+
+    it('reports a play on a mix that does not exist as missing', async () => {
+      prisma.mix.findUnique.mockResolvedValue(null);
+
+      await expect(service.registerPlay(MIX_ID, USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.mix.update).not.toHaveBeenCalled();
+      expect(prisma.playHistory.upsert).not.toHaveBeenCalled();
     });
   });
 });
