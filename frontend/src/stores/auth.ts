@@ -32,26 +32,16 @@ export const useAuthStore = defineStore('auth', {
       const { data } = await apiClient.post<AuthResponse>('/auth/google', { idToken })
       this.setSession(data)
     },
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7860251 (feat(auth): add the username selection screen for Google accounts)
     async setUsername(username: string) {
       const { data } = await apiClient.post<AuthUser>('/auth/username', { username })
       this.user = data
     },
 
-<<<<<<< HEAD
     async setPassword(password: string) {
       const { data } = await apiClient.post<AuthUser>('/auth/password', { password })
       this.user = data
     },
 
-=======
->>>>>>> 5b0accf (feat(auth): add the Google sign-in button)
-=======
->>>>>>> 7860251 (feat(auth): add the username selection screen for Google accounts)
     async fetchCurrentUser() {
       if (!this.accessToken) return
       const { data } = await apiClient.get<AuthUser>('/auth/me')

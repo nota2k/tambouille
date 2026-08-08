@@ -41,10 +41,6 @@ export class AuthController {
   setUsername(@CurrentUserId() userId: string, @Body() dto: SetUsernameDto) {
     return this.authService.setUsername(userId, dto.username);
   }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> f64cae1 (feat(auth): let a Google account define a password)
 
   @Post('password')
   @HttpCode(HttpStatus.OK)
@@ -52,9 +48,4 @@ export class AuthController {
   setPassword(@CurrentUserId() userId: string, @Body() dto: SetPasswordDto) {
     return this.authService.setPassword(userId, dto.password);
   }
-<<<<<<< HEAD
-=======
->>>>>>> 1b9ebde (feat(auth): let a pending account choose its username)
-=======
->>>>>>> f64cae1 (feat(auth): let a Google account define a password)
 }
