@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { MailerService } from '../mail/mailer.service';
+import { MailService } from '../mail/mail.service';
 import { SALT_ROUNDS } from './auth.service';
 
 /** 32 bytes from a CSPRNG, base64url-encoded — 43 characters, 256 bits. */
@@ -88,7 +88,10 @@ export class SlidingWindow {
     const now = Date.now();
 
     this.callsSinceSweep += 1;
-    if (this.callsSinceSweep >= SWEEP_EVERY_CALLS || this.hits.size >= this.maxKeys) {
+    if (
+      this.callsSinceSweep >= SWEEP_EVERY_CALLS ||
+      this.hits.size >= this.maxKeys
+    ) {
       this.sweep(now);
     }
 
@@ -165,7 +168,9 @@ export function callerIdentity(ip: string | undefined): string | null {
 
   const address = ip.trim().toLowerCase();
   // IPv4-mapped IPv6, the form Node hands back on a dual-stack socket.
-  const bare = address.startsWith('::ffff:') ? address.slice('::ffff:'.length) : address;
+  const bare = address.startsWith('::ffff:')
+    ? address.slice('::ffff:'.length)
+    : address;
 
   if (bare === '' || bare === '::' || bare === '::1' || bare === '0.0.0.0') {
     return null;
@@ -183,9 +188,17 @@ export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
 
   /** Per address: the mailbox being written to, whoever asks for it. */
-  private readonly perAddress = new SlidingWindow(3, 60 * 60 * 1000, MAX_TRACKED_KEYS);
+  private readonly perAddress = new SlidingWindow(
+    3,
+    60 * 60 * 1000,
+    MAX_TRACKED_KEYS,
+  );
   /** Per caller: one client walking a list of addresses. */
-  private readonly perCaller = new SlidingWindow(10, 60 * 60 * 1000, MAX_TRACKED_KEYS);
+  private readonly perCaller = new SlidingWindow(
+    10,
+    60 * 60 * 1000,
+    MAX_TRACKED_KEYS,
+  );
 
   /**
    * Deliveries still in flight. See `deliver` for why sending is not awaited;
@@ -197,7 +210,7 @@ export class PasswordResetService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mailer: MailerService,
+    private readonly mailer: MailService,
     private readonly config: ConfigService,
   ) {}
 
@@ -382,9 +395,12 @@ export class PasswordResetService {
    *   otherwise surface as a 500 — and a 500 that can only happen for a
    *   registered address answers the question just as plainly as a 404 would.
    *
-   * The cost is that a broken mailbox is silent to the user, so the log line
-   * below is the only signal; it carries the underlying message, including the
-   * name of a missing SMTP variable.
+   * The cost is that a broken mailbox is silent to the user, so the log lines
+   * are the only signal. `MailService.send` never rejects — it reports failure
+   * as `false` and logs the underlying cause itself, including the name of a
+   * missing SMTP variable and the stack. The line below only records which
+   * delivery it was, and exists because the address never reaches the mail
+   * service's own log in full.
    */
   private deliver(to: string, token: string): void {
     const resetUrl = `${this.frontendUrl()}${RESET_PATH}?token=${encodeURIComponent(token)}`;
@@ -396,10 +412,12 @@ export class PasswordResetService {
         text: plainTextEmail(resetUrl),
         html: htmlEmail(resetUrl),
       })
-      .catch((error: unknown) => {
-        this.logger.error(
-          `Envoi du mail de réinitialisation impossible : ${(error as Error).message}`,
-        );
+      .then((sent) => {
+        if (!sent) {
+          this.logger.error(
+            'Envoi du mail de réinitialisation impossible — voir le log de MailService pour la cause.',
+          );
+        }
       });
 
     this.pending.add(delivery);
@@ -408,7 +426,8 @@ export class PasswordResetService {
 
   /** Same default as `main.ts`, so a dev environment needs no extra variable. */
   private frontendUrl(): string {
-    const url = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:5173';
+    const url =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:5173';
     return url.replace(/\/+$/, '');
   }
 }
