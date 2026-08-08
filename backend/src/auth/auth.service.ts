@@ -15,8 +15,10 @@ const SALT_ROUNDS = 12;
 const UNVERIFIED_GOOGLE_EMAIL =
   'Google has not verified this email address. Sign in with your password instead.';
 
+// Refusal for a Google identity whose address already belongs to an account.
+// There is no linking flow to offer instead, by design — see `loginWithGoogle`.
 const EMAIL_ALREADY_REGISTERED =
-  'An account already uses this email address. Sign in with your password.';
+  'An account already uses this email address. Sign in with your password instead.';
 
 // Prisma's unique-constraint violation. Not importing Prisma's own error
 // class here to keep this check working against the plain mock objects the
@@ -97,6 +99,9 @@ export class AuthService {
   async loginWithGoogle(idToken: string) {
     const identity = await this.googleVerifier.verify(idToken);
 
+    // The only sign-in path for an existing row. This account carries this
+    // exact `sub`, which means this flow created it: the Google identity was
+    // there from the start and nothing is being attached to anything.
     const linked = await this.prisma.user.findFirst({
       where: { googleId: identity.googleId },
     });
