@@ -70,7 +70,10 @@ function onKeydown(e: KeyboardEvent) {
     activeIndex.value = Math.max(activeIndex.value - 1, -1)
   } else if (e.key === 'Enter' && activeIndex.value >= 0) {
     e.preventDefault()
-    goToUser(searchResults.value[activeIndex.value].username)
+    // L'index peut pointer hors du tableau si une réponse de recherche arrive
+    // entre la sélection au clavier et la validation.
+    const selected = searchResults.value[activeIndex.value]
+    if (selected) goToUser(selected.username)
   } else if (e.key === 'Escape') {
     closeDropdown()
   }
