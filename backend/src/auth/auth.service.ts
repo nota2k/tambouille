@@ -8,18 +8,6 @@ import { GoogleTokenVerifier } from './google-token-verifier';
 
 const SALT_ROUNDS = 12;
 
-// Deliberately identical wherever Google hands us an address it has not
-// verified, whether or not an account exists on that address. A distinct
-// message per branch would let an unauthenticated caller probe which email
-// addresses are registered, simply by minting unverified tokens.
-const UNVERIFIED_GOOGLE_EMAIL =
-  'Google has not verified this email address. Sign in with your password instead.';
-
-// Refusal for a Google identity whose address already belongs to an account.
-// There is no linking flow to offer instead, by design — see `loginWithGoogle`.
-const EMAIL_ALREADY_REGISTERED =
-  'An account already uses this email address. Sign in with your password instead.';
-
 // Prisma's unique-constraint violation. Not importing Prisma's own error
 // class here to keep this check working against the plain mock objects the
 // test suite throws, as well as the real `PrismaClientKnownRequestError`.
@@ -177,7 +165,6 @@ export class AuthService {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     // One-shot: this endpoint exists to complete a pending account, not to
     // rename an established one, which would break every link to its profile.
-<<<<<<< HEAD
     //
     // The two checks below are pre-checks only: they give the common case a
     // clean, specific error message. They are check-then-act and cannot be
@@ -187,8 +174,6 @@ export class AuthService {
     // `updateMany` (which only touches the row if it is still unclaimed) and
     // the database's unique constraint on `username` (caught below as
     // Prisma error P2002).
-=======
->>>>>>> 1b9ebde (feat(auth): let a pending account choose its username)
     if (user.username) {
       throw new ConflictException('Username already set');
     }
@@ -198,7 +183,6 @@ export class AuthService {
       throw new ConflictException('Username already in use');
     }
 
-<<<<<<< HEAD
     let result: { count: number };
     try {
       result = await this.prisma.user.updateMany({
@@ -213,8 +197,6 @@ export class AuthService {
     }
 
     if (result.count === 0) {
-      // The row no longer matched `username: null` — another request already
-      // claimed a username for this account between our read and this write.
       throw new ConflictException('Username already set');
     }
 
@@ -224,13 +206,6 @@ export class AuthService {
 
   async setPassword(userId: string, password: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    // Pre-check only, for a clean error message in the common case: it is
-    // check-then-act and cannot be trusted for correctness under concurrency,
-    // since two requests could both read `password === null` before either
-    // write lands. What actually guarantees "set at most once" is the
-    // conditional `updateMany` below, which only touches the row if it is
-    // still passwordless. There is no unique constraint on `password`, so
-    // unlike `setUsername` there is no P2002 case to catch.
     if (user.password) {
       throw new ConflictException('Password already set');
     }
@@ -242,18 +217,10 @@ export class AuthService {
     });
 
     if (result.count === 0) {
-      // The row no longer matched `password: null` — another request already
-      // set a password for this account between our read and this write.
       throw new ConflictException('Password already set');
     }
 
     const updated = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-=======
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { username },
-    });
->>>>>>> 1b9ebde (feat(auth): let a pending account choose its username)
     return this.toPublicUser(updated);
   }
 
