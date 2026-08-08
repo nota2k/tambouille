@@ -38,7 +38,7 @@ function generateWaveform(): number[] {
     raw.push(base * envelope)
   }
   for (let i = 1; i < raw.length - 1; i++) {
-    raw[i] = raw[i] * 0.6 + (raw[i - 1] + raw[i + 1]) * 0.2
+    raw[i] = raw[i]! * 0.6 + (raw[i - 1]! + raw[i + 1]!) * 0.2
   }
   return raw
 }
@@ -84,7 +84,7 @@ function draw() {
 
   for (let i = 0; i < bars; i++) {
     const x = i * (barWidth + gap)
-    const barH = Math.max(2, waveform[i] * h)
+    const barH = Math.max(2, waveform[i]! * h)
     const y = (h - barH) / 2
 
     ctx.fillStyle = x + barWidth <= progressX ? accentColor : mutedColor
