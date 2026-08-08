@@ -720,3 +720,93 @@ describe('remove', () => {
     expect(asMock).not.toHaveBeenCalled();
   });
 });
+
+describe('update — the cover it replaces', () => {
+  const asMock = deleteFromR2 as jest.MockedFunction<typeof deleteFromR2>;
+  const OLD_COVER = 'covers/old-1111.jpg';
+  const NEW_COVER = 'covers/new-2222.jpg';
+
+  function serviceHolding(mix: Record<string, unknown>) {
+    const prisma = createPrismaMock();
+    prisma.mix.findUnique.mockResolvedValue(mix);
+    prisma.mix.update.mockImplementation(({ data }: any) =>
+      Promise.resolve(mixRow(data)),
+    );
+    return {
+      prisma,
+      service: new MixesService(prisma as unknown as PrismaService),
+    };
+  }
+
+  const remoteMix = {
+    id: MIX_ID,
+    userId: USER_ID,
+    audioUrl: null,
+    sourceType: SOURCE_TYPE,
+    sourceRef: SOURCE_REF,
+  };
+
+  beforeEach(() => {
+    asMock.mockClear();
+  });
+
+  it('deletes the cover it just replaced', async () => {
+    const { service } = serviceHolding({ ...remoteMix, coverUrl: OLD_COVER });
+
+    await service.update(MIX_ID, USER_ID, {}, NEW_COVER);
+
+    expect(asMock).toHaveBeenCalledWith([OLD_COVER]);
+  });
+
+  it('deletes nothing when no new cover was uploaded', async () => {
+    const { service } = serviceHolding({ ...remoteMix, coverUrl: OLD_COVER });
+
+    await service.update(MIX_ID, USER_ID, { title: 'Retitled' });
+
+    expect(asMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes nothing when the mix had no cover to replace', async () => {
+    const { service } = serviceHolding({ ...remoteMix, coverUrl: null });
+
+    await service.update(MIX_ID, USER_ID, {}, NEW_COVER);
+
+    expect(asMock).not.toHaveBeenCalled();
+  });
+
+  it('never deletes the cover it just set, if the keys somehow match', async () => {
+    // multer mints a fresh uuid per upload so this cannot happen today. It is
+    // guarded because the cost of being wrong is destroying the live cover.
+    const { service } = serviceHolding({ ...remoteMix, coverUrl: NEW_COVER });
+
+    await service.update(MIX_ID, USER_ID, {}, NEW_COVER);
+
+    expect(asMock).not.toHaveBeenCalled();
+  });
+
+  it('leaves the old cover alone when the update itself fails', async () => {
+    const prisma = createPrismaMock();
+    prisma.mix.findUnique.mockResolvedValue({ ...remoteMix, coverUrl: OLD_COVER });
+    prisma.mix.update.mockRejectedValue(new Error('write failed'));
+    const service = new MixesService(prisma as unknown as PrismaService);
+
+    await expect(
+      service.update(MIX_ID, USER_ID, {}, NEW_COVER),
+    ).rejects.toThrow('write failed');
+    // The row still points at it.
+    expect(asMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes nothing when the mix belongs to someone else', async () => {
+    const { service } = serviceHolding({
+      ...remoteMix,
+      userId: 'someone-else',
+      coverUrl: OLD_COVER,
+    });
+
+    await expect(
+      service.update(MIX_ID, USER_ID, {}, NEW_COVER),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(asMock).not.toHaveBeenCalled();
+  });
+});

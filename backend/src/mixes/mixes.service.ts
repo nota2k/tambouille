@@ -302,6 +302,18 @@ export class MixesService {
       data,
       ...buildMixInclude(userId),
     });
+
+    // Replacing a cover left the previous one on R2 forever. Same ordering as
+    // `remove`: the write lands first, so a mix never points at an object that
+    // has already been deleted.
+    //
+    // The identity check cannot fire today — multer mints a fresh uuid per
+    // upload — but the cost of being wrong here is destroying the cover that
+    // was just installed, which is worth one comparison.
+    if (coverUrl !== undefined && mix.coverUrl && mix.coverUrl !== coverUrl) {
+      await deleteFromR2([mix.coverUrl]).catch(() => undefined);
+    }
+
     return toMixResponse(updated);
   }
 

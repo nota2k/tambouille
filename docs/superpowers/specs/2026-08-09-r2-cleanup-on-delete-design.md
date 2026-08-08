@@ -32,9 +32,10 @@ Four places write to R2 today:
 ### Three leaks, one in scope
 
 1. **Deleting a mix** strands its audio and cover. **In scope.**
-2. **Replacing a cover** via `PATCH /mixes/:id` strands the previous one. Out
-   of scope — and the more frequent of the three, since a cover is changed more
-   often than a mix is deleted. Worth doing next.
+2. **Replacing a cover** via `PATCH /mixes/:id` stranded the previous one.
+   **Closed as a follow-up**, once the helper existed — see "Leak 2" below. It
+   is the most frequent of the three: a cover is changed more often than a mix
+   is deleted.
 3. **Deleting an account** strands everything the account owned. Out of scope,
    and the hardest: `onDelete: Cascade` removes the mix rows in SQL without
    ever calling `MixesService`, so the keys have to be collected before the
@@ -154,9 +155,34 @@ filtering issues no request at all.
 
 No test talks to R2. The S3 client is never constructed in tests.
 
+## Leak 2, closed as a follow-up
+
+`MixesService.update` deletes the cover it replaced, after the write lands.
+
+Only the cover can leak here: `update` never touches `audioUrl` — that route
+accepts no audio upload — and a `PATCH` can only *replace* a cover, never clear
+one. So the condition is narrow: a new key was uploaded, the mix had one
+before, and the two differ.
+
+The identity check is the one part that looks redundant. Multer mints a fresh
+UUID per upload, so old and new can never match today. It is there because the
+cost of being wrong is deleting the cover that was just installed — a
+comparison against a bug that would otherwise be silent and destructive.
+
+Legacy `/uploads/…` covers need no special handling: `r2KeysOnly` already drops
+them, so replacing a pre-migration cover deletes nothing and asks R2 nothing.
+
+Verified against the real bucket: old cover `200` → `404`, new cover `200`,
+`HeadObject` confirming both; then deleting the mix removed the new cover too.
+
 ## Out of scope
 
-- Cover replacement on `PATCH` (leak 2) and account deletion (leak 3).
+- Account deletion (leak 3).
+- The orphan a *refused* request leaves behind. Multer streams an upload to R2
+  during interception, before the handler runs, so a `PATCH` that then 403s or
+  404s has already written a cover nothing will collect. Same shape as the gap
+  documented in `mixes.controller.ts` for `create`, and the same fix: restaging
+  uploads. A separate job.
 - Sweeping the orphans that already exist.
 - Any retry, queue, or deferred-cleanup table. Best-effort was chosen
   deliberately; adding infrastructure to guarantee what we accepted losing
