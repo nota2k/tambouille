@@ -120,7 +120,7 @@ onMounted(loadSections)
 
 <template>
   <div class="mx-auto max-w-6xl px-4 py-8">
-    <div class="flex flex-col flex-wrap gap-4 sm:flex-row sm:items-center sm:justify-between min-h-[40vh]">
+    <div class="flex flex-col flex-wrap sm:flex-row sm:items-center sm:justify-between min-h-[20vh] my-8">
       <h1 class="text-tambouille-clamp-big leading-none font-bold w-full">Découvrir des mixs</h1>
       <div class="flex items-center gap-2">
         <button
@@ -233,14 +233,16 @@ onMounted(loadSections)
     </template>
 
     <template v-else>
-      <section class="mb-10 bg-tambouille-action py-6 px-12">
-        <h2 class="mb-4 text-tambouille-clamp-big text-tambouille-white font-semibold">Derniers uploads</h2>
+      <section class="flex flex-col justify-center mb-10 bg-tambouille-action py-16 px-12 md:px-8 sm:px-6 min-h-[50vh] h-full">
+        <h2 class="mb-12 border-b-2 pb-6 border-tambouille-text-dark text-2xl text-tambouille-text-black leading-none">Derniers uploads</h2>
+        <div class="">
         <div v-if="latestMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Aucun mix trouvé. Sois le premier à en uploader un !
         </div>
         <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <MixCard v-for="mix in latestMixes.slice(0, 3)" :key="mix.id" :mix="mix" landscape />
         </div>
+      </div>
       </section>
 
       <section v-if="authStore.isAuthenticated" class="mb-10">

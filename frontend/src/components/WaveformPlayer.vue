@@ -76,13 +76,29 @@ function draw() {
   const dpr = window.devicePixelRatio || 1
   const w = rect.width
   const h = rect.height
+  // Un conteneur replié (onglet caché, parent en cours de montage) mesure 0 :
+  // dessiner produirait un canvas vide qu'aucun redimensionnement ne rattrape.
+  // Le ResizeObserver rappellera draw() dès qu'il aura une taille.
+  if (w <= 0 || h <= 0) return
 
-  canvas.width = w * dpr
-  canvas.height = h * dpr
-  canvas.style.width = `${w}px`
-  canvas.style.height = `${h}px`
-  ctx.scale(dpr, dpr)
+  // La taille CSS du canvas vient de `absolute inset-0`, jamais d'un style en
+  // ligne. Y écrire des pixels en dur — ce que faisait cette fonction — donnait
+  // au canvas une largeur définie, donc une taille min-content, que le
+  // `min-width: auto` des éléments de grille et de flex propageait jusqu'en
+  // haut : la piste refusait de se réduire, draw() re-mesurait cette largeur
+  // gonflée et se la réécrivait. Une fois élargie, la vague ne revenait jamais.
+  // Ici on ne dimensionne que le backing store.
+  const bufferW = Math.round(w * dpr)
+  const bufferH = Math.round(h * dpr)
+  if (canvas.width !== bufferW || canvas.height !== bufferH) {
+    canvas.width = bufferW
+    canvas.height = bufferH
+  }
 
+  // Écrire canvas.width réinitialise la transformation, mais pas les frames où
+  // la taille n'a pas bougé : on la repose donc à chaque passage plutôt que de
+  // cumuler un scale() par frame.
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
 
   const progress = getProgress()
@@ -179,12 +195,15 @@ function onToggle(event: Event) {
       </svg>
     </button>
 
+    <!-- min-w-0 : sans lui, cet élément flex refuse de descendre sous la taille
+         min-content de son contenu. Le canvas est en absolu pour la même raison,
+         côté contenu — voir le commentaire de draw(). -->
     <div
       ref="containerRef"
-      class="waveform-container flex-1 h-10 cursor-pointer w-full"
+      class="waveform-container relative h-10 min-w-0 flex-1 cursor-pointer"
       @click="onSeek"
     >
-      <canvas ref="canvasRef" class="block w-full h-full" />
+      <canvas ref="canvasRef" class="absolute inset-0 block h-full w-[95%]" />
     </div>
   </div>
 </template>
