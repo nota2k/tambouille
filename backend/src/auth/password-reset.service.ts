@@ -88,7 +88,10 @@ export class SlidingWindow {
     const now = Date.now();
 
     this.callsSinceSweep += 1;
-    if (this.callsSinceSweep >= SWEEP_EVERY_CALLS || this.hits.size >= this.maxKeys) {
+    if (
+      this.callsSinceSweep >= SWEEP_EVERY_CALLS ||
+      this.hits.size >= this.maxKeys
+    ) {
       this.sweep(now);
     }
 
@@ -165,7 +168,9 @@ export function callerIdentity(ip: string | undefined): string | null {
 
   const address = ip.trim().toLowerCase();
   // IPv4-mapped IPv6, the form Node hands back on a dual-stack socket.
-  const bare = address.startsWith('::ffff:') ? address.slice('::ffff:'.length) : address;
+  const bare = address.startsWith('::ffff:')
+    ? address.slice('::ffff:'.length)
+    : address;
 
   if (bare === '' || bare === '::' || bare === '::1' || bare === '0.0.0.0') {
     return null;
@@ -183,9 +188,17 @@ export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
 
   /** Per address: the mailbox being written to, whoever asks for it. */
-  private readonly perAddress = new SlidingWindow(3, 60 * 60 * 1000, MAX_TRACKED_KEYS);
+  private readonly perAddress = new SlidingWindow(
+    3,
+    60 * 60 * 1000,
+    MAX_TRACKED_KEYS,
+  );
   /** Per caller: one client walking a list of addresses. */
-  private readonly perCaller = new SlidingWindow(10, 60 * 60 * 1000, MAX_TRACKED_KEYS);
+  private readonly perCaller = new SlidingWindow(
+    10,
+    60 * 60 * 1000,
+    MAX_TRACKED_KEYS,
+  );
 
   /**
    * Deliveries still in flight. See `deliver` for why sending is not awaited;
@@ -413,7 +426,8 @@ export class PasswordResetService {
 
   /** Same default as `main.ts`, so a dev environment needs no extra variable. */
   private frontendUrl(): string {
-    const url = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:5173';
+    const url =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:5173';
     return url.replace(/\/+$/, '');
   }
 }

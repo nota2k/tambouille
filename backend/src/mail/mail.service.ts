@@ -59,17 +59,26 @@ export class MailService implements OnModuleInit {
       // missing port silently becomes 587 instead of erroring — and since many
       // relays really do listen on 587, that can produce a *working*
       // connection to the wrong port with no error anywhere.
-      throw new Error(`Invalid environment variable: SMTP_PORT must be a port number, got "${rawPort}"`);
+      throw new Error(
+        `Invalid environment variable: SMTP_PORT must be a port number, got "${rawPort}"`,
+      );
     }
 
     // Absent, it follows the port, so an environment that never set it keeps
     // working. Present, it must be one of the two exact spellings: reading
     // "True" as false in silence is the bug, not the narrowness.
     const rawSecure = this.config.get<string>('SMTP_SECURE');
-    if (rawSecure !== undefined && rawSecure !== 'true' && rawSecure !== 'false') {
-      throw new Error(`Invalid environment variable: SMTP_SECURE must be "true" or "false", got "${rawSecure}"`);
+    if (
+      rawSecure !== undefined &&
+      rawSecure !== 'true' &&
+      rawSecure !== 'false'
+    ) {
+      throw new Error(
+        `Invalid environment variable: SMTP_SECURE must be "true" or "false", got "${rawSecure}"`,
+      );
     }
-    const secure = rawSecure === undefined ? port === 465 : rawSecure === 'true';
+    const secure =
+      rawSecure === undefined ? port === 465 : rawSecure === 'true';
 
     // Optional, and its absence is meaningful: with no user there is no auth
     // object at all, which is what lets an unauthenticated local Mailpit and

@@ -52,6 +52,14 @@ function build(overrides: Record<string, string | undefined> = {}) {
   return { service, transporter, options };
 }
 
+/** The first message handed to sendMail, typed so assertions stay checked. */
+function sentMessage(transporter: { sendMail: jest.Mock }) {
+  const calls = transporter.sendMail.mock.calls as Array<
+    [{ html?: string; text: string; from: string; to: string }]
+  >;
+  return calls[0][0];
+}
+
 /** Forces the lazy build and returns whether the send reported success. */
 async function trigger(service: MailService): Promise<boolean> {
   return service.send(MESSAGE);
@@ -81,8 +89,13 @@ describe('MailService laziness', () => {
 
   it('caches nothing after a failed build, so a corrected config needs no restart', async () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
-    const env: Record<string, string | undefined> = { ...BASE_ENV, SMTP_HOST: '' };
-    const config = { get: (key: string) => env[key] } as unknown as ConfigService;
+    const env: Record<string, string | undefined> = {
+      ...BASE_ENV,
+      SMTP_HOST: '',
+    };
+    const config = {
+      get: (key: string) => env[key],
+    } as unknown as ConfigService;
     createTransportMock.mockReturnValue(createTransporterMock() as never);
     const service = new MailService(config);
 
@@ -127,7 +140,10 @@ describe('MailService transport options', () => {
   it('defaults SMTP_PORT to 465 when it is absent', async () => {
     // Kept from the implementation this replaced: production may never have
     // set it.
-    const { service, options } = build({ SMTP_PORT: undefined, SMTP_SECURE: 'true' });
+    const { service, options } = build({
+      SMTP_PORT: undefined,
+      SMTP_SECURE: 'true',
+    });
     await trigger(service);
     expect(options().port).toBe(465);
   });
@@ -145,13 +161,19 @@ describe('MailService transport options', () => {
   });
 
   it('follows the port when SMTP_SECURE is absent and the port is 465', async () => {
-    const { service, options } = build({ SMTP_SECURE: undefined, SMTP_PORT: '465' });
+    const { service, options } = build({
+      SMTP_SECURE: undefined,
+      SMTP_PORT: '465',
+    });
     await trigger(service);
     expect(options().secure).toBe(true);
   });
 
   it('follows the port when SMTP_SECURE is absent and the port is 587', async () => {
-    const { service, options } = build({ SMTP_SECURE: undefined, SMTP_PORT: '587' });
+    const { service, options } = build({
+      SMTP_SECURE: undefined,
+      SMTP_PORT: '587',
+    });
     await trigger(service);
     expect(options().secure).toBe(false);
   });
@@ -169,9 +191,10 @@ describe('MailService configuration errors', () => {
   /** Reaches the validation directly, since send() swallows what it throws. */
   function buildAndForce(overrides: Record<string, string | undefined>) {
     const { service } = build(overrides);
-    return (service as unknown as { getTransporter: () => unknown }).getTransporter.bind(
-      service,
-    );
+    return () =>
+      (
+        service as unknown as { getTransporter: () => unknown }
+      ).getTransporter();
   }
 
   it('rejects a missing SMTP_HOST', () => {
@@ -203,7 +226,9 @@ describe('MailService configuration errors', () => {
 
 describe('MailService startup verification', () => {
   it('logs and does not throw when the transport verifies', async () => {
-    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    const log = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => {});
     const { service, transporter } = build();
 
     await expect(service.onModuleInit()).resolves.toBeUndefined();
@@ -213,7 +238,9 @@ describe('MailService startup verification', () => {
   });
 
   it('logs an error but still resolves when the transport is unreachable', async () => {
-    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const error = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
     const { service, transporter } = build();
     transporter.verify.mockRejectedValue(new Error('ECONNREFUSED'));
 
@@ -229,7 +256,9 @@ describe('MailService startup verification', () => {
   it('still resolves when the configuration itself is invalid', async () => {
     // The load-bearing one. This is the failure that took production down
     // when it was raised while the module graph was being built.
-    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const error = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
     const { service } = build({ SMTP_HOST: '' });
 
     await expect(service.onModuleInit()).resolves.toBeUndefined();
@@ -275,7 +304,7 @@ describe('MailService.send', () => {
     const { service, transporter } = build();
     await service.send(MESSAGE);
 
-    const sent = transporter.sendMail.mock.calls[0][0];
+    const sent = sentMessage(transporter);
     expect(sent.html).toBeUndefined();
     expect(sent.text).toBe('Clique ici.');
   });
@@ -284,11 +313,13 @@ describe('MailService.send', () => {
     const { service, transporter } = build();
     await service.send({ ...MESSAGE, html: '<p>Clique ici.</p>' });
 
-    expect(transporter.sendMail.mock.calls[0][0].html).toBe('<p>Clique ici.</p>');
+    expect(sentMessage(transporter).html).toBe('<p>Clique ici.</p>');
   });
 
   it('masks the recipient local-part in the failure log', async () => {
-    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const error = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
     const { service, transporter } = build();
     transporter.sendMail.mockRejectedValue(new Error('550 rejected'));
 
