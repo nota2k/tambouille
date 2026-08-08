@@ -8,7 +8,7 @@ import {
   callerIdentity,
 } from './password-reset.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { MailerService } from '../mail/mailer.service';
+import { MailService } from '../mail/mail.service';
 
 /**
  * Prisma and SMTP are both mocked: these tests cover the flow's own rules —
@@ -39,7 +39,8 @@ function createPrismaMock() {
 }
 
 function createMailerMock() {
-  return { send: jest.fn().mockResolvedValue(undefined) };
+  // send() never rejects: it reports failure as `false`.
+  return { send: jest.fn().mockResolvedValue(true) };
 }
 
 const USER = {
@@ -66,7 +67,7 @@ describe('PasswordResetService', () => {
     mailer = createMailerMock();
     service = new PasswordResetService(
       prisma as unknown as PrismaService,
-      mailer as unknown as MailerService,
+      mailer as unknown as MailService,
       {
         get: jest.fn((key: string) => (key === 'FRONTEND_URL' ? FRONTEND_URL : undefined)),
       } as unknown as ConfigService,
@@ -190,7 +191,7 @@ describe('PasswordResetService', () => {
     // that blocks every retry for the next hour.
     it('mints a fresh token on a retry after a failed send', async () => {
       prisma.user.findFirst.mockResolvedValue(USER);
-      mailer.send.mockRejectedValueOnce(new Error('SMTP refused the message'));
+      mailer.send.mockResolvedValueOnce(false);
       const silenced = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
 
       // What the database really holds by the time the retry arrives: the row
@@ -305,14 +306,21 @@ describe('PasswordResetService', () => {
     it('still resolves when SMTP is broken or unconfigured, and says so in the log', async () => {
       const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
       prisma.user.findFirst.mockResolvedValue(USER);
-      mailer.send.mockRejectedValue(new Error('Missing required environment variable: SMTP_HOST'));
+      // send() never rejects. A broken or unconfigured relay comes back as
+      // `false`, having already logged the cause — including the name of a
+      // missing variable — from inside MailService. That log line is covered
+      // by mail.service.spec.ts; what has to hold here is that the failure
+      // stays invisible to the caller.
+      mailer.send.mockResolvedValue(false);
 
       await expect(forgotNow('nelly@example.com', '203.0.113.1')).resolves.toBeUndefined();
       await expect(service.flushDeliveries()).resolves.toBeUndefined();
 
-      // The log is the only signal a broken mailbox produces, so it has to
-      // carry the underlying message — here, the name of the missing variable.
-      expect(logged).toHaveBeenCalledWith(expect.stringContaining('SMTP_HOST'));
+      // Still a signal on this side, so a failed delivery is attributable to
+      // the reset flow rather than only to the mail service.
+      expect(logged).toHaveBeenCalledWith(
+        expect.stringContaining('réinitialisation'),
+      );
       logged.mockRestore();
     });
   });

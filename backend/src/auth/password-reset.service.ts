@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { MailerService } from '../mail/mailer.service';
+import { MailService } from '../mail/mail.service';
 import { SALT_ROUNDS } from './auth.service';
 
 /** 32 bytes from a CSPRNG, base64url-encoded — 43 characters, 256 bits. */
@@ -197,7 +197,7 @@ export class PasswordResetService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mailer: MailerService,
+    private readonly mailer: MailService,
     private readonly config: ConfigService,
   ) {}
 
@@ -382,9 +382,12 @@ export class PasswordResetService {
    *   otherwise surface as a 500 — and a 500 that can only happen for a
    *   registered address answers the question just as plainly as a 404 would.
    *
-   * The cost is that a broken mailbox is silent to the user, so the log line
-   * below is the only signal; it carries the underlying message, including the
-   * name of a missing SMTP variable.
+   * The cost is that a broken mailbox is silent to the user, so the log lines
+   * are the only signal. `MailService.send` never rejects — it reports failure
+   * as `false` and logs the underlying cause itself, including the name of a
+   * missing SMTP variable and the stack. The line below only records which
+   * delivery it was, and exists because the address never reaches the mail
+   * service's own log in full.
    */
   private deliver(to: string, token: string): void {
     const resetUrl = `${this.frontendUrl()}${RESET_PATH}?token=${encodeURIComponent(token)}`;
@@ -396,10 +399,12 @@ export class PasswordResetService {
         text: plainTextEmail(resetUrl),
         html: htmlEmail(resetUrl),
       })
-      .catch((error: unknown) => {
-        this.logger.error(
-          `Envoi du mail de réinitialisation impossible : ${(error as Error).message}`,
-        );
+      .then((sent) => {
+        if (!sent) {
+          this.logger.error(
+            'Envoi du mail de réinitialisation impossible — voir le log de MailService pour la cause.',
+          );
+        }
       });
 
     this.pending.add(delivery);
