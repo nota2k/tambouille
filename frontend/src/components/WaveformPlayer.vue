@@ -9,7 +9,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 let animId = 0
 
-const bars = props.barCount ?? 80
+const WAVEFORM_RESOLUTION = 200
 
 const isThisMixPlaying = computed(
   () => playerStore.currentMix?.id === props.mix.id,
@@ -32,9 +32,9 @@ function seededRandom(seed: string) {
 function generateWaveform(): number[] {
   const rng = seededRandom(props.mix.id)
   const raw: number[] = []
-  for (let i = 0; i < bars; i++) {
+  for (let i = 0; i < WAVEFORM_RESOLUTION; i++) {
     const base = 0.15 + rng() * 0.85
-    const envelope = Math.sin((i / bars) * Math.PI) * 0.4 + 0.6
+    const envelope = Math.sin((i / WAVEFORM_RESOLUTION) * Math.PI) * 0.4 + 0.6
     raw.push(base * envelope)
   }
   for (let i = 1; i < raw.length - 1; i++) {
@@ -44,6 +44,18 @@ function generateWaveform(): number[] {
 }
 
 const waveform = generateWaveform()
+
+function sampleWaveform(count: number): number[] {
+  const result: number[] = []
+  for (let i = 0; i < count; i++) {
+    const idx = (i / count) * waveform.length
+    const lo = Math.floor(idx)
+    const hi = Math.min(lo + 1, waveform.length - 1)
+    const t = idx - lo
+    result.push(waveform[lo]! * (1 - t) + waveform[hi]! * t)
+  }
+  return result
+}
 
 function getProgress(): number {
   if (!isThisMixPlaying.value) return 0
@@ -75,16 +87,19 @@ function draw() {
 
   const progress = getProgress()
   const gap = 2
-  const barWidth = Math.max(1, (w - gap * (bars - 1)) / bars)
+  const targetBarWidth = 3
+  const barCount = props.barCount ?? Math.max(10, Math.floor((w + gap) / (targetBarWidth + gap)))
+  const sampled = sampleWaveform(barCount)
+  const barWidth = Math.max(1, (w - gap * (barCount - 1)) / barCount)
   const progressX = progress * w
 
   const style = getComputedStyle(canvas)
   const accentColor = style.getPropertyValue('--waveform-accent').trim() || '#f97316'
   const mutedColor = style.getPropertyValue('--waveform-muted').trim() || 'rgba(255,255,255,0.25)'
 
-  for (let i = 0; i < bars; i++) {
+  for (let i = 0; i < barCount; i++) {
     const x = i * (barWidth + gap)
-    const barH = Math.max(2, waveform[i]! * h)
+    const barH = Math.max(2, sampled[i]! * h)
     const y = (h - barH) / 2
 
     ctx.fillStyle = x + barWidth <= progressX ? accentColor : mutedColor

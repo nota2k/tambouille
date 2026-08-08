@@ -249,18 +249,18 @@ onMounted(loadProfile)
         <input ref="coverInput" type="file" accept="image/*" class="hidden" @change="onCoverChange" />
       </div>
 
-      <div class="mx-auto max-w-6xl px-4 pb-8">
-        <div class="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:gap-6">
-          <div class="relative -mt-12 shrink-0 sm:-mt-14">
+      <div class="mx-auto max-w-4xl px-4 pb-8">
+        <div class="mb-8 bg-tambouille-white flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:gap-6">
+          <div class="relative -mt-16 shrink-0 sm:-mt-20 md:-mt-[100px] lg:-mt-[125px]">
             <img
               v-if="profile.avatarUrl"
               :src="mediaUrl(profile.avatarUrl)"
-              class="h-24 w-24 rounded-full border-4 border-white object-cover shadow-md sm:h-28 sm:w-28"
+              class="h-32 w-32 rounded-full border-1 border-tambouille-accent object-cover shadow-md sm:h-40 sm:w-40 md:h-[200px] md:w-[200px] lg:h-[350px] lg:w-[350px]"
               alt=""
             />
             <div
               v-else
-              class="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-tambouille-surface-hover text-2xl font-bold shadow-md sm:h-28 sm:w-28"
+              class="flex h-32 w-32 items-center justify-center rounded-full border-4 border-white bg-tambouille-surface-hover text-tambouille-clamp-big font-bold shadow-md sm:h-40 sm:w-40 md:h-[350px] md:w-[350px] lg:h-[350px] lg:w-[350px]"
             >
               {{ profile.displayName[0]?.toUpperCase() }}
             </div>
@@ -281,7 +281,7 @@ onMounted(loadProfile)
 
           <div class="flex-1 text-center sm:pb-1 sm:text-left">
           <template v-if="!editing">
-            <h1 class="text-2xl font-bold">{{ profile.displayName }}</h1>
+            <h1 class="text-tambouille-clamp-big font-bold">{{ profile.displayName }}</h1>
             <p class="text-tambouille-muted">@{{ profile.username }}</p>
             <p v-if="profile.bio" class="mt-2 whitespace-pre-line text-sm">{{ profile.bio }}</p>
             <!-- Nudge the owner to fill it in; visitors just see nothing. -->

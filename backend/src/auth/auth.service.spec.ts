@@ -274,10 +274,18 @@ describe('AuthService', () => {
       expect(user.hasGoogle).toBe(false);
     });
 
+    // Each refusal below pins its own message as well as its type. All three
+    // throw `ConflictException`, so without this the constants could be swapped
+    // between branches — telling a user their account is already linked when in
+    // fact someone else holds the Google account, or the reverse — and the
+    // suite would stay green.
     it('refuses an address Google has not verified, without writing', async () => {
       verifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
 
-      await expect(service.linkGoogle('u1', 'token')).rejects.toBeInstanceOf(ConflictException);
+      const error = await service.linkGoogle('u1', 'token').catch((e: Error) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as Error).message).toMatch(/has not verified this email address/i);
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
@@ -301,7 +309,11 @@ describe('AuthService', () => {
         ...UNLINKED, googleId: IDENTITY.googleId,
       });
 
-      await expect(service.linkGoogle('u1', 'token')).rejects.toBeInstanceOf(ConflictException);
+      const error = await service.linkGoogle('u1', 'token').catch((e: Error) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      // Specifically "someone else holds it", not "you already linked".
+      expect((error as Error).message).toMatch(/another Tambouille account/i);
       // Nothing is written: the second account does not get a duplicate key,
       // and the first account's identity is not moved.
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
@@ -310,12 +322,31 @@ describe('AuthService', () => {
 
     it('refuses when the conditional write matches nothing, because the account is already linked', async () => {
       verifier.verify.mockResolvedValue(IDENTITY);
-      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.findFirst.mockResolvedValue(null); // no other account holds this sub
+      // `count: 0` is what the database reports when the row no longer matches
+      // `googleId: null` — i.e. this account was linked between our read and
+      // this write. The row the re-read returns is therefore one that already
+      // carries a *different* `sub`: the state the refusal exists to protect.
       prisma.user.updateMany.mockResolvedValue({ count: 0 });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        ...UNLINKED, googleId: 'google-sub-attached-by-someone-earlier',
+      });
 
-      await expect(service.linkGoogle('u1', 'token')).rejects.toBeInstanceOf(ConflictException);
-      // The row stopped matching `googleId: null`, so nothing was changed —
-      // and no retry is attempted that could overwrite the existing identity.
+      const error = await service.linkGoogle('u1', 'token').catch((e: Error) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      // Specifically "this account already has one", not "someone else holds it".
+      expect((error as Error).message).toMatch(/this account is already linked/i);
+      // The write is conditional on the account still being unlinked; that
+      // where-clause is the whole reason `count` can come back 0, so pin it.
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'u1', googleId: null },
+        data: { googleId: IDENTITY.googleId },
+      });
+      // No retry that could overwrite the identity already on the row. The
+      // re-read is mocked so that dropping the `count === 0` throw fails here
+      // on the real defect — returning a user linked to a sub this call never
+      // wrote — rather than on a TypeError from an unconfigured mock.
       expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
@@ -327,7 +358,12 @@ describe('AuthService', () => {
       prisma.user.findFirst.mockResolvedValue(null);
       prisma.user.updateMany.mockRejectedValue({ code: 'P2002' });
 
-      await expect(service.linkGoogle('u1', 'token')).rejects.toBeInstanceOf(ConflictException);
+      const error = await service.linkGoogle('u1', 'token').catch((e: Error) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      // The index fired because another account holds this sub, so this must
+      // report that — not the unrelated "your account is already linked".
+      expect((error as Error).message).toMatch(/another Tambouille account/i);
     });
   });
 

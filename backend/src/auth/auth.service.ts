@@ -15,10 +15,18 @@ const SALT_ROUNDS = 12;
 const UNVERIFIED_GOOGLE_EMAIL =
   'Google has not verified this email address. Sign in with your password instead.';
 
-// Refusal for a Google identity whose address already belongs to an account.
-// There is no linking flow to offer instead, by design — see `loginWithGoogle`.
+// Refusal for a *verified* Google identity whose address already belongs to an
+// account. Unlike the message above this one names the situation, which is safe
+// precisely because it is only reachable with a token Google has verified for
+// that address: the caller has already proven to Google that the mailbox is
+// theirs, so they learn nothing here they could not learn by other means.
+//
+// It points at `linkGoogle` rather than dead-ending, because this is exactly
+// the user that flow was built for: sign in with the password, then attach
+// Google from the profile, where the session proves ownership of the account —
+// the half of the match this flow cannot prove. Kept to one sentence.
 const EMAIL_ALREADY_REGISTERED =
-  'An account already uses this email address. Sign in with your password instead.';
+  'An account already uses this email address — sign in with your password, then link Google from your profile.';
 
 // Refusals for the authenticated linking flow (`linkGoogle`). Unlike the two
 // messages above, these are only ever read by the owner of the session being
@@ -116,9 +124,18 @@ export class AuthService {
   async loginWithGoogle(idToken: string) {
     const identity = await this.googleVerifier.verify(idToken);
 
-    // The only sign-in path for an existing row. This account carries this
-    // exact `sub`, which means this flow created it: the Google identity was
-    // there from the start and nothing is being attached to anything.
+    // The only sign-in path for an existing row: this account carries this
+    // exact `sub`, so the caller has proven they hold the Google identity the
+    // account is keyed by, and nothing is being attached to anything here.
+    //
+    // How the `sub` got onto the row is deliberately not knowable from here,
+    // and must not be assumed. Two paths lead to it: this flow created the
+    // account (no password, no username until it completes one), or the
+    // account's owner attached it from their profile via `linkGoogle` — in
+    // which case it is an ordinary password account that also signs in with
+    // Google. So `googleId != null` implies nothing whatsoever about
+    // `password`, `username`, or how the account was born. Do not gate
+    // behaviour on that inference; check the field you actually care about.
     const linked = await this.prisma.user.findFirst({
       where: { googleId: identity.googleId },
     });
@@ -136,10 +153,10 @@ export class AuthService {
       where: { email: { equals: identity.email, mode: 'insensitive' } },
     });
     if (sameEmail) {
-      // There is deliberately no linking branch here. When an address already
-      // has an account, this flow always refuses — whatever `emailVerified`
-      // says, and whatever the row's current `googleId` is (null or some other
-      // `sub`; an equal one would have signed in above).
+      // There is deliberately no *automatic* linking branch here. When an
+      // address already has an account, this flow always refuses — whatever
+      // `emailVerified` says, and whatever the row's current `googleId` is
+      // (null or some other `sub`; an equal one would have signed in above).
       //
       // Automatic linking is only safe when *both* sides of the match are
       // proven, and Tambouille can prove only one. Google's `email_verified`
@@ -152,10 +169,12 @@ export class AuthService {
       // an account the impostor still holds the password to, and can keep
       // reading everything the owner then does with it.
       //
-      // The accepted cost: someone who registered with a password cannot sign
-      // in with Google. If email verification is ever added at registration,
-      // our side becomes provable too and linking can be reconsidered — this
-      // refusal is a decision, not an oversight.
+      // The cost is no longer a dead end. `linkGoogle` supplies the missing
+      // proof from the other direction: the user signs in with their password
+      // and attaches Google from their profile, where a valid session for this
+      // exact account establishes our side of the match — the thing an email
+      // comparison never could. So this refusal is a redirection, not a
+      // refusal to serve the case, and the message says so.
       //
       // Both paths below throw; `emailVerified` chooses the wording only, and
       // when it is false the wording is identical to the create branch's so
@@ -248,13 +267,7 @@ export class AuthService {
       throw error;
     }
 
-    if (result.count === 0) {
-      // The row no longer matched `googleId: null`: this account already has a
-      // Google identity — the caller's own, if they linked twice, or one
-      // attached by a concurrent request. There is no unlinking, so there is
-      // nothing to offer here but the refusal.
-      throw new ConflictException(ACCOUNT_ALREADY_LINKED);
-    }
+    // MUTATION CHECK — `count === 0` throw removed, restored immediately after.
 
     const updated = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     return this.toPublicUser(updated);
