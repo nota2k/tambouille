@@ -1,0 +1,196 @@
+import { BadGatewayException, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
+const MIXCLOUD_API_BASE = 'https://api.mixcloud.com';
+const REQUEST_TIMEOUT_MS = 10_000;
+
+/**
+ * Both patterns are path-injection guards, and both run before any outbound
+ * request: `username` and `key` are interpolated into the upstream URL, so
+ * without them a crafted value turns this relay into a request-forgery tool.
+ */
+const USERNAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const KEY_PATTERN = /^\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+\/$/;
+
+/** Largest first: the upload form wants the best cover Mixcloud offers. */
+const PICTURE_PREFERENCE = ['1024wx1024h', '768wx768h', '640wx640h', 'extra_large', '320wx320h', 'large', 'medium', 'small'];
+
+export interface CloudcastSummary {
+  key: string;
+  name: string;
+  tags: string[];
+  pictureUrl?: string;
+  audioLengthSec?: number;
+  createdAt?: string;
+}
+
+export interface TracklistEntry {
+  artist: string;
+  title: string;
+  timecodeSec: number;
+}
+
+export interface CloudcastImport {
+  title: string;
+  description: string;
+  tags: string[];
+  coverSourceUrl?: string;
+  tracklist: TracklistEntry[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Reads a name that Mixcloud may give either as a bare string or as `{ name }`. */
+function readName(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+  if (isRecord(value) && typeof value.name === 'string') {
+    const trimmed = value.name.trim();
+    return trimmed || undefined;
+  }
+  return undefined;
+}
+
+export function parseTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return [];
+  const names = tags.map(readName).filter((name): name is string => Boolean(name));
+  return Array.from(new Set(names));
+}
+
+export function pickPictureUrl(pictures: unknown): string | undefined {
+  if (!isRecord(pictures)) return undefined;
+  for (const size of PICTURE_PREFERENCE) {
+    const url = pictures[size];
+    if (typeof url === 'string' && url) return url;
+  }
+  return undefined;
+}
+
+function toTimecodeSec(value: unknown): number {
+  const seconds = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(seconds) || seconds < 0) return 0;
+  return Math.round(seconds);
+}
+
+/**
+ * Mixcloud documents the *upload* parameters for sections
+ * (`sections-X-artist`, `sections-X-song`, `sections-X-start_time`) but
+ * publishes no example of the read shape, and every mix checked had empty
+ * sections, so it could not be observed. Both plausible forms are therefore
+ * accepted — fields nested under `track`, and fields flat on the section —
+ * and anything that does not resolve to both an artist and a title is dropped
+ * rather than imported as a half-entry.
+ */
+export function parseSections(sections: unknown): TracklistEntry[] {
+  if (!Array.isArray(sections)) return [];
+
+  const entries: TracklistEntry[] = [];
+
+  for (const section of sections) {
+    if (!isRecord(section)) continue;
+
+    // A chapter marker names a passage of the mix, not a track.
+    const track = isRecord(section.track) ? section.track : undefined;
+    if (section.chapter !== undefined && !track) continue;
+
+    const source: Record<string, unknown> = track ?? section;
+
+    const artist = readName(source.artist) ?? readName(source.artist_name);
+    const title = readName(source.name) ?? readName(source.song) ?? readName(source.title) ?? readName(source.song_name);
+
+    if (!artist || !title) continue;
+
+    const startTime = section.start_time ?? source.start_time;
+    entries.push({ artist, title, timecodeSec: toTimecodeSec(startTime) });
+  }
+
+  return entries.sort((a, b) => a.timecodeSec - b.timecodeSec);
+}
+
+export function toCloudcastSummary(raw: unknown): CloudcastSummary {
+  const cloudcast = isRecord(raw) ? raw : {};
+  return {
+    key: typeof cloudcast.key === 'string' ? cloudcast.key : '',
+    name: typeof cloudcast.name === 'string' ? cloudcast.name : '',
+    tags: parseTags(cloudcast.tags),
+    pictureUrl: pickPictureUrl(cloudcast.pictures),
+    audioLengthSec: typeof cloudcast.audio_length === 'number' ? cloudcast.audio_length : undefined,
+    createdAt: typeof cloudcast.created_time === 'string' ? cloudcast.created_time : undefined,
+  };
+}
+
+export function toCloudcastImport(raw: unknown): CloudcastImport {
+  const cloudcast = isRecord(raw) ? raw : {};
+  return {
+    title: typeof cloudcast.name === 'string' ? cloudcast.name : '',
+    description: typeof cloudcast.description === 'string' ? cloudcast.description : '',
+    tags: parseTags(cloudcast.tags),
+    coverSourceUrl: pickPictureUrl(cloudcast.pictures),
+    tracklist: parseSections(cloudcast.sections),
+  };
+}
+
+/**
+ * Read-only relay in front of Mixcloud's public API. It exists because the
+ * browser cannot call `api.mixcloud.com` directly (CORS), and it never writes
+ * to Mixcloud nor stores anything about the account.
+ */
+@Injectable()
+export class MixcloudService {
+  async listCloudcasts(username: string): Promise<CloudcastSummary[]> {
+    if (!USERNAME_PATTERN.test(username)) {
+      throw new BadRequestException('Invalid Mixcloud username');
+    }
+
+    const payload = await this.getJson(`${MIXCLOUD_API_BASE}/${username}/cloudcasts/?limit=50`);
+    const data = isRecord(payload) && Array.isArray(payload.data) ? payload.data : [];
+    return data.map(toCloudcastSummary);
+  }
+
+  async getCloudcast(key: string): Promise<CloudcastImport> {
+    if (!KEY_PATTERN.test(key)) {
+      throw new BadRequestException('Invalid Mixcloud cloudcast key');
+    }
+
+    const payload = await this.getJson(`${MIXCLOUD_API_BASE}${key}`);
+    return toCloudcastImport(payload);
+  }
+
+  /**
+   * A missing account or mix stays a 404; anything else upstream — an error
+   * status, a transport failure, a timeout, unreadable JSON — becomes a 502,
+   * so the caller can tell "no such Mixcloud account" from "Mixcloud is down".
+   */
+  private async getJson(url: string): Promise<unknown> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        signal: controller.signal,
+        headers: { accept: 'application/json' },
+      });
+    } catch {
+      throw new BadGatewayException('Could not reach Mixcloud');
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (response.status === 404) {
+      throw new NotFoundException('No such Mixcloud account or mix');
+    }
+    if (!response.ok) {
+      throw new BadGatewayException(`Mixcloud returned ${response.status}`);
+    }
+
+    try {
+      return await response.json();
+    } catch {
+      throw new BadGatewayException('Mixcloud returned an unreadable response');
+    }
+  }
+}

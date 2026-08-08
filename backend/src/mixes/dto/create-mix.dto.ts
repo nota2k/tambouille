@@ -21,4 +21,13 @@ export class CreateMixDto {
   @IsOptional()
   @IsString()
   tracklist?: string;
+
+  /**
+   * Cover to import from Mixcloud's CDN, used only when no cover file was
+   * uploaded. The URL is validated server-side before anything is fetched.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  coverSourceUrl?: string;
 }

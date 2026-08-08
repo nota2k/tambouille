@@ -1,12 +1,11 @@
 import { randomUUID } from 'crypto';
 import { extname } from 'path';
 import { BadRequestException } from '@nestjs/common';
-import { S3Client } from '@aws-sdk/client-s3';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import multerS3 from 'multer-s3';
 import type { Request } from 'express';
 
-export const AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/x-m4a', 'audio/aac'];
-export const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+export { AUDIO_MIME_TYPES, IMAGE_MIME_TYPES, COVER_MAX_BYTES, IMAGE_EXTENSIONS } from './mime.constants';
 
 /** A file uploaded through r2StorageFor/r2StorageByField carries its R2 object key instead of a local filename. */
 export interface UploadedFile extends Express.Multer.File {
@@ -37,6 +36,24 @@ const r2Client = new S3Client({
 
 function objectKey(subdir: string, originalname: string): string {
   return `${subdir}/${randomUUID()}${extname(originalname).toLowerCase()}`;
+}
+
+/**
+ * Stores a buffer the server fetched itself (rather than one multer received)
+ * in the same bucket and under the same key scheme as an uploaded file, so the
+ * resulting object key is indistinguishable downstream.
+ */
+export async function putBufferToR2(subdir: string, body: Buffer, contentType: string, extension: string): Promise<string> {
+  const key = `${subdir}/${randomUUID()}${extension}`;
+  await r2Client.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+  return key;
 }
 
 export function r2StorageFor(subdir: string) {

@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { MixesModule } from './mixes/mixes.module';
 import { PlaylistsModule } from './playlists/playlists.module';
 import { CommentsModule } from './comments/comments.module';
+import { MixcloudModule } from './mixcloud/mixcloud.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CommentsModule } from './comments/comments.module';
     MixesModule,
     PlaylistsModule,
     CommentsModule,
+    MixcloudModule,
   ],
 })
 export class AppModule {}

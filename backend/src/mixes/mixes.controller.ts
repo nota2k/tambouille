@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { MixesService } from './mixes.service';
+import { CoverImportService } from './cover-import.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
@@ -25,6 +26,7 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
 import {
   AUDIO_MIME_TYPES,
+  COVER_MAX_BYTES,
   r2StorageByField,
   r2StorageFor,
   fileFilterByField,
@@ -40,7 +42,10 @@ type UploadedFilesShape = {
 
 @Controller('mixes')
 export class MixesController {
-  constructor(private readonly mixesService: MixesService) {}
+  constructor(
+    private readonly mixesService: MixesService,
+    private readonly coverImportService: CoverImportService,
+  ) {}
 
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
@@ -107,7 +112,7 @@ export class MixesController {
       limits: { fileSize: 250 * 1024 * 1024 },
     }),
   )
-  create(
+  async create(
     @CurrentUserId() userId: string,
     @Body() dto: CreateMixDto,
     @UploadedFiles() files: UploadedFilesShape,
@@ -116,11 +121,17 @@ export class MixesController {
     if (!audioFile) {
       throw new BadRequestException('audio file is required');
     }
+
+    // An uploaded cover always wins over one imported from Mixcloud.
     const coverFile = files.cover?.[0];
+    let coverUrl = coverFile?.key;
+    if (!coverUrl && dto.coverSourceUrl) {
+      coverUrl = await this.coverImportService.importFromUrl(dto.coverSourceUrl);
+    }
 
     return this.mixesService.create(userId, dto, {
       audioUrl: audioFile.key,
-      coverUrl: coverFile ? coverFile.key : undefined,
+      coverUrl,
     });
   }
 
@@ -130,7 +141,7 @@ export class MixesController {
     FileInterceptor('cover', {
       storage: r2StorageFor('covers'),
       fileFilter: fileFilterFor(IMAGE_MIME_TYPES),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: COVER_MAX_BYTES },
     }),
   )
   update(
