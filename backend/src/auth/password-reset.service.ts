@@ -11,6 +11,27 @@ const TOKEN_BYTES = 32;
 
 const TOKEN_TTL_MS = 60 * 60 * 1000;
 
+/**
+ * The floor every `forgot` call is padded out to, so the branch taken cannot
+ * be read off the response time.
+ *
+ * 500 ms is roughly an order of magnitude above what the slowest branch costs
+ * on this host — one indexed SELECT plus one INSERT, tens of milliseconds on
+ * shared hosting even when the database is busy — which is the margin that
+ * keeps ordinary variance from poking back through. It is also well under
+ * what anyone waiting on a "send me a link" button would notice. SMTP is not
+ * in this budget: `deliver` does not await it.
+ */
+export const RESPONSE_FLOOR_MS = 500;
+
+/**
+ * Ceiling on how many keys either rate-limit window will track. Both key
+ * spaces are unauthenticated and attacker-chosen, so this is what stops a
+ * flood of junk addresses from growing the process until it is killed.
+ * 10 000 entries of a few timestamps each is a few megabytes at worst.
+ */
+const MAX_TRACKED_KEYS = 10_000;
+
 // Deliberately one message for three situations: unknown, expired, and already
 // used. Telling them apart helps nobody but someone probing tokens, for whom
 // "expired" and "already used" both mean "this value existed" — a hit on a
@@ -171,6 +192,8 @@ export class PasswordResetService {
    * this set is what lets a test — or a shutdown — wait for one anyway.
    */
   private readonly pending = new Set<Promise<void>>();
+
+  private warnedAboutCallerIdentity = false;
 
   constructor(
     private readonly prisma: PrismaService,
