@@ -133,7 +133,7 @@ describe('PasswordResetService', () => {
     it('stores the token hashed, with the clear value nowhere in the row', async () => {
       prisma.user.findFirst.mockResolvedValue(USER);
 
-      await service.forgot('nelly@example.com', '203.0.113.1');
+      await forgotNow('nelly@example.com', '203.0.113.1');
       await service.flushDeliveries();
 
       const { data } = prisma.passwordResetToken.create.mock.calls[0][0] as {
@@ -154,7 +154,7 @@ describe('PasswordResetService', () => {
       prisma.user.findFirst.mockResolvedValue(USER);
       const before = Date.now();
 
-      await service.forgot('NELLY@Example.com', '203.0.113.1');
+      await forgotNow('NELLY@Example.com', '203.0.113.1');
       await service.flushDeliveries();
 
       // Case-insensitive lookup, and the message goes to the address stored on
