@@ -120,8 +120,15 @@ export class MixesController {
     // none by design. But the audio source is checked *here*, before the cover
     // import below, and not left to `MixesService` alone — importing a cover
     // writes an object to R2, and nothing in this codebase deletes R2 objects,
-    // so a mix that was never going to be created would leave one behind for
-    // good. Any signed-in account could fill the bucket in a loop.
+    // so a refused create would leave one behind for good.
+    //
+    // What this check protects is exactly that: the cover import, and nothing
+    // else. It does NOT protect the audio upload. Multer-s3 streams the audio
+    // body straight to R2 during interception, before this method is entered,
+    // so a create carrying both an audio file and a `mixcloudKey` has already
+    // written up to 250 MB by the time the request is refused — an orphan
+    // nothing ever deletes. Known gap: closing it means restaging uploads
+    // (buffer, or write then delete on failure), which is a separate job.
     //
     // This is the same function the service calls, imported rather than
     // restated, so the two cannot drift. The service keeps its own check: that
