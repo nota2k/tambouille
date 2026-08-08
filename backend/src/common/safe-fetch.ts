@@ -1,12 +1,19 @@
-import { BadGatewayException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
 import { lookup as dnsLookup } from 'node:dns';
 import { isIP } from 'node:net';
-import { Agent } from 'undici';
+import { Agent, fetch as undiciFetch, type Dispatcher } from 'undici';
 
 /**
  * Fetching a URL the user chose is a request-forgery primitive. Everything in
  * this file exists to fence it in, and it is the only door such a fetch goes
  * through.
+ *
+ * `fetch` is imported from `undici` explicitly rather than using Node's
+ * global `fetch`: both are undici under the hood, but Node embeds its own
+ * copy, and passing an `Agent` from the `undici` dependency into Node's
+ * built-in `fetch` fails (the two undici versions' internal dispatcher
+ * handler contracts don't match — `fetch` throws before a socket opens). The
+ * `fetch` and the `Agent` must come from the same undici, so both do here.
  */
 
 /** Every refusal says this, whatever the reason. Telling "private host" apart
@@ -30,6 +37,64 @@ function ipv4ToInt(ip: string): number {
   return ip.split('.').reduce((acc, part) => ((acc << 8) >>> 0) + Number(part), 0) >>> 0;
 }
 
+/**
+ * Parses any valid textual IPv6 address — compressed (`::1`), uncompressed
+ * (`0:0:0:0:0:0:0:1`), or with an embedded dotted-decimal IPv4 tail
+ * (`::ffff:127.0.0.1`) — into its 16 bytes, or returns null if it doesn't
+ * parse.
+ *
+ * This exists because the WHATWG URL parser normalises IPv6 hosts into their
+ * hex canonical form before `isBlockedAddress` ever sees them —
+ * `::ffff:169.254.169.254` becomes `::ffff:a9fe:a9fe` in `url.hostname` — so
+ * a check that pattern-matches the dotted-decimal text only catches the
+ * address when it is spelled one particular way. Comparing the actual bytes
+ * is what makes every spelling of the same address collapse onto the same
+ * answer.
+ */
+function parseIPv6(ip: string): number[] | null {
+  const withoutZone = ip.split('%')[0]!;
+  const doubleColon = withoutZone.indexOf('::');
+  if (doubleColon !== -1 && withoutZone.indexOf('::', doubleColon + 1) !== -1) return null;
+
+  const [headText, tailText] =
+    doubleColon === -1 ? [withoutZone, ''] : [withoutZone.slice(0, doubleColon), withoutZone.slice(doubleColon + 2)];
+
+  const expand = (text: string): string[] | null => {
+    if (text === '') return [];
+    const groups = text.split(':');
+    const last = groups[groups.length - 1]!;
+    if (!last.includes('.')) return groups;
+    // The last group is a dotted-decimal IPv4 tail: fold it into two 16-bit
+    // hex groups so the rest of this function only ever deals with plain
+    // IPv6 groups.
+    const octets = last.split('.');
+    if (octets.length !== 4) return null;
+    const values = octets.map(Number);
+    if (values.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) return null;
+    const hi = ((values[0]! << 8) | values[1]!).toString(16);
+    const lo = ((values[2]! << 8) | values[3]!).toString(16);
+    return [...groups.slice(0, -1), hi, lo];
+  };
+
+  const head = expand(headText);
+  const tail = expand(tailText);
+  if (head === null || tail === null) return null;
+
+  const total = head.length + tail.length;
+  if (doubleColon === -1 ? total !== 8 : total > 7) return null;
+
+  const groups = doubleColon === -1 ? head : [...head, ...new Array(8 - total).fill('0'), ...tail];
+  if (groups.length !== 8) return null;
+
+  const bytes: number[] = [];
+  for (const group of groups) {
+    if (!/^[0-9a-f]{1,4}$/i.test(group)) return null;
+    const value = Number.parseInt(group, 16);
+    bytes.push((value >> 8) & 0xff, value & 0xff);
+  }
+  return bytes;
+}
+
 /** True for anything that is not a public unicast address — including inputs
  *  that are not addresses at all, which are refused rather than guessed at. */
 export function isBlockedAddress(ip: string): boolean {
@@ -44,19 +109,48 @@ export function isBlockedAddress(ip: string): boolean {
   }
 
   if (family === 6) {
-    const lower = ip.toLowerCase();
-    // `::ffff:10.0.0.1` is an IPv4 address wearing an IPv6 coat: unwrap it,
-    // or every v4 rule above is bypassed by spelling the address differently.
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
-    if (mapped) return isBlockedAddress(mapped[1]!);
-    if (lower === '::1' || lower === '::') return true;
-    const head = Number.parseInt(lower.split(':')[0] || '0', 16);
-    if ((head & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
-    if ((head & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+    const bytes = parseIPv6(ip);
+    if (!bytes) return true; // Unparsable — refuse rather than guess.
+
+    const isV4Mapped = bytes.slice(0, 10).every((b) => b === 0) && bytes[10] === 0xff && bytes[11] === 0xff;
+    if (isV4Mapped) {
+      // `::ffff:0:0/96`: an IPv4 address wearing an IPv6 coat. Unwrap it and
+      // re-run the v4 rules, or every rule above is bypassed by spelling the
+      // same address in the other family.
+      return isBlockedAddress(bytes.slice(12).join('.'));
+    }
+
+    if (bytes.every((b) => b === 0)) return true; // `::` unspecified
+    if (bytes.slice(0, 15).every((b) => b === 0) && bytes[15] === 1) return true; // `::1` loopback
+    if ((bytes[0] & 0xfe) === 0xfc) return true; // fc00::/7 unique-local
+    if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) return true; // fe80::/10 link-local
     return false;
   }
 
   return true;
+}
+
+/**
+ * Given the full address set `dns.lookup(..., { all: true })` returned for a
+ * hostname, returns the ones safe to connect to, or throws if none are.
+ *
+ * Rejects only when every candidate is blocked, not when any one is: a
+ * dual-stack host with one public and one private address is left free to
+ * connect over the public one. That's deliberate, not an oversight — the
+ * host itself isn't a threat, only a private *address* is, and undici will
+ * try the returned addresses in order until one connects.
+ *
+ * Pulled out of the `connect.lookup` hook below so it can be unit-tested on
+ * its own: `safeFetch`'s public surface can't be used to prove this filter
+ * runs, because every hostname that would demonstrate it — one actually
+ * resolving to a private address — is refused earlier by the OS resolver or
+ * is a case (like `127.0.0.1` or `localhost`) this file already blocks by
+ * the static literal-address check, before DNS is ever consulted.
+ */
+export function filterSafeAddresses(addresses: readonly { address: string }[]): { address: string }[] {
+  const safe = addresses.filter((entry) => !isBlockedAddress(entry.address));
+  if (safe.length === 0) throw new Error(BLOCKED_ADDRESS_MESSAGE);
+  return safe;
 }
 
 /**
@@ -69,10 +163,15 @@ const guardedAgent = new Agent({
     lookup(hostname, options, callback) {
       dnsLookup(hostname, { ...options, all: true }, (err, addresses) => {
         if (err) return callback(err, '', 0);
-        const safe = (addresses as { address: string; family: number }[]).filter(
-          (entry) => !isBlockedAddress(entry.address),
-        );
-        if (safe.length === 0) return callback(new Error(BLOCKED_ADDRESS_MESSAGE), '', 0);
+        let safe: { address: string; family: number }[];
+        try {
+          safe = filterSafeAddresses(addresses as { address: string; family: number }[]) as {
+            address: string;
+            family: number;
+          }[];
+        } catch (filterErr) {
+          return callback(filterErr as Error, '', 0);
+        }
         // Cast: undici's callback accepts the `all: true` array form, which
         // its published types express less precisely than `dns.lookup` does.
         (callback as unknown as (e: null, a: unknown) => void)(null, safe);
@@ -101,8 +200,10 @@ function assertFetchableUrl(rawUrl: string): URL {
   return url;
 }
 
+type UndiciResponse = Awaited<ReturnType<typeof undiciFetch>>;
+
 /** Reads the body, aborting as soon as it exceeds `maxBytes`. */
-export async function readCappedBody(response: Response, maxBytes: number): Promise<Buffer> {
+export async function readCappedBody(response: UndiciResponse, maxBytes: number): Promise<Buffer> {
   const reader = response.body?.getReader();
   if (!reader) throw new BadGatewayException('La source a renvoyé un corps vide');
 
@@ -122,6 +223,29 @@ export async function readCappedBody(response: Response, maxBytes: number): Prom
 }
 
 /**
+ * Turns whatever `readCappedBody` throws into something a caller may see.
+ *
+ * The size cap and the empty-body case already throw the right
+ * `HttpException` themselves and are passed straight through unchanged.
+ * Anything else here is the connection dying mid-body — our own deadline
+ * firing, or the host stalling — and must not escape `safeFetch` as a raw
+ * `AbortError` with no HTTP status attached, the way it did before this
+ * function existed.
+ *
+ * Pulled out to its own function, rather than inlined in `safeFetch`'s
+ * catch block, so this decision can be unit-tested directly: reproducing a
+ * body that fails only *after* headers have already been sent isn't
+ * reliably doable through `undici`'s `MockAgent` (it either delivers a
+ * reply's body in full or fails the request before headers, never a
+ * failure partway through), and manufacturing a real stalled connection
+ * would mean standing up a real socket, which offline tests must not do.
+ */
+export function rethrowBodyReadError(err: unknown): never {
+  if (err instanceof HttpException) throw err;
+  throw new BadGatewayException('La source est injoignable');
+}
+
+/**
  * Fetches a user-supplied URL under every guard in this file.
  *
  * Redirects are followed by hand rather than with `redirect: 'follow'`, because
@@ -136,7 +260,7 @@ export async function readCappedBody(response: Response, maxBytes: number): Prom
  */
 export async function safeFetch(
   rawUrl: string,
-  options: { maxBytes: number; timeoutMs: number; accept?: string },
+  options: { maxBytes: number; timeoutMs: number; accept?: string; dispatcher?: Dispatcher },
 ): Promise<{ url: URL; contentType: string; body: Buffer }> {
   let url = assertFetchableUrl(rawUrl);
 
@@ -145,28 +269,44 @@ export async function safeFetch(
 
   try {
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      let response: Response;
+      let response: UndiciResponse;
       try {
-        response = await fetch(url.toString(), {
+        response = await undiciFetch(url.toString(), {
           signal: controller.signal,
           redirect: 'manual',
           headers: options.accept ? { accept: options.accept } : {},
-          // @ts-expect-error `dispatcher` is undici's, absent from lib.dom's RequestInit
-          dispatcher: guardedAgent,
+          // Only ever overridden in tests, to swap in undici's `MockAgent` and
+          // exercise the redirect loop, hop limit and size caps without a
+          // real socket or DNS lookup. Production callers never set this, so
+          // they always get the guarded agent below.
+          dispatcher: options.dispatcher ?? guardedAgent,
         });
       } catch (err) {
-        // The guarded lookup rejects by throwing, and its message is the only
-        // one a caller may see about an address.
-        if (err instanceof Error && err.message === BLOCKED_ADDRESS_MESSAGE) {
-          throw new BadRequestException(BLOCKED_ADDRESS_MESSAGE);
-        }
+        // `fetch` wraps every network-layer failure — including the guarded
+        // lookup's rejection — in a generic `TypeError: fetch failed`, with
+        // the real reason under `err.cause`. That is left unexamined on
+        // purpose: unwrapping it to tell "resolved to a private address"
+        // apart from "no such host" or "connection refused" would turn the
+        // import form into an oracle for probing which internal hostnames
+        // exist. Every failure at this layer collapses onto one status and
+        // one message, deliberately — do not "improve" this by inspecting
+        // `err.cause`.
         throw new BadGatewayException('La source est injoignable');
       }
 
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location');
         if (!location) throw new BadGatewayException('La source a renvoyé une redirection vide');
-        url = assertFetchableUrl(new URL(location, url).toString());
+        let nextRawUrl: string;
+        try {
+          nextRawUrl = new URL(location, url).toString();
+        } catch {
+          // A malformed Location is the remote server's fault, not a bug in
+          // our validation — surface it as an upstream failure, not a raw
+          // parse error with our stack trace attached.
+          throw new BadGatewayException('La source a renvoyé une redirection invalide');
+        }
+        url = assertFetchableUrl(nextRawUrl);
         continue;
       }
 
@@ -186,7 +326,14 @@ export async function safeFetch(
         throw new BadRequestException('La réponse de la source dépasse la taille autorisée');
       }
 
-      return { url, contentType, body: await readCappedBody(response, options.maxBytes) };
+      let body: Buffer;
+      try {
+        body = await readCappedBody(response, options.maxBytes);
+      } catch (err) {
+        rethrowBodyReadError(err);
+      }
+
+      return { url, contentType, body };
     }
 
     throw new BadGatewayException('Trop de redirections');
