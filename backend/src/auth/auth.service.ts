@@ -118,6 +118,26 @@ export class AuthService {
     return this.session(created);
   }
 
+  async setUsername(userId: string, username: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    // One-shot: this endpoint exists to complete a pending account, not to
+    // rename an established one, which would break every link to its profile.
+    if (user.username) {
+      throw new ConflictException('Username already set');
+    }
+
+    const taken = await this.prisma.user.findFirst({ where: { username } });
+    if (taken) {
+      throw new ConflictException('Username already in use');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { username },
+    });
+    return this.toPublicUser(updated);
+  }
+
   async me(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     return this.toPublicUser(user);
