@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { safeFetch } from '../common/safe-fetch';
+import { stripHtml } from '../common/strip-html';
 import {
   encodeRef,
   type MixImport,
@@ -161,8 +162,11 @@ export class ArchiveImporter implements SourceImporter {
 
     return {
       title: item.title,
+      // Archive.org writes its description as a run of `<div>` lines.
       description:
-        typeof metadata.description === 'string' ? metadata.description : '',
+        typeof metadata.description === 'string'
+          ? stripHtml(metadata.description)
+          : '',
       // Le nom du créateur rejoint les tags : le mix appartiendra au compte
       // Tambouille qui l'importe, donc sans ça plus rien ne dit de qui il est.
       tags: creator ? [creator] : [],
