@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { apiClient } from '@/api/client'
@@ -10,6 +11,23 @@ const authStore = useAuthStore()
 const router = useRouter()
 const menuOpen = ref(false)
 const headerSearch = ref('')
+const navRef = ref<HTMLElement>()
+const navItemEls: HTMLElement[] = []
+const isCrowded = ref(false)
+const mobileMenuOpen = ref(false)
+
+function registerNavItem(el: Element | ComponentPublicInstance | null) {
+  if (el instanceof HTMLElement) {
+    if (!navItemEls.includes(el)) {
+      navItemEls.push(el)
+      observer?.observe(el)
+    }
+  }
+}
+
+function closeMobileMenu() {
+  mobileMenuOpen.value = false
+}
 
 // Un compte créé via Google reste sans username tant que l'inscription n'est
 // pas terminée. Le backend exclut désormais ces comptes de /users/search, mais
@@ -46,6 +64,13 @@ watch(headerSearch, (q) => {
       showDropdown.value = false
     }
   }, 300)
+})
+
+watch(isCrowded, (crowded) => {
+  if (!crowded) {
+    mobileMenuOpen.value = false
+    navItemEls.length = 0
+  }
 })
 
 function onSearch() {
@@ -92,19 +117,76 @@ function logout() {
   router.push({ name: 'discover' })
 }
 
+const mobilePanel = ref<HTMLElement>()
+
 function onClickOutside(e: Event) {
   if (searchContainer.value?.contains(e.target as Node) === false) {
     closeDropdown()
   }
+  if (
+    mobileMenuOpen.value &&
+    navRef.value &&
+    !(navRef.value.contains(e.target as Node)) &&
+    !(mobilePanel.value?.contains(e.target as Node))
+  ) {
+    mobileMenuOpen.value = false
+  }
 }
 
-import { onMounted, onUnmounted } from 'vue'
-onMounted(() => document.addEventListener('click', onClickOutside))
-onUnmounted(() => document.removeEventListener('click', onClickOutside))
+let observer: IntersectionObserver | null = null
+let resizeObserver: ResizeObserver | null = null
+let lastNavWidth = 0
+
+onMounted(() => {
+  document.addEventListener('click', onClickOutside)
+
+  if (navRef.value) {
+    observer = new IntersectionObserver(
+      (entries) => {
+        const anyClipped = entries.some((e) => e.intersectionRatio < 0.99)
+        if (anyClipped) {
+          isCrowded.value = true
+        } else {
+          const allVisible = navItemEls.every((el) => {
+            const rect = el.getBoundingClientRect()
+            const rootRect = navRef.value!.getBoundingClientRect()
+            const visibleWidth = Math.min(rect.right, rootRect.right) - Math.max(rect.left, rootRect.left)
+            return visibleWidth / rect.width > 0.99
+          })
+          if (allVisible) isCrowded.value = false
+        }
+      },
+      { root: navRef.value, threshold: 0.99 },
+    )
+    navItemEls.forEach((el) => observer!.observe(el))
+
+    const headerRow = navRef.value.parentElement
+    if (headerRow) {
+      resizeObserver = new ResizeObserver((entries) => {
+        // Le type autorise un tableau vide, même si l'observateur en fournit
+        // toujours une entrée en pratique.
+        const entry = entries[0]
+        if (!entry) return
+        const w = entry.contentRect.width
+        if (isCrowded.value && w > lastNavWidth) {
+          isCrowded.value = false
+        }
+        lastNavWidth = w
+      })
+      resizeObserver.observe(headerRow)
+    }
+  }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onClickOutside)
+  observer?.disconnect()
+  resizeObserver?.disconnect()
+})
 </script>
 
 <template>
-  <header class="sticky top-0 z-30 border-b border-tambouille-border bg-tambouille-accent backdrop-blur">
+  <header class="sticky top-0 z-[1001] border-b border-tambouille-border bg-tambouille-accent backdrop-blur">
     <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
       <RouterLink to="/" class="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <span class="text-tambouille-white flex items-center gap-4" style="font-family: 'Gulax', sans-serif">Tambouille
@@ -158,69 +240,156 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
         </div>
       </form>
 
-      <nav class="flex items-center gap-4">
-        <RouterLink to="/" class="text-sm font-medium text-tambouille-white hover:text-tambouille-white"
-          active-class="!text-tambouille-white">
-          Découvrir
-        </RouterLink>
-
-        <template v-if="authStore.isAuthenticated">
-          <RouterLink to="/upload"
-            class="rounded-full border px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover">
-            Uploader
+      <nav ref="navRef" class="flex items-center gap-4 overflow-hidden">
+        <template v-if="!isCrowded">
+          <RouterLink :ref="(el: any) => registerNavItem(el)" to="/" class="text-sm font-medium text-tambouille-white hover:text-tambouille-white"
+            active-class="!text-tambouille-white">
+            Découvrir
           </RouterLink>
 
-          <div class="relative">
-            <button
-              class="flex items-center gap-2 rounded-full border border-tambouille-border hover:bg-tambouille-surface-hover"
-              @click="menuOpen = !menuOpen">
-              <img v-if="authStore.user?.avatarUrl" :src="mediaUrl(authStore.user.avatarUrl)"
-                class="h-7 w-7 rounded-full object-cover" alt="" />
-              <div v-else
-                class="flex h-7 w-7 items-center justify-center rounded-full bg-tambouille-surface-hover text-xs font-semibold">
-                {{ authStore.user?.displayName?.[0]?.toUpperCase() }}
-              </div>
-            </button>
+          <template v-if="authStore.isAuthenticated">
+            <RouterLink :ref="(el: any) => registerNavItem(el)" to="/upload"
+              class="rounded-full border px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover">
+              Uploader
+            </RouterLink>
 
-            <div v-if="menuOpen"
-              class="absolute right-0 mt-2 w-48 rounded-lg border border-tambouille-border bg-tambouille-surface py-1 shadow-xl"
-              @mouseleave="menuOpen = false">
-              <RouterLink v-if="authStore.user?.username"
-                :to="{ name: 'profile', params: { username: authStore.user.username } }"
-                class="block px-4 py-2 text-sm hover:bg-tambouille-surface-hover" @click="menuOpen = false">
-                Mon profil
-              </RouterLink>
-              <RouterLink
-                :to="{ name: 'settings' }"
-                class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-tambouille-surface-hover"
-                @click="menuOpen = false"
-              >
-                <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current stroke-2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                Réglages
-              </RouterLink>
-              <button class="block w-full px-4 py-2 text-left text-sm hover:bg-tambouille-surface-hover"
-                @click="logout">
-                Se déconnecter
+            <div :ref="(el: any) => registerNavItem(el)" class="relative">
+              <button
+                class="flex items-center gap-2 rounded-full border border-tambouille-border hover:bg-tambouille-surface-hover"
+                @click="menuOpen = !menuOpen">
+                <img v-if="authStore.user?.avatarUrl" :src="mediaUrl(authStore.user.avatarUrl)"
+                  class="h-7 w-7 rounded-full object-cover" alt="" />
+                <div v-else
+                  class="flex h-7 w-7 items-center justify-center rounded-full bg-tambouille-surface-hover text-xs font-semibold">
+                  {{ authStore.user?.displayName?.[0]?.toUpperCase() }}
+                </div>
               </button>
+
+              <div v-if="menuOpen"
+                class="absolute right-0 mt-2 w-48 rounded-lg border border-tambouille-border bg-tambouille-surface py-1 shadow-xl z-1000"
+                @mouseleave="menuOpen = false">
+                <RouterLink v-if="authStore.user?.username"
+                  :to="{ name: 'profile', params: { username: authStore.user.username } }"
+                  class="block px-4 py-2 text-sm hover:bg-tambouille-surface-hover" @click="menuOpen = false">
+                  Mon profil
+                </RouterLink>
+                <RouterLink
+                  :to="{ name: 'settings' }"
+                  class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-tambouille-surface-hover"
+                  @click="menuOpen = false"
+                >
+                  <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current stroke-2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  Réglages
+                </RouterLink>
+                <button class="block w-full px-4 py-2 text-left text-sm hover:bg-tambouille-surface-hover"
+                  @click="logout">
+                  Se déconnecter
+                </button>
+              </div>
             </div>
-          </div>
+          </template>
+
+          <template v-else>
+            <RouterLink :ref="(el: any) => registerNavItem(el)" to="/login" class="text-sm font-medium text-tambouille-muted hover:text-tambouille-text">
+              Connexion
+            </RouterLink>
+            <RouterLink :ref="(el: any) => registerNavItem(el)" to="/register"
+              class="rounded-full bg-tambouille-accent px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover">
+              S'inscrire
+            </RouterLink>
+          </template>
         </template>
 
-        <template v-else>
-          <RouterLink to="/login" class="text-sm font-medium text-tambouille-muted hover:text-tambouille-text">
-            Connexion
-          </RouterLink>
-          <RouterLink to="/register"
-            class="rounded-full bg-tambouille-accent px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover">
-            S'inscrire
-          </RouterLink>
-        </template>
+        <button
+          v-if="isCrowded"
+          class="flex h-9 w-9 items-center justify-center rounded-lg text-white hover:bg-white/15"
+          @click.stop="mobileMenuOpen = !mobileMenuOpen"
+        >
+          <svg v-if="!mobileMenuOpen" viewBox="0 0 24 24" class="h-6 w-6 stroke-current stroke-2" fill="none">
+            <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" class="h-6 w-6 stroke-current stroke-2" fill="none">
+            <path stroke-linecap="round" d="M6 6l12 12M6 18L18 6" />
+          </svg>
+        </button>
       </nav>
     </div>
+
   </header>
+
+  <Teleport to="body">
+    <transition name="mobile-panel">
+      <div
+        v-if="isCrowded && mobileMenuOpen"
+        ref="mobilePanel"
+        class="fixed top-0 left-0 h-screen w-screen z-[1000] overflow-y-auto bg-tambouille-surface pt-16"
+      >
+        <nav class="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-6">
+          <RouterLink
+            to="/"
+            class="rounded-lg px-4 py-3 text-sm font-medium hover:bg-tambouille-surface-hover"
+            @click="closeMobileMenu"
+          >
+            Découvrir
+          </RouterLink>
+
+          <template v-if="authStore.isAuthenticated">
+            <RouterLink
+              to="/upload"
+              class="rounded-lg px-4 py-3 text-sm font-medium hover:bg-tambouille-surface-hover"
+              @click="closeMobileMenu"
+            >
+              Uploader
+            </RouterLink>
+
+            <RouterLink
+              v-if="authStore.user?.username"
+              :to="{ name: 'profile', params: { username: authStore.user.username } }"
+              class="rounded-lg px-4 py-3 text-sm font-medium hover:bg-tambouille-surface-hover"
+              @click="closeMobileMenu"
+            >
+              Mon profil
+            </RouterLink>
+
+            <RouterLink
+              :to="{ name: 'settings' }"
+              class="rounded-lg px-4 py-3 text-sm font-medium hover:bg-tambouille-surface-hover"
+              @click="closeMobileMenu"
+            >
+              Réglages
+            </RouterLink>
+
+            <button
+              class="rounded-lg px-4 py-3 text-left text-sm font-medium hover:bg-tambouille-surface-hover"
+              @click="logout(); closeMobileMenu()"
+            >
+              Se déconnecter
+            </button>
+          </template>
+
+          <template v-else>
+            <RouterLink
+              to="/login"
+              class="rounded-lg px-4 py-3 text-sm font-medium hover:bg-tambouille-surface-hover"
+              @click="closeMobileMenu"
+            >
+              Connexion
+            </RouterLink>
+            <RouterLink
+              to="/register"
+              class="rounded-lg px-4 py-3 text-sm font-medium hover:bg-tambouille-surface-hover"
+              @click="closeMobileMenu"
+            >
+              S'inscrire
+            </RouterLink>
+          </template>
+        </nav>
+      </div>
+    </transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -253,5 +422,18 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   100% {
     transform: translateY(2px);
   }
+}
+
+</style>
+
+<style>
+.mobile-panel-enter-active,
+.mobile-panel-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.mobile-panel-enter-from,
+.mobile-panel-leave-to {
+  opacity: 0;
 }
 </style>
