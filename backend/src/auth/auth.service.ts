@@ -23,7 +23,7 @@ export class AuthService {
     private readonly googleVerifier: GoogleTokenVerifier,
   ) {}
 
-  private toPublicUser(user: { id: string; email: string; username: string | null; displayName: string; bio: string | null; avatarUrl: string | null; createdAt: Date }) {
+  private toPublicUser(user: { id: string; email: string; username: string | null; displayName: string; bio: string | null; avatarUrl: string | null; createdAt: Date; password: string | null }) {
     return {
       id: user.id,
       email: user.email,
@@ -32,6 +32,7 @@ export class AuthService {
       bio: user.bio,
       avatarUrl: user.avatarUrl,
       createdAt: user.createdAt,
+      hasPassword: user.password !== null,
     };
   }
 

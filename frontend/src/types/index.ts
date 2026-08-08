@@ -115,6 +115,7 @@ export interface AuthUser {
   bio: string | null
   avatarUrl: string | null
   createdAt: string
+  hasPassword: boolean
 }
 
 export interface AuthResponse {

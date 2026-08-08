@@ -38,6 +38,11 @@ export const useAuthStore = defineStore('auth', {
       this.user = data
     },
 
+    async setPassword(password: string) {
+      const { data } = await apiClient.post<AuthUser>('/auth/password', { password })
+      this.user = data
+    },
+
     async fetchCurrentUser() {
       if (!this.accessToken) return
       const { data } = await apiClient.get<AuthUser>('/auth/me')

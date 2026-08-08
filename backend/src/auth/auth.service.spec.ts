@@ -134,6 +134,9 @@ describe('AuthService', () => {
         },
       });
       expect(result.user.username).toBeNull();
+      // A Google-created account has no password yet, so it needs the
+      // "set a password" prompt on its profile.
+      expect(result.user.hasPassword).toBe(false);
     });
   });
 
@@ -202,13 +205,15 @@ describe('AuthService', () => {
         });
       prisma.user.updateMany.mockResolvedValue({ count: 1 });
 
-      await service.setPassword('u1', 'motdepasse123');
+      const result = await service.setPassword('u1', 'motdepasse123');
 
       const call = prisma.user.updateMany.mock.calls[0][0];
       expect(call.where).toEqual({ id: 'u1', password: null });
       // Stored hashed, never in clear.
       expect(call.data.password).not.toBe('motdepasse123');
       expect(call.data.password).toMatch(/^\$2[aby]\$/);
+      // The public shape only ever exposes whether a password exists.
+      expect(result.hasPassword).toBe(true);
     });
 
     it('refuses when a password is already set', async () => {

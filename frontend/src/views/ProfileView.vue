@@ -53,6 +53,22 @@ const savingProfile = ref(false)
 const avatarInput = ref<HTMLInputElement | null>(null)
 const coverInput = ref<HTMLInputElement | null>(null)
 
+const newPassword = ref('')
+const passwordError = ref('')
+const passwordSaved = ref(false)
+
+async function submitPassword() {
+  passwordError.value = ''
+  passwordSaved.value = false
+  try {
+    await authStore.setPassword(newPassword.value)
+    newPassword.value = ''
+    passwordSaved.value = true
+  } catch (e: any) {
+    passwordError.value = e?.response?.data?.message ?? 'Enregistrement impossible.'
+  }
+}
+
 const isOwnProfile = computed(() => authStore.user?.username === route.params.username)
 
 async function loadProfile() {
@@ -340,6 +356,29 @@ onMounted(loadProfile)
           </form>
         </div>
       </div>
+
+      <section v-if="isOwnProfile && authStore.user && !authStore.user.hasPassword" class="mt-8">
+        <h2 class="mb-2 text-lg font-semibold">Définir un mot de passe</h2>
+        <p class="mb-3 text-sm text-tambouille-muted">
+          Ton compte se connecte avec Google. Un mot de passe te donnera un second
+          moyen d'accès si tu perds ce compte Google.
+        </p>
+        <form class="flex gap-2" @submit.prevent="submitPassword">
+          <input
+            v-model="newPassword"
+            type="password"
+            required
+            minlength="8"
+            maxlength="72"
+            class="flex-1 rounded-lg border border-tambouille-border bg-tambouille-surface px-4 py-2"
+          />
+          <button type="submit" class="rounded-lg bg-tambouille-accent px-4 py-2 font-semibold">
+            Enregistrer
+          </button>
+        </form>
+        <p v-if="passwordError" class="mt-2 text-sm text-red-500">{{ passwordError }}</p>
+        <p v-if="passwordSaved" class="mt-2 text-sm text-green-600">Mot de passe enregistré.</p>
+      </section>
 
       <!-- Réseau et playlists en colonne latérale, mixs à droite. -->
       <div class="grid items-start gap-10 lg:grid-cols-3">
