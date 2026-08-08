@@ -1,6 +1,6 @@
-const MEDIA_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/api\/?$/, '') ?? ''
+const MEDIA_BASE_URL = (import.meta.env.VITE_R2_PUBLIC_URL as string | undefined) ?? ''
 
 export function mediaUrl(path: string | null | undefined): string | undefined {
   if (!path) return undefined
-  return `${MEDIA_BASE_URL}${path}`
+  return `${MEDIA_BASE_URL}/${path}`
 }
