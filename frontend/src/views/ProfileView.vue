@@ -322,7 +322,12 @@ onMounted(loadProfile)
           </section>
         </aside>
 
-        <div class="lg:col-span-2">
+        <!-- min-w-0 : un élément de grille a `min-width: auto`, donc il refuse
+             de descendre sous la taille min-content de son contenu. La liste de
+             mixs en contient (vague, lignes de stats) : sans ça, la colonne
+             restait à 781px dans une fenêtre de 390px et poussait toute la page
+             en débordement horizontal. -->
+        <div class="min-w-0 lg:col-span-2">
           <div class="mb-4 flex items-center gap-4 border-b border-tambouille-border">
             <button
               class="border-b-2 pb-2 text-sm font-medium transition"
