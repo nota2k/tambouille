@@ -14,6 +14,16 @@ const audioEl = ref<HTMLAudioElement | null>(null)
 const mixcloudFrame = ref<HTMLIFrameElement | null>(null)
 const duration = ref(0)
 const widgetError = ref('')
+/**
+ * True while a Mixcloud widget is being brought up and no sound has started yet: from the
+ * moment the mix becomes current, through the script fetch and the `getDuration` polling,
+ * until the widget emits `play` (or the user gives up, or it fails).
+ *
+ * It exists because that window is long — seconds, on a slow connection — and the store
+ * flips `isPlaying` the instant the button is clicked. Without this the bar would show a
+ * pause icon and 0:00 while nothing whatsoever is playing, which is a claim it cannot back.
+ */
+const widgetLoading = ref(false)
 
 /** R2-hosted audio. Undefined on a Mixcloud-hosted mix. */
 const audioSrc = computed(() => mediaUrl(playerStore.currentMix?.audioUrl))
@@ -58,17 +68,20 @@ let widgetLoaded = false
 /** True once the widget has actually started; before that its `pause` events are setup noise. */
 let widgetHasPlayed = false
 /**
- * The record of "a real gesture asked to play while the widget was not yet taking commands".
- * It is set from the `isPlaying` watcher below, which runs synchronously inside the click
- * handler that flipped the store, and it is the only thing that lets the load path call `play()`.
+ * The record of "a real gesture asked to play while the widget was not yet taking commands",
+ * and the only thing that lets the load path call `play()`. Both watchers below set it, and
+ * both do so within the originating click's activation window — the `isPlaying` one inside
+ * the click's own call stack, the mix-change one on the scheduler tick just after.
  */
 let playWhenLoaded = false
 
 /**
- * Reads the browser's transient activation. The watcher that calls it runs with
- * `flush: 'sync'`, so it executes inside the originating click's own call stack and this
- * is a truthful answer to "is a gesture in progress right now". Browsers without the API
- * fall back to true — the synchronous flush already ties the call to the gesture there.
+ * Reads the browser's transient activation. Both callers run within the originating
+ * click's activation window, so this is a truthful answer to "did a real gesture ask for
+ * this". Browsers without the API fall back to true.
+ *
+ * It gates *recording* the intent to play, not the eventual `play()` call — see
+ * `awaitCloudcast`, which issues that one long after any transient activation has expired.
  */
 function hasUserActivation(): boolean {
   const activation = navigator.userActivation
@@ -85,6 +98,7 @@ function onWidgetProgress(position: number, total: number) {
 
 function onWidgetPlay() {
   widgetHasPlayed = true
+  widgetLoading.value = false
   widgetError.value = ''
 }
 
@@ -100,10 +114,12 @@ function onWidgetEnded() {
 
 function onWidgetError() {
   widgetError.value = "La lecture Mixcloud a échoué — le mix n'y est peut-être plus disponible."
+  widgetLoading.value = false
   playerStore.pause()
 }
 
 function teardownWidget() {
+  widgetLoading.value = false
   if (widget) {
     widget.events.progress.off(onWidgetProgress)
     widget.events.play.off(onWidgetPlay)
@@ -139,7 +155,20 @@ async function awaitCloudcast(owner: MixcloudWidget) {
 
     if (playWhenLoaded) {
       playWhenLoaded = false
+      // This is NOT an in-gesture call, and nothing here should be written as though it
+      // were. It runs from a promise chain, after a script fetch and up to ~7.75 s of
+      // polling above; the click's transient activation expired long ago. What makes it
+      // land is the iframe's `allow="autoplay"`, which delegates the autoplay permission
+      // to Mixcloud's origin, and browsers grant that off *sticky* activation — "this
+      // page has been interacted with at some point" — not off a live gesture.
+      //
+      // That is a policy, not a guarantee: a browser that insists on transient activation
+      // drops this silently, and no error comes back. Hence `widgetLoading` stays true
+      // here and is only cleared by the widget's own `play` event: the bar claims playback
+      // once sound has demonstrably started, never merely because a play was requested.
       void Promise.resolve(owner.play()).catch(() => {})
+    } else {
+      widgetLoading.value = false
     }
     applyPendingSeek()
     return
@@ -147,6 +176,7 @@ async function awaitCloudcast(owner: MixcloudWidget) {
 
   if (widget !== owner) return
   widgetError.value = "Ce mix n'a pas pu être chargé depuis Mixcloud — il y a peut-être été retiré."
+  widgetLoading.value = false
   playerStore.pause()
 }
 
@@ -173,6 +203,7 @@ function isCurrentMix(mixId: string): boolean {
  */
 async function setupWidget(mixId: string, key: string) {
   teardownWidget()
+  widgetLoading.value = true
 
   // The iframe is rendered by `v-if` on the same tick the mix changed, and keyed on the mix
   // id, so this is a pristine element with no src yet.
@@ -186,6 +217,7 @@ async function setupWidget(mixId: string, key: string) {
   } catch {
     if (!isCurrentMix(mixId)) return
     widgetError.value = "Le lecteur Mixcloud n'a pas pu être chargé."
+    widgetLoading.value = false
     playerStore.pause()
     return
   }
@@ -211,6 +243,7 @@ async function setupWidget(mixId: string, key: string) {
   } catch {
     if (!isCurrentMix(mixId)) return
     widgetError.value = "Ce mix est introuvable sur Mixcloud — il a peut-être été retiré."
+    widgetLoading.value = false
     playerStore.pause()
     return
   } finally {
@@ -289,13 +322,20 @@ watch(
     if (mixcloudKey.value) {
       if (!isPlaying) {
         playWhenLoaded = false
+        // Whatever was still coming up, the user has stopped asking for it. Dropping the
+        // loading state here is also the escape hatch from a widget that never emits
+        // `play`: the pause button always ends the claim that something is starting.
+        widgetLoading.value = false
         if (widget) void Promise.resolve(widget.pause()).catch(() => {})
         return
       }
-      // Autoplay policy: `play()` is legitimate only on the tick of a real gesture.
+      // Only a real gesture may record an intent to play. The call this eventually leads
+      // to is not itself in-gesture — `awaitCloudcast` explains why it lands anyway.
       if (!hasUserActivation()) return
       if (widget && widgetLoaded) void Promise.resolve(widget.play()).catch(() => {})
       else playWhenLoaded = true
+      // Either way, sound has not started yet: the bar says "loading" until `play` arrives.
+      widgetLoading.value = true
       return
     }
 
@@ -393,15 +433,37 @@ function onEnded() {
       />
       <div v-else class="h-12 w-12 shrink-0 rounded bg-tambouille-surface-hover"></div>
 
+      <!--
+        While the Mixcloud widget is still coming up, the button shows a spinner rather
+        than a pause icon: the store says "playing" from the click onwards, but nothing is
+        audible until the widget answers, and a pause icon over silence is a lie. It stays
+        clickable throughout — pausing is how the user calls off a load that drags.
+      -->
       <button
         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tambouille-action-hover text-tambouille-text-black hover:bg-tambouille-accent-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-tambouille-action-hover"
         :disabled="!canPlay"
+        :aria-label="widgetLoading ? 'Chargement' : playerStore.isPlaying ? 'Pause' : 'Lecture'"
         @click="playerStore.toggle()"
       >
-        <svg v-if="!playerStore.isPlaying" viewBox="0 0 24 24" class="ml-0.5 h-5 w-5 fill-current">
+        <svg v-if="widgetLoading" viewBox="0 0 24 24" class="h-5 w-5 animate-spin" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.5" opacity="0.3" />
+          <path
+            d="M21 12a9 9 0 0 0-9-9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          />
+        </svg>
+        <svg
+          v-else-if="!playerStore.isPlaying"
+          viewBox="0 0 24 24"
+          class="ml-0.5 h-5 w-5 fill-current"
+          aria-hidden="true"
+        >
           <path d="M8 5v14l11-7z" />
         </svg>
-        <svg v-else viewBox="0 0 24 24" class="h-5 w-5 fill-current">
+        <svg v-else viewBox="0 0 24 24" class="h-5 w-5 fill-current" aria-hidden="true">
           <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
         </svg>
       </button>
@@ -414,8 +476,12 @@ function onEnded() {
           >
             {{ playerStore.currentMix.title }}
           </RouterLink>
+          <!-- "0:00 / 0:00" during the load reads as a stalled player; say what is happening. -->
           <span class="shrink-0 text-xs text-tambouille-text-black">
-            {{ formatTime(playerStore.currentTime) }} / {{ formatTime(duration) }}
+            <template v-if="widgetLoading">Chargement…</template>
+            <template v-else>
+              {{ formatTime(playerStore.currentTime) }} / {{ formatTime(duration) }}
+            </template>
           </span>
         </div>
 
@@ -440,7 +506,7 @@ function onEnded() {
           min="0"
           :max="duration || 0"
           :value="playerStore.currentTime"
-          :disabled="!canPlay"
+          :disabled="!canPlay || widgetLoading"
           @input="onSeek"
         />
       </div>
