@@ -166,7 +166,7 @@ function onToggle(event: Event) {
 
     <div
       ref="containerRef"
-      class="waveform-container flex-1 h-10 cursor-pointer"
+      class="waveform-container flex-1 h-10 cursor-pointer w-full"
       @click="onSeek"
     >
       <canvas ref="canvasRef" class="block w-full h-full" />

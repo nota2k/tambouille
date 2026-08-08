@@ -19,6 +19,7 @@ import { UsersService } from './users.service';
 import { PlaylistsService } from '../playlists/playlists.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PaginationDto } from './dto/pagination.dto';
+import { SearchUsersDto } from './dto/search-users.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
@@ -30,6 +31,11 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly playlistsService: PlaylistsService,
   ) {}
+
+  @Get('search')
+  searchUsers(@Query() query: SearchUsersDto) {
+    return this.usersService.search(query);
+  }
 
   @Get(':username')
   @UseGuards(OptionalJwtAuthGuard)

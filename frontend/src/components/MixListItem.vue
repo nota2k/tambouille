@@ -25,9 +25,9 @@ function toggleFavorite(event: Event) {
 
 <template>
   <RouterLink :to="{ name: 'mix-detail', params: { id: mix.id } }"
-    class="group flex gap-10 bg-tambouille-surface transition hover:border-tambouille-accent">
-    <div class="relative rounded-xl aspect-square overflow-hidden bg-tambouille-surface-hover w-[clamp(60px,15vw,180px)]">
-      <img v-if="mix.coverUrl" :src="mediaUrl(mix.coverUrl)" class="h-full w-full object-cover" alt="" />
+    class="group flex gap-[10px] min-[400px]:gap-4 lg:gap-8 bg-tambouille-surface transition hover:border-tambouille-accent">
+    <div class="relative rounded-xl aspect-square overflow-hidden bg-tambouille-surface-hover shrink-0 self-start w-[clamp(60px,25vw,200px)]">
+      <img v-if="mix.coverUrl" :src="mediaUrl(mix.coverUrl)" class="aspect-square w-full object-cover" alt="" />
       <div v-else class="flex h-full w-full items-center justify-center text-tambouille-muted">
         <svg viewBox="0 0 24 24" class="h-7 w-7 fill-current opacity-40">
           <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z" />

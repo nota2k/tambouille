@@ -1,19 +1,79 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { apiClient } from '@/api/client'
 import { mediaUrl } from '@/utils/media'
+import type { AuthorSummary } from '@/types'
 
 const authStore = useAuthStore()
 const router = useRouter()
 const menuOpen = ref(false)
 const headerSearch = ref('')
 
+const searchResults = ref<AuthorSummary[]>([])
+const showDropdown = ref(false)
+const activeIndex = ref(-1)
+const searchContainer = ref<HTMLElement>()
+
+let searchTimeout: ReturnType<typeof setTimeout> | undefined
+
+watch(headerSearch, (q) => {
+  clearTimeout(searchTimeout)
+  const trimmed = q.trim()
+  if (trimmed.length < 2) {
+    searchResults.value = []
+    showDropdown.value = false
+    return
+  }
+  searchTimeout = setTimeout(async () => {
+    try {
+      const { data } = await apiClient.get<{ items: AuthorSummary[] }>('/users/search', {
+        params: { q: trimmed, limit: 5 },
+      })
+      searchResults.value = data.items
+      showDropdown.value = data.items.length > 0
+      activeIndex.value = -1
+    } catch {
+      searchResults.value = []
+      showDropdown.value = false
+    }
+  }, 300)
+})
+
 function onSearch() {
   const q = headerSearch.value.trim()
   if (!q) return
+  closeDropdown()
   router.push({ name: 'discover', query: { q } })
   headerSearch.value = ''
+}
+
+function goToUser(username: string) {
+  closeDropdown()
+  headerSearch.value = ''
+  router.push({ name: 'profile', params: { username } })
+}
+
+function closeDropdown() {
+  showDropdown.value = false
+  activeIndex.value = -1
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (!showDropdown.value) return
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    activeIndex.value = Math.min(activeIndex.value + 1, searchResults.value.length - 1)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    activeIndex.value = Math.max(activeIndex.value - 1, -1)
+  } else if (e.key === 'Enter' && activeIndex.value >= 0) {
+    e.preventDefault()
+    goToUser(searchResults.value[activeIndex.value].username)
+  } else if (e.key === 'Escape') {
+    closeDropdown()
+  }
 }
 
 function logout() {
@@ -21,6 +81,16 @@ function logout() {
   menuOpen.value = false
   router.push({ name: 'discover' })
 }
+
+function onClickOutside(e: Event) {
+  if (searchContainer.value?.contains(e.target as Node) === false) {
+    closeDropdown()
+  }
+}
+
+import { onMounted, onUnmounted } from 'vue'
+onMounted(() => document.addEventListener('click', onClickOutside))
+onUnmounted(() => document.removeEventListener('click', onClickOutside))
 </script>
 
 <template>
@@ -31,7 +101,7 @@ function logout() {
       </RouterLink>
 
       <form class="hidden flex-1 justify-center px-4 sm:flex" @submit.prevent="onSearch">
-        <div class="relative w-full max-w-md">
+        <div ref="searchContainer" class="relative w-full max-w-md">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
             class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60">
@@ -43,7 +113,43 @@ function logout() {
             type="search"
             placeholder="Rechercher..."
             class="w-full rounded-full bg-white/15 py-1.5 pl-9 pr-4 text-sm text-white placeholder-white/60 outline-none focus:bg-white/25"
+            @keydown="onKeydown"
+            @focus="showDropdown = searchResults.length > 0"
           />
+
+          <div
+            v-if="showDropdown"
+            class="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-lg border border-tambouille-border bg-tambouille-surface shadow-xl"
+          >
+            <div class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-tambouille-muted">
+              Utilisateurs
+            </div>
+            <RouterLink
+              v-for="(user, i) in searchResults"
+              :key="user.id"
+              :to="{ name: 'profile', params: { username: user.username } }"
+              class="flex items-center gap-3 px-3 py-2 transition"
+              :class="i === activeIndex ? 'bg-tambouille-surface-hover' : 'hover:bg-tambouille-surface-hover'"
+              @click="closeDropdown(); headerSearch = ''"
+            >
+              <img
+                v-if="user.avatarUrl"
+                :src="mediaUrl(user.avatarUrl)"
+                class="h-8 w-8 rounded-full object-cover"
+                alt=""
+              />
+              <div
+                v-else
+                class="flex h-8 w-8 items-center justify-center rounded-full bg-tambouille-accent text-xs font-semibold text-white"
+              >
+                {{ user.displayName?.[0]?.toUpperCase() }}
+              </div>
+              <div class="min-w-0">
+                <div class="truncate text-sm font-medium">{{ user.displayName }}</div>
+                <div class="truncate text-xs text-tambouille-muted">@{{ user.username }}</div>
+              </div>
+            </RouterLink>
+          </div>
         </div>
       </form>
 

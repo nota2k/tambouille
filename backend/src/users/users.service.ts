@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PaginationDto } from './dto/pagination.dto';
+import { SearchUsersDto } from './dto/search-users.dto';
 
 const userSummarySelect = {
   id: true,
@@ -13,6 +14,25 @@ const userSummarySelect = {
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async search(dto: SearchUsersDto) {
+    const limit = dto.limit ?? 5;
+    const q = dto.q.trim();
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { username: { contains: q, mode: 'insensitive' } },
+          { displayName: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: userSummarySelect,
+      orderBy: { username: 'asc' },
+      take: limit,
+    });
+
+    return { items: users };
+  }
 
   async getPublicProfile(username: string, currentUserId?: string) {
     const user = await this.prisma.user.findUnique({
@@ -53,7 +73,7 @@ export class UsersService {
       where: { id: userId },
       data: dto,
     });
-    return this.getPublicProfile(user.username);
+    return this.getPublicProfile(user.username!);
   }
 
   async updateAvatar(userId: string, avatarUrl: string) {
@@ -61,7 +81,7 @@ export class UsersService {
       where: { id: userId },
       data: { avatarUrl },
     });
-    return this.getPublicProfile(user.username);
+    return this.getPublicProfile(user.username!);
   }
 
   async updateCover(userId: string, coverUrl: string) {
@@ -69,7 +89,7 @@ export class UsersService {
       where: { id: userId },
       data: { coverUrl },
     });
-    return this.getPublicProfile(user.username);
+    return this.getPublicProfile(user.username!);
   }
 
   async follow(currentUserId: string, targetUsername: string) {

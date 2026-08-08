@@ -3,10 +3,11 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { mediaUrl } from '@/utils/media'
 import MixListItem from '@/components/MixListItem.vue'
 import MixSlider from '@/components/MixSlider.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
-import type { Mix, MixListResponse } from '@/types'
+import type { Mix, MixListResponse, AuthorSummary } from '@/types'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -36,6 +37,7 @@ const recentlyPlayedMixes = ref<Mix[]>([])
 
 // Flat search results (shown while searching)
 const searchResults = ref<Mix[]>([])
+const userResults = ref<AuthorSummary[]>([])
 const page = ref(1)
 const totalPages = ref(1)
 
@@ -63,7 +65,7 @@ async function loadSections() {
 async function loadSearchResults() {
   loading.value = true
   try {
-    const { data } = await apiClient.get<MixListResponse>('/mixes', {
+    const mixesPromise = apiClient.get<MixListResponse>('/mixes', {
       params: {
         q: search.value || undefined,
         tags: selectedTags.value.length ? selectedTags.value.join(',') : undefined,
@@ -72,8 +74,16 @@ async function loadSearchResults() {
         limit: 20,
       },
     })
-    searchResults.value = data.items
-    totalPages.value = data.totalPages
+
+    const q = search.value.trim()
+    const usersPromise = q.length >= 2
+      ? apiClient.get<{ items: AuthorSummary[] }>('/users/search', { params: { q, limit: 5 } })
+      : Promise.resolve(null)
+
+    const [mixesRes, usersRes] = await Promise.all([mixesPromise, usersPromise])
+    searchResults.value = mixesRes.data.items
+    totalPages.value = mixesRes.data.totalPages
+    userResults.value = usersRes?.data.items ?? []
   } finally {
     loading.value = false
   }
@@ -86,6 +96,7 @@ watch(search, () => {
     if (isSearching.value) {
       loadSearchResults()
     } else {
+      userResults.value = []
       loadSections()
     }
   }, 300)
@@ -173,9 +184,38 @@ onMounted(loadSections)
     </div>
 
     <template v-else-if="isSearching">
-      <div v-if="searchResults.length === 0" class="py-16 text-center text-tambouille-muted">Aucun mix trouvé.</div>
+      <section v-if="userResults.length > 0" class="mb-8">
+        <h2 class="mb-4 text-lg font-semibold">Utilisateurs</h2>
+        <div class="flex flex-wrap gap-4">
+          <RouterLink
+            v-for="user in userResults"
+            :key="user.id"
+            :to="{ name: 'profile', params: { username: user.username } }"
+            class="flex items-center gap-3 rounded-xl border border-tambouille-border bg-tambouille-surface px-4 py-3 transition hover:border-tambouille-accent"
+          >
+            <img
+              v-if="user.avatarUrl"
+              :src="mediaUrl(user.avatarUrl)"
+              class="h-10 w-10 rounded-full object-cover"
+              alt=""
+            />
+            <div
+              v-else
+              class="flex h-10 w-10 items-center justify-center rounded-full bg-tambouille-accent text-sm font-semibold text-white"
+            >
+              {{ user.displayName?.[0]?.toUpperCase() }}
+            </div>
+            <div class="min-w-0">
+              <div class="truncate text-sm font-medium">{{ user.displayName }}</div>
+              <div class="truncate text-xs text-tambouille-muted">@{{ user.username }}</div>
+            </div>
+          </RouterLink>
+        </div>
+      </section>
 
-      <div v-else class="space-y-3">
+      <div v-if="searchResults.length === 0 && userResults.length === 0" class="py-16 text-center text-tambouille-muted">Aucun résultat trouvé.</div>
+
+      <div v-if="searchResults.length > 0" class="space-y-3">
         <MixListItem v-for="mix in searchResults" :key="mix.id" :mix="mix" />
       </div>
 
