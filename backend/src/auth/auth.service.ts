@@ -14,7 +14,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  private toPublicUser(user: { id: string; email: string; username: string; displayName: string; bio: string | null; avatarUrl: string | null; createdAt: Date }) {
+  private toPublicUser(user: { id: string; email: string; username: string | null; displayName: string; bio: string | null; avatarUrl: string | null; createdAt: Date }) {
     return {
       id: user.id,
       email: user.email,
@@ -58,7 +58,9 @@ export class AuthService {
         OR: [{ email: dto.emailOrUsername }, { username: dto.emailOrUsername }],
       },
     });
-    if (!user) {
+    if (!user || !user.password) {
+      // No password hash means this is a Google-only account; it can't
+      // authenticate through the password flow.
       throw new UnauthorizedException('Invalid credentials');
     }
 
