@@ -1,16 +1,33 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import MixListItem from '@/components/MixListItem.vue'
 import MixSlider from '@/components/MixSlider.vue'
+import TagsOverlay from '@/components/TagsOverlay.vue'
 import type { Mix, MixListResponse } from '@/types'
 
 const authStore = useAuthStore()
+const route = useRoute()
 
-const search = ref('')
+const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const sortBy = ref<'recent' | 'plays'>('recent')
 const loading = ref(false)
-const isSearching = computed(() => search.value.trim().length > 0)
+const showTagsOverlay = ref(false)
+const selectedTags = ref<string[]>([])
+const isSearching = computed(() => search.value.trim().length > 0 || selectedTags.value.length > 0 || sortBy.value !== 'recent')
+
+function toggleTag(tag: string) {
+  const idx = selectedTags.value.indexOf(tag)
+  if (idx >= 0) {
+    selectedTags.value.splice(idx, 1)
+  } else {
+    selectedTags.value.push(tag)
+  }
+  page.value = 1
+  loadSearchResults()
+}
 
 // Curated sections (shown when not searching)
 const latestMixes = ref<Mix[]>([])
@@ -47,7 +64,13 @@ async function loadSearchResults() {
   loading.value = true
   try {
     const { data } = await apiClient.get<MixListResponse>('/mixes', {
-      params: { q: search.value, page: page.value, limit: 20 },
+      params: {
+        q: search.value || undefined,
+        tags: selectedTags.value.length ? selectedTags.value.join(',') : undefined,
+        sort: sortBy.value,
+        page: page.value,
+        limit: 20,
+      },
     })
     searchResults.value = data.items
     totalPages.value = data.totalPages
@@ -68,6 +91,15 @@ watch(search, () => {
   }, 300)
 })
 
+watch(() => route.query.q, (q) => {
+  search.value = typeof q === 'string' ? q : ''
+})
+
+watch(sortBy, () => {
+  page.value = 1
+  loadSearchResults()
+})
+
 watch(page, () => {
   if (isSearching.value) loadSearchResults()
 })
@@ -79,13 +111,62 @@ onMounted(loadSections)
   <div class="mx-auto max-w-6xl px-4 py-8">
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <h1 class="text-2xl font-bold">Découvrir des mixs</h1>
-      <input
-        v-model="search"
-        type="search"
-        placeholder="Rechercher un mix, un style..."
-        class="w-full rounded-full border border-tambouille-border bg-tambouille-surface px-4 py-2 outline-none focus:border-tambouille-accent sm:w-72"
-      />
+      <div class="flex items-center gap-2">
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Rechercher un mix, un style..."
+          class="w-full rounded-full border border-tambouille-border bg-tambouille-surface px-4 py-2 outline-none focus:border-tambouille-accent sm:w-72"
+        />
+        <button
+          class="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm transition"
+          :class="
+            selectedTags.length
+              ? 'border-tambouille-accent bg-tambouille-accent text-white'
+              : 'border-tambouille-border hover:border-tambouille-accent'
+          "
+          @click="showTagsOverlay = true"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />
+            <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />
+          </svg>
+          Tags
+          <span v-if="selectedTags.length" class="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs">
+            {{ selectedTags.length }}
+          </span>
+        </button>
+        <select
+          v-model="sortBy"
+          class="rounded-full border border-tambouille-border bg-tambouille-surface px-3 py-2 text-sm outline-none focus:border-tambouille-accent"
+        >
+          <option value="recent">Plus récents</option>
+          <option value="plays">Plus écoutés</option>
+        </select>
+      </div>
     </div>
+
+    <div v-if="selectedTags.length" class="mb-4 flex flex-wrap items-center gap-2">
+      <button
+        v-for="tag in selectedTags"
+        :key="tag"
+        class="flex items-center gap-1 rounded-full bg-tambouille-accent px-3 py-1 text-sm text-white transition hover:bg-tambouille-accent-hover"
+        @click="toggleTag(tag)"
+      >
+        #{{ tag }}
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+        </svg>
+      </button>
+    </div>
+
+    <TagsOverlay
+      v-if="showTagsOverlay"
+      :selected="selectedTags"
+      @toggle="toggleTag"
+      @close="showTagsOverlay = false"
+    />
 
     <div v-if="loading && !latestMixes.length && !searchResults.length" class="py-16 text-center text-tambouille-muted">
       Chargement...
@@ -141,7 +222,7 @@ onMounted(loadSections)
         <div v-if="recentlyPlayedMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Les mixs que vous écoutez apparaîtront ici.
         </div>
-        <div v-else class="space-y-3">
+        <div v-else class="space-y-3 flex flex-col gap-8">
           <MixListItem v-for="mix in recentlyPlayedMixes" :key="mix.id" :mix="mix" />
         </div>
       </section>

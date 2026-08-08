@@ -89,6 +89,13 @@ export function toMixResponse(mix: any) {
 export class MixesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findAllTags(): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<{ tag: string }[]>`
+      SELECT DISTINCT unnest(tags) AS tag FROM "mixes" ORDER BY tag
+    `;
+    return rows.map((r) => r.tag);
+  }
+
   async create(
     userId: string,
     dto: CreateMixDto,
@@ -123,16 +130,20 @@ export class MixesService {
               ],
             }
           : {},
-        query.tag ? { tags: { has: query.tag.toLowerCase() } } : {},
+        query.tags
+          ? { tags: { hasEvery: query.tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean) } }
+          : query.tag ? { tags: { has: query.tag.toLowerCase() } } : {},
         query.username ? { user: { username: query.username } } : {},
       ],
     };
+
+    const orderBy = query.sort === 'plays' ? { playsCount: 'desc' as const } : { createdAt: 'desc' as const };
 
     const [items, total] = await Promise.all([
       this.prisma.mix.findMany({
         where,
         ...buildMixInclude(currentUserId),
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

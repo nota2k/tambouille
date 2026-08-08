@@ -72,6 +72,7 @@ function onTimeUpdate() {
 function onLoadedMetadata() {
   if (!audioEl.value) return
   duration.value = audioEl.value.duration
+  playerStore.setDuration(audioEl.value.duration)
   applyPendingSeek()
 }
 

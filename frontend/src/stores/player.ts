@@ -8,6 +8,8 @@ interface PlayerState {
   pendingSeekSec: number | null
   /** Live playback position in seconds, kept in sync by PlayerBar on every `timeupdate`. */
   currentTime: number
+  /** Total duration in seconds, set by PlayerBar on `loadedmetadata`. */
+  duration: number
 }
 
 export const usePlayerStore = defineStore('player', {
@@ -16,6 +18,7 @@ export const usePlayerStore = defineStore('player', {
     isPlaying: false,
     pendingSeekSec: null,
     currentTime: 0,
+    duration: 0,
   }),
 
   actions: {
@@ -24,6 +27,7 @@ export const usePlayerStore = defineStore('player', {
         this.currentMix = mix
         this.pendingSeekSec = null
         this.currentTime = 0
+        this.duration = 0
       }
       this.isPlaying = true
     },
@@ -33,6 +37,7 @@ export const usePlayerStore = defineStore('player', {
       if (this.currentMix?.id !== mix.id) {
         this.currentMix = mix
         this.currentTime = 0
+        this.duration = 0
       }
       this.pendingSeekSec = seconds
       this.isPlaying = true
@@ -44,6 +49,10 @@ export const usePlayerStore = defineStore('player', {
 
     setCurrentTime(seconds: number) {
       this.currentTime = seconds
+    },
+
+    setDuration(seconds: number) {
+      this.duration = seconds
     },
 
     toggle() {

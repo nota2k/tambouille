@@ -65,6 +65,11 @@ export class MixesController {
     return this.mixesService.listFollowingFeed(userId, query);
   }
 
+  @Get('tags')
+  findAllTags() {
+    return this.mixesService.findAllTags();
+  }
+
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
   findOne(@Param('id') id: string, @OptionalUserId() currentUserId?: string) {

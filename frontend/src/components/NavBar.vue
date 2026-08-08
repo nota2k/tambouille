@@ -7,6 +7,14 @@ import { mediaUrl } from '@/utils/media'
 const authStore = useAuthStore()
 const router = useRouter()
 const menuOpen = ref(false)
+const headerSearch = ref('')
+
+function onSearch() {
+  const q = headerSearch.value.trim()
+  if (!q) return
+  router.push({ name: 'discover', query: { q } })
+  headerSearch.value = ''
+}
 
 function logout() {
   authStore.logout()
@@ -21,6 +29,23 @@ function logout() {
       <RouterLink to="/" class="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <span class="text-tambouille-white" style="font-family: 'Gulax', sans-serif">Tambouille</span>
       </RouterLink>
+
+      <form class="hidden flex-1 justify-center px-4 sm:flex" @submit.prevent="onSearch">
+        <div class="relative w-full max-w-md">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            v-model="headerSearch"
+            type="search"
+            placeholder="Rechercher..."
+            class="w-full rounded-full bg-white/15 py-1.5 pl-9 pr-4 text-sm text-white placeholder-white/60 outline-none focus:bg-white/25"
+          />
+        </div>
+      </form>
 
       <nav class="flex items-center gap-4">
         <RouterLink
