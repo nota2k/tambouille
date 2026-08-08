@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -89,6 +90,13 @@ async function onSubmit() {
         {{ loading ? 'Création...' : "S'inscrire" }}
       </button>
     </form>
+
+    <div class="my-4 flex items-center gap-3 text-xs text-tambouille-muted">
+      <span class="h-px flex-1 bg-tambouille-border"></span>
+      ou
+      <span class="h-px flex-1 bg-tambouille-border"></span>
+    </div>
+    <GoogleSignInButton />
 
     <p class="mt-4 text-sm text-tambouille-muted">
       Déjà un compte ?

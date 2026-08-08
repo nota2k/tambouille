@@ -28,6 +28,11 @@ export const useAuthStore = defineStore('auth', {
       this.setSession(data)
     },
 
+    async loginWithGoogle(idToken: string) {
+      const { data } = await apiClient.post<AuthResponse>('/auth/google', { idToken })
+      this.setSession(data)
+    },
+
     async fetchCurrentUser() {
       if (!this.accessToken) return
       const { data } = await apiClient.get<AuthUser>('/auth/me')
