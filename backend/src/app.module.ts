@@ -7,6 +7,7 @@ import { MixesModule } from './mixes/mixes.module';
 import { PlaylistsModule } from './playlists/playlists.module';
 import { CommentsModule } from './comments/comments.module';
 import { MixcloudModule } from './mixcloud/mixcloud.module';
+import { ImportsModule } from './imports/imports.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { MixcloudModule } from './mixcloud/mixcloud.module';
     PlaylistsModule,
     CommentsModule,
     MixcloudModule,
+    ImportsModule,
   ],
 })
 export class AppModule {}
