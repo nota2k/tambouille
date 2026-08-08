@@ -41,6 +41,7 @@ export class AuthController {
   setUsername(@CurrentUserId() userId: string, @Body() dto: SetUsernameDto) {
     return this.authService.setUsername(userId, dto.username);
   }
+<<<<<<< HEAD
 
   @Post('password')
   @HttpCode(HttpStatus.OK)
@@ -48,4 +49,6 @@ export class AuthController {
   setPassword(@CurrentUserId() userId: string, @Body() dto: SetPasswordDto) {
     return this.authService.setPassword(userId, dto.password);
   }
+=======
+>>>>>>> 1b9ebde (feat(auth): let a pending account choose its username)
 }

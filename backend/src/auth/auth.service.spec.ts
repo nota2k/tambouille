@@ -314,4 +314,39 @@ describe('AuthService', () => {
       expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('setUsername', () => {
+    it('sets the username when the account has none', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.update.mockResolvedValue({
+        id: 'u1', email: 'n@e.com', username: 'nelly',
+        password: null, displayName: 'Nelly', bio: null, avatarUrl: null,
+        createdAt: new Date(),
+      });
+
+      const user = await service.setUsername('u1', 'nelly');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: { username: 'nelly' },
+      });
+      expect(user.username).toBe('nelly');
+    });
+
+    it('refuses to overwrite a username that is already set', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: 'nelly' });
+
+      await expect(service.setUsername('u1', 'autre')).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses a username already taken by someone else', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findFirst.mockResolvedValue({ id: 'u2', username: 'nelly' });
+
+      await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
 });

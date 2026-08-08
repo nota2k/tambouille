@@ -177,6 +177,7 @@ export class AuthService {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     // One-shot: this endpoint exists to complete a pending account, not to
     // rename an established one, which would break every link to its profile.
+<<<<<<< HEAD
     //
     // The two checks below are pre-checks only: they give the common case a
     // clean, specific error message. They are check-then-act and cannot be
@@ -186,6 +187,8 @@ export class AuthService {
     // `updateMany` (which only touches the row if it is still unclaimed) and
     // the database's unique constraint on `username` (caught below as
     // Prisma error P2002).
+=======
+>>>>>>> 1b9ebde (feat(auth): let a pending account choose its username)
     if (user.username) {
       throw new ConflictException('Username already set');
     }
@@ -195,6 +198,7 @@ export class AuthService {
       throw new ConflictException('Username already in use');
     }
 
+<<<<<<< HEAD
     let result: { count: number };
     try {
       result = await this.prisma.user.updateMany({
@@ -244,6 +248,12 @@ export class AuthService {
     }
 
     const updated = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+=======
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { username },
+    });
+>>>>>>> 1b9ebde (feat(auth): let a pending account choose its username)
     return this.toPublicUser(updated);
   }
 
