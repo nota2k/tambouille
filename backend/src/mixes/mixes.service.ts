@@ -66,8 +66,13 @@ function parseTracklist(tracklist?: string): TracklistEntryInput[] {
  * Both failure cases are real states someone can ask for, and each gets its
  * own message: with neither source the mix is unplayable, and with both it is
  * ambiguous about which one the player should use.
+ *
+ * Exported so `MixesController` can reject a hopeless create *before* it
+ * imports a cover into R2, which nothing in this codebase can delete. That
+ * early call is a cheap gate in front of this rule, never a replacement for
+ * it: this remains the guarantee for every caller, including later ones.
  */
-function assertExactlyOneAudioSource(audioUrl: string | null, mixcloudKey: string | null): void {
+export function assertExactlyOneAudioSource(audioUrl: string | null, mixcloudKey: string | null): void {
   if (!audioUrl && !mixcloudKey) {
     throw new BadRequestException('A mix must have either an audio file or a Mixcloud key');
   }

@@ -15,7 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
-import { MixesService } from './mixes.service';
+import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
 import { CoverImportService } from './cover-import.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
@@ -116,10 +116,18 @@ export class MixesController {
     @Body() dto: CreateMixDto,
     @UploadedFiles() files: UploadedFilesShape,
   ) {
-    // No audio file is no longer an error here: a Mixcloud-hosted mix has
-    // none by design. Whether this request names exactly one audio source is
-    // `MixesService`'s rule, and it answers with which of the two is wrong.
+    // No audio file is no longer an error by itself: a Mixcloud-hosted mix has
+    // none by design. But the audio source is checked *here*, before the cover
+    // import below, and not left to `MixesService` alone — importing a cover
+    // writes an object to R2, and nothing in this codebase deletes R2 objects,
+    // so a mix that was never going to be created would leave one behind for
+    // good. Any signed-in account could fill the bucket in a loop.
+    //
+    // This is the same function the service calls, imported rather than
+    // restated, so the two cannot drift. The service keeps its own check: that
+    // is the real guarantee, and this is only a cheap gate in front of it.
     const audioFile = files.audio?.[0];
+    assertExactlyOneAudioSource(audioFile?.key ?? null, dto.mixcloudKey || null);
 
     // An uploaded cover always wins over one imported from Mixcloud.
     const coverFile = files.cover?.[0];
