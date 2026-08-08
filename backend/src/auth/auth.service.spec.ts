@@ -115,6 +115,73 @@ describe('AuthService', () => {
       expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
+    // The two tests below are the regression net for an account-takeover
+    // chain: an unverified token plants an account on the victim's address,
+    // then the victim's real Google identity re-points that account's
+    // `googleId` and hands the victim a session on the attacker's row. Each
+    // guard is useless without the other, so both stay tested.
+    it('refuses to create an account on an address Google has not verified', async () => {
+      verifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
+      prisma.user.findFirst.mockResolvedValue(null); // nothing matches at all
+
+      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses the same way whether or not the unverified address is registered', async () => {
+      // Identical messages, so an unauthenticated caller cannot use this flow
+      // to discover which addresses have accounts.
+      verifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
+
+      prisma.user.findFirst.mockResolvedValue(null);
+      const unregistered = await service.loginWithGoogle('token').catch((e: Error) => e);
+
+      prisma.user.findFirst.mockReset();
+      prisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        id: 'u5', email: IDENTITY.email, username: 'nelly',
+        password: 'hash', displayName: 'Nelly', googleId: null,
+      });
+      const registered = await service.loginWithGoogle('token').catch((e: Error) => e);
+
+      expect((unregistered as Error).message).toBe((registered as Error).message);
+    });
+
+    it('refuses to link an account already linked to a different Google identity', async () => {
+      verifier.verify.mockResolvedValue(IDENTITY);
+      prisma.user.findFirst
+        .mockResolvedValueOnce(null) // no match on this googleId
+        .mockResolvedValueOnce({     // match on email, but owned by another sub
+          id: 'u6', email: IDENTITY.email, username: 'attacker',
+          password: 'hash', displayName: 'Nelly', googleId: 'google-sub-attacker',
+        });
+
+      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(ConflictException);
+      // The decisive assertion: no session is issued on a row we do not own.
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('matches an existing account case-insensitively rather than duplicating it', async () => {
+      verifier.verify.mockResolvedValue(IDENTITY);
+      prisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        id: 'u7', email: 'Nelly@Example.com', username: 'nelly',
+        password: 'hash', displayName: 'Nelly', googleId: null,
+      });
+      prisma.user.update.mockResolvedValue({
+        id: 'u7', email: 'Nelly@Example.com', username: 'nelly',
+        password: 'hash', displayName: 'Nelly', googleId: IDENTITY.googleId,
+      });
+
+      const result = await service.loginWithGoogle('token');
+
+      expect(prisma.user.findFirst).toHaveBeenNthCalledWith(2, {
+        where: { email: { equals: IDENTITY.email, mode: 'insensitive' } },
+      });
+      expect(result.user.id).toBe('u7');
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
     it('creates a pending account when nothing matches', async () => {
       verifier.verify.mockResolvedValue(IDENTITY);
       prisma.user.findFirst.mockResolvedValue(null);

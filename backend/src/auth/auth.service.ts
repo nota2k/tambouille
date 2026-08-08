@@ -8,6 +8,13 @@ import { GoogleTokenVerifier } from './google-token-verifier';
 
 const SALT_ROUNDS = 12;
 
+// Deliberately identical wherever Google hands us an address it has not
+// verified, whether or not an account exists on that address. A distinct
+// message per branch would let an unauthenticated caller probe which email
+// addresses are registered, simply by minting unverified tokens.
+const UNVERIFIED_GOOGLE_EMAIL =
+  'Google has not verified this email address. Sign in with your password instead.';
+
 // Prisma's unique-constraint violation. Not importing Prisma's own error
 // class here to keep this check working against the plain mock objects the
 // test suite throws, as well as the real `PrismaClientKnownRequestError`.
@@ -96,13 +103,41 @@ export class AuthService {
       return this.session(linked);
     }
 
+    // Case-insensitive on purpose. Emails are stored verbatim, so an account
+    // registered as `Nelly@Example.com` is the same mailbox as Google's
+    // `nelly@example.com` but not the same string. An exact match would miss
+    // it and fall through to the create branch below, silently making a
+    // second account for the same person instead of linking — automatic
+    // linking, the whole point of this flow, failing open into a duplicate.
     const sameEmail = await this.prisma.user.findFirst({
-      where: { email: identity.email },
+      where: { email: { equals: identity.email, mode: 'insensitive' } },
     });
     if (sameEmail) {
       // Linking on an unverified address would hand this account to anyone who
       // can create a Google account bearing the same address.
       if (!identity.emailVerified) {
+        throw new ConflictException(UNVERIFIED_GOOGLE_EMAIL);
+      }
+      // Adopt only an account that no Google identity owns yet.
+      //
+      // A non-null `googleId` here is necessarily a *different* `sub` — an
+      // equal one would have been returned by the `linked` lookup above. This
+      // is the closing half of an account-takeover chain:
+      //
+      //   1. The attacker mints a token for victim@corp.com with
+      //      email_verified: false (an unverified Workspace domain does this)
+      //      and gets a pending account created on the victim's address — the
+      //      create branch below now refuses exactly this.
+      //   2. The attacker sets a username and a password on that account.
+      //   3. The victim later signs in with their real, verified Google
+      //      identity for the same address. The `googleId` lookup misses
+      //      (different `sub`) and this lookup hits the attacker's row.
+      //
+      // Without this guard step 3 overwrites `googleId` and hands the victim a
+      // session on the *attacker's* account — which the attacker still holds
+      // the password to, and can then read everything the victim does with it.
+      // Re-pointing an established link is never a legitimate operation here.
+      if (sameEmail.googleId !== null) {
         throw new ConflictException(
           'An account already uses this email address. Sign in with your password.',
         );
@@ -112,6 +147,17 @@ export class AuthService {
         data: { googleId: identity.googleId },
       });
       return this.session(updated);
+    }
+
+    // Never create an account on an address Google has not verified. Anyone
+    // controlling a Workspace domain they have not verified can mint a token
+    // for any address at that domain; without this guard that token creates a
+    // real account on someone else's address, which the caller then completes
+    // with a username and a password using the session this very call returns.
+    // That planted account is step 1 of the takeover chain documented on the
+    // link branch above — the two guards only work together.
+    if (!identity.emailVerified) {
+      throw new ConflictException(UNVERIFIED_GOOGLE_EMAIL);
     }
 
     const created = await this.prisma.user.create({
