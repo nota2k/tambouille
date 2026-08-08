@@ -107,34 +107,30 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   <header class="sticky top-0 z-30 border-b border-tambouille-border bg-tambouille-accent backdrop-blur">
     <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
       <RouterLink to="/" class="flex items-center gap-2 text-2xl font-bold tracking-tight">
-        <span class="text-tambouille-white flex items-center gap-4" style="font-family: 'Gulax', sans-serif">Tambouille <svg width="46" height="19" viewBox="0 0 46 19" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M0.951891 8.81886L10.6947 1.81886L21.3805 8.81886L33.3233 1.81886L44.9519 8.81886" stroke="#fff" stroke-width="3"/>
-<path d="M0.951891 16.8189L10.6947 8.81886L21.3805 16.8189L33.3233 8.81886L44.9519 16.8189" stroke="#fff" stroke-width="3"/>
-</svg>
-</span>
+        <span class="text-tambouille-white flex items-center gap-4" style="font-family: 'Gulax', sans-serif">Tambouille
+          <svg class="logo-waves" width="46" height="40" viewBox="0 0 46 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path class="wave wave-1" d="M0.951891 8.81886L10.6947 1.81886L21.3805 8.81886L33.3233 1.81886L44.9519 8.81886" stroke="#fff"
+              stroke-width="3" />
+            <path class="wave wave-2" d="M0.951891 16.8189L10.6947 8.81886L21.3805 16.8189L33.3233 8.81886L44.9519 16.8189" stroke="#fff"
+              stroke-width="3" />
+          </svg>
+        </span>
       </RouterLink>
 
       <form class="hidden flex-1 justify-center px-4 sm:flex" @submit.prevent="onSearch">
         <div ref="searchContainer" class="relative w-full max-w-md">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"
             class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60">
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
-          <input
-            v-model="headerSearch"
-            type="search"
-            placeholder="Rechercher..."
+          <input v-model="headerSearch" type="search" placeholder="Rechercher..."
             class="w-full rounded-full bg-white/15 py-1.5 pl-9 pr-4 text-sm text-white placeholder-white/60 outline-none focus:bg-white/25"
-            @keydown="onKeydown"
-            @focus="showDropdown = searchResults.length > 0"
-          />
+            @keydown="onKeydown" @focus="showDropdown = searchResults.length > 0" />
 
-          <div
-            v-if="showDropdown"
-            class="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-lg border border-tambouille-border bg-tambouille-surface shadow-xl"
-          >
+          <div v-if="showDropdown"
+            class="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-lg border border-tambouille-border bg-tambouille-surface shadow-xl">
             <div class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-tambouille-muted">
               Utilisateurs
             </div>
@@ -142,23 +138,14 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
               <!-- Pas de username = pas de profil public : on n'émet aucun lien
                    plutôt qu'un lien avec un param nul, qui ferait planter le
                    router et disparaître tout le menu déroulant. -->
-              <RouterLink
-                v-if="user.username"
-                :to="{ name: 'profile', params: { username: user.username } }"
+              <RouterLink v-if="user.username" :to="{ name: 'profile', params: { username: user.username } }"
                 class="flex items-center gap-3 px-3 py-2 transition"
                 :class="i === activeIndex ? 'bg-tambouille-surface-hover' : 'hover:bg-tambouille-surface-hover'"
-                @click="closeDropdown(); headerSearch = ''"
-              >
-                <img
-                  v-if="user.avatarUrl"
-                  :src="mediaUrl(user.avatarUrl)"
-                  class="h-8 w-8 rounded-full object-cover"
-                  alt=""
-                />
-                <div
-                  v-else
-                  class="flex h-8 w-8 items-center justify-center rounded-full bg-tambouille-accent text-xs font-semibold text-white"
-                >
+                @click="closeDropdown(); headerSearch = ''">
+                <img v-if="user.avatarUrl" :src="mediaUrl(user.avatarUrl)" class="h-8 w-8 rounded-full object-cover"
+                  alt="" />
+                <div v-else
+                  class="flex h-8 w-8 items-center justify-center rounded-full bg-tambouille-accent text-xs font-semibold text-white">
                   {{ user.displayName?.[0]?.toUpperCase() }}
                 </div>
                 <div class="min-w-0">
@@ -172,58 +159,39 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
       </form>
 
       <nav class="flex items-center gap-4">
-        <RouterLink
-          to="/"
-          class="text-sm font-medium text-tambouille-white hover:text-tambouille-white"
-          active-class="!text-tambouille-white"
-        >
+        <RouterLink to="/" class="text-sm font-medium text-tambouille-white hover:text-tambouille-white"
+          active-class="!text-tambouille-white">
           Découvrir
         </RouterLink>
 
         <template v-if="authStore.isAuthenticated">
-          <RouterLink
-            to="/upload"
-            class="rounded-full border px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover"
-          >
+          <RouterLink to="/upload"
+            class="rounded-full border px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover">
             Uploader
           </RouterLink>
 
           <div class="relative">
             <button
               class="flex items-center gap-2 rounded-full border border-tambouille-border hover:bg-tambouille-surface-hover"
-              @click="menuOpen = !menuOpen"
-            >
-              <img
-                v-if="authStore.user?.avatarUrl"
-                :src="mediaUrl(authStore.user.avatarUrl)"
-                class="h-7 w-7 rounded-full object-cover"
-                alt=""
-              />
-              <div
-                v-else
-                class="flex h-7 w-7 items-center justify-center rounded-full bg-tambouille-surface-hover text-xs font-semibold"
-              >
+              @click="menuOpen = !menuOpen">
+              <img v-if="authStore.user?.avatarUrl" :src="mediaUrl(authStore.user.avatarUrl)"
+                class="h-7 w-7 rounded-full object-cover" alt="" />
+              <div v-else
+                class="flex h-7 w-7 items-center justify-center rounded-full bg-tambouille-surface-hover text-xs font-semibold">
                 {{ authStore.user?.displayName?.[0]?.toUpperCase() }}
               </div>
             </button>
 
-            <div
-              v-if="menuOpen"
+            <div v-if="menuOpen"
               class="absolute right-0 mt-2 w-48 rounded-lg border border-tambouille-border bg-tambouille-surface py-1 shadow-xl"
-              @mouseleave="menuOpen = false"
-            >
-              <RouterLink
-                v-if="authStore.user?.username"
+              @mouseleave="menuOpen = false">
+              <RouterLink v-if="authStore.user?.username"
                 :to="{ name: 'profile', params: { username: authStore.user.username } }"
-                class="block px-4 py-2 text-sm hover:bg-tambouille-surface-hover"
-                @click="menuOpen = false"
-              >
+                class="block px-4 py-2 text-sm hover:bg-tambouille-surface-hover" @click="menuOpen = false">
                 Mon profil
               </RouterLink>
-              <button
-                class="block w-full px-4 py-2 text-left text-sm hover:bg-tambouille-surface-hover"
-                @click="logout"
-              >
+              <button class="block w-full px-4 py-2 text-left text-sm hover:bg-tambouille-surface-hover"
+                @click="logout">
                 Se déconnecter
               </button>
             </div>
@@ -234,10 +202,8 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
           <RouterLink to="/login" class="text-sm font-medium text-tambouille-muted hover:text-tambouille-text">
             Connexion
           </RouterLink>
-          <RouterLink
-            to="/register"
-            class="rounded-full bg-tambouille-accent px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover"
-          >
+          <RouterLink to="/register"
+            class="rounded-full bg-tambouille-accent px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover">
             S'inscrire
           </RouterLink>
         </template>
@@ -245,3 +211,36 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
     </div>
   </header>
 </template>
+
+<style scoped>
+.logo-waves .wave {
+  transition: transform 0.4s ease;
+}
+
+.logo-waves:hover .wave-1 {
+  animation: wave-float-1 0.6s ease-in-out infinite alternate;
+}
+
+.logo-waves:hover .wave-2 {
+  animation: wave-float-2 0.6s ease-in-out infinite alternate;
+  animation-delay: 0.15s;
+}
+
+@keyframes wave-float-1 {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes wave-float-2 {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(2px);
+  }
+}
+</style>
