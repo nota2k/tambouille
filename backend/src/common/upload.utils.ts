@@ -13,12 +13,25 @@ export interface UploadedFile extends Express.Multer.File {
   key: string;
 }
 
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name} (needed to configure R2 storage)`);
+  }
+  return value;
+}
+
+const R2_ACCOUNT_ID = requireEnv('R2_ACCOUNT_ID');
+const R2_ACCESS_KEY_ID = requireEnv('R2_ACCESS_KEY_ID');
+const R2_SECRET_ACCESS_KEY = requireEnv('R2_SECRET_ACCESS_KEY');
+const R2_BUCKET_NAME = requireEnv('R2_BUCKET_NAME');
+
 const r2Client = new S3Client({
   region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID ?? '',
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
   },
 });
 
@@ -29,7 +42,7 @@ function objectKey(subdir: string, originalname: string): string {
 export function r2StorageFor(subdir: string) {
   return multerS3({
     s3: r2Client,
-    bucket: process.env.R2_BUCKET_NAME ?? '',
+    bucket: R2_BUCKET_NAME,
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (_req, file, callback) => {
       callback(null, objectKey(subdir, file.originalname));
@@ -41,7 +54,7 @@ export function r2StorageFor(subdir: string) {
 export function r2StorageByField(fieldToSubdir: Record<string, string>) {
   return multerS3({
     s3: r2Client,
-    bucket: process.env.R2_BUCKET_NAME ?? '',
+    bucket: R2_BUCKET_NAME,
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (_req, file, callback) => {
       const subdir = fieldToSubdir[file.fieldname] ?? 'misc';
