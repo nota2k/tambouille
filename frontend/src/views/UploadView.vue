@@ -136,8 +136,7 @@ onBeforeUnmount(() => {
 async function onSubmit() {
   // A mix carries exactly one audio source. `useMixcloudAudio` is the only case
   // where no file is needed, and it cannot be true without an imported key.
-  const mixcloudKey = useMixcloudAudio.value ? importedMixcloudKey.value : null
-  if (!mixcloudKey && !audioFile.value) {
+  if (!useMixcloudAudio.value && !audioFile.value) {
     error.value = 'Un fichier audio est requis'
     return
   }
@@ -159,8 +158,12 @@ async function onSubmit() {
   if (tracklist.entries.length > 0) formData.append('tracklist', JSON.stringify(tracklist.entries))
   // Exactly one of the two, never both — the backend rejects a mix carrying
   // both sources, and the cover is imported either way.
-  if (mixcloudKey) formData.append('mixcloudKey', mixcloudKey)
-  else if (audioFile.value) formData.append('audio', audioFile.value)
+  if (importedMixcloudKey.value && keepAudioOnMixcloud.value) {
+    formData.append('sourceType', 'mixcloud')
+    formData.append('sourceRef', importedMixcloudKey.value)
+  } else if (audioFile.value) {
+    formData.append('audio', audioFile.value)
+  }
   if (coverFile.value) formData.append('cover', coverFile.value)
   if (coverSourceUrl.value) formData.append('coverSourceUrl', coverSourceUrl.value)
 
