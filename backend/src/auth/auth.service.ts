@@ -267,7 +267,13 @@ export class AuthService {
       throw error;
     }
 
-    // MUTATION CHECK — `count === 0` throw removed, restored immediately after.
+    if (result.count === 0) {
+      // The row no longer matched `googleId: null`: this account already has a
+      // Google identity — the caller's own, if they linked twice, or one
+      // attached by a concurrent request. There is no unlinking, so there is
+      // nothing to offer here but the refusal.
+      throw new ConflictException(ACCOUNT_ALREADY_LINKED);
+    }
 
     const updated = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     return this.toPublicUser(updated);
