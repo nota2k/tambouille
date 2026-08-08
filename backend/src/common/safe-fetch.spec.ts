@@ -19,3 +19,23 @@ describe('isBlockedAddress', () => {
     expect(isBlockedAddress(ip)).toBe(false);
   });
 });
+
+import { safeFetch, BLOCKED_ADDRESS_MESSAGE } from './safe-fetch';
+import { BadRequestException } from '@nestjs/common';
+
+describe('safeFetch', () => {
+  it('refuses http', async () => {
+    await expect(safeFetch('http://example.org/feed.xml', { maxBytes: 1000, timeoutMs: 100 }))
+      .rejects.toThrow(BadRequestException);
+  });
+
+  it('refuses a literal private address', async () => {
+    await expect(safeFetch('https://169.254.169.254/latest/meta-data/', { maxBytes: 1000, timeoutMs: 100 }))
+      .rejects.toThrow(BLOCKED_ADDRESS_MESSAGE);
+  });
+
+  it('refuses a malformed URL', async () => {
+    await expect(safeFetch('not a url', { maxBytes: 1000, timeoutMs: 100 }))
+      .rejects.toThrow(BadRequestException);
+  });
+});
