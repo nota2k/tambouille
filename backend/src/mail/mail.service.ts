@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, type Transporter } from 'nodemailer';
 
@@ -14,7 +14,7 @@ import { createTransport, type Transporter } from 'nodemailer';
  * the only place a bad configuration becomes visible.
  */
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
   private readonly transporter: Transporter;
   private readonly from: string;
@@ -71,5 +71,16 @@ export class MailService {
       greetingTimeout: 5000,
       socketTimeout: 10000,
     });
+  }
+
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.transporter.verify();
+      this.logger.log('SMTP transport ready');
+    } catch (error) {
+      // Deliberately non-fatal. Making this throw would couple the whole API's
+      // availability to the relay's, and would take the e2e suite down with it.
+      this.logger.error(`SMTP transport unavailable: ${String(error)}`);
+    }
   }
 }

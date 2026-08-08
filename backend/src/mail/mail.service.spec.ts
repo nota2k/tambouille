@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { createTransport } from 'nodemailer';
 import type { ConfigService } from '@nestjs/config';
 import { MailService } from './mail.service';
@@ -110,5 +111,28 @@ describe('MailService construction', () => {
 
   it('throws when SMTP_SECURE is neither "true" nor "false"', () => {
     expect(() => buildService({ SMTP_SECURE: 'True' })).toThrow(/SMTP_SECURE/);
+  });
+});
+
+describe('MailService startup verification', () => {
+  it('logs and does not throw when the transport verifies', async () => {
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    const { service, transporter } = buildService();
+
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+
+    expect(transporter.verify).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalled();
+  });
+
+  it('logs an error but still resolves when the transport is unreachable', async () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const { service, transporter } = buildService();
+    transporter.verify.mockRejectedValue(new Error('ECONNREFUSED'));
+
+    // Resolving is the whole point: a relay outage must not keep the API down.
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
   });
 });
