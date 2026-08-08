@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { formatTime } from '@/utils/time'
@@ -31,6 +31,18 @@ const mixcloudError = ref('')
 const mixcloudMixes = ref<MixcloudCloudcastSummary[]>([])
 const mixcloudImportingKey = ref<string | null>(null)
 const coverSourceUrl = ref<string | null>(null)
+// Set only by a *successful* import, so it is a key the backend has already
+// validated and fetched. A hand-filled form leaves it null and is never
+// offered the hosting choice — there would be nothing to point at.
+const importedMixcloudKey = ref<string | null>(null)
+// false = host the audio on Tambouille, exactly as before. Reversible until
+// the form is submitted.
+const keepAudioOnMixcloud = ref(false)
+
+// The one source of truth for "this mix has no audio file". The intent alone is
+// not enough: without an imported key there is nothing to store, so the form
+// falls back to requiring a file rather than submitting a sourceless mix.
+const useMixcloudAudio = computed(() => keepAudioOnMixcloud.value && importedMixcloudKey.value !== null)
 
 async function fetchMixcloudMixes() {
   const username = mixcloudUsername.value.trim()
@@ -67,6 +79,7 @@ async function importMixcloudMix(mix: MixcloudCloudcastSummary) {
         ? data.tracklist.map((entry) => ({ timecode: formatTime(entry.timecodeSec), artist: entry.artist, title: entry.title }))
         : [{ timecode: '', artist: '', title: '' }]
     coverSourceUrl.value = data.coverSourceUrl ?? null
+    importedMixcloudKey.value = mix.key
   } catch (err: any) {
     mixcloudError.value = err.response?.data?.message ?? "Impossible d'importer ce mix"
   } finally {
@@ -94,6 +107,19 @@ function removeImportedCover() {
   coverSourceUrl.value = null
 }
 
+function setKeepAudioOnMixcloud(value: boolean) {
+  keepAudioOnMixcloud.value = value
+  // Leaving the audio on Mixcloud drops any file already picked, rather than
+  // keeping it out of sight: the field is hidden from here on, so a file still
+  // held in memory would be one the user can no longer see or remove, and the
+  // backend refuses a mix carrying both sources. Switching back therefore shows
+  // an empty, required field again — the state and the form agree either way.
+  if (!value) return
+  audioFile.value = null
+  if (audioPreviewUrl.value) URL.revokeObjectURL(audioPreviewUrl.value)
+  audioPreviewUrl.value = null
+}
+
 function onCapture(seconds: number) {
   trackRows.value.push({ timecode: formatTime(seconds), artist: '', title: '' })
 }
@@ -103,7 +129,10 @@ onBeforeUnmount(() => {
 })
 
 async function onSubmit() {
-  if (!audioFile.value) {
+  // A mix carries exactly one audio source. `useMixcloudAudio` is the only case
+  // where no file is needed, and it cannot be true without an imported key.
+  const mixcloudKey = useMixcloudAudio.value ? importedMixcloudKey.value : null
+  if (!mixcloudKey && !audioFile.value) {
     error.value = 'Un fichier audio est requis'
     return
   }
@@ -123,7 +152,10 @@ async function onSubmit() {
   if (description.value) formData.append('description', description.value)
   if (tags.value) formData.append('tags', tags.value)
   if (tracklist.entries.length > 0) formData.append('tracklist', JSON.stringify(tracklist.entries))
-  formData.append('audio', audioFile.value)
+  // Exactly one of the two, never both — the backend rejects a mix carrying
+  // both sources, and the cover is imported either way.
+  if (mixcloudKey) formData.append('mixcloudKey', mixcloudKey)
+  else if (audioFile.value) formData.append('audio', audioFile.value)
   if (coverFile.value) formData.append('cover', coverFile.value)
   if (coverSourceUrl.value) formData.append('coverSourceUrl', coverSourceUrl.value)
 
@@ -151,7 +183,8 @@ async function onSubmit() {
       <h2 class="mb-1 text-sm font-semibold">Importer depuis Mixcloud</h2>
       <p class="mb-3 text-xs text-tambouille-muted">
         Seuls le titre, la description, les tags, la tracklist et la pochette sont importés.
-        L'audio n'est pas récupéré automatiquement : vous devrez choisir le fichier audio vous-même ci-dessous.
+        L'audio n'est jamais copié depuis Mixcloud : après l'import, choisissez ci-dessous d'envoyer
+        vous-même le fichier audio, ou de laisser l'audio sur Mixcloud.
       </p>
 
       <div class="flex gap-2">
@@ -230,7 +263,48 @@ async function onSubmit() {
         />
       </div>
 
-      <div>
+      <!-- Offered only after an import: a hand-filled form has no Mixcloud key
+           to point at, so there is no choice to make. -->
+      <fieldset v-if="importedMixcloudKey" class="rounded-lg border border-tambouille-border bg-tambouille-surface p-4">
+        <legend class="px-1 text-sm text-tambouille-muted">Où se trouve l'audio ?</legend>
+
+        <label class="flex cursor-pointer items-start gap-3">
+          <input
+            type="radio"
+            name="audio-hosting"
+            :checked="!keepAudioOnMixcloud"
+            class="mt-1 shrink-0 accent-tambouille-accent"
+            @change="setKeepAudioOnMixcloud(false)"
+          />
+          <span class="min-w-0">
+            <span class="block text-sm font-semibold">Héberger l'audio sur Tambouille</span>
+            <span class="block text-xs text-tambouille-muted">
+              Vous choisissez le fichier audio ci-dessous. Il est copié sur Tambouille et y reste.
+            </span>
+          </span>
+        </label>
+
+        <label class="mt-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="radio"
+            name="audio-hosting"
+            :checked="keepAudioOnMixcloud"
+            class="mt-1 shrink-0 accent-tambouille-accent"
+            @change="setKeepAudioOnMixcloud(true)"
+          />
+          <span class="min-w-0">
+            <span class="block text-sm font-semibold">Laisser l'audio sur Mixcloud</span>
+            <span class="block text-xs text-tambouille-muted">
+              Aucun fichier audio à fournir : la lecture se fait depuis Mixcloud, via les commandes de
+              Tambouille. L'audio <strong>n'est pas copié</strong> : si vous le supprimez ou le passez en
+              privé sur Mixcloud, le mix cesse de fonctionner ici. Les écoutes sont comptées par Mixcloud
+              et ne sont donc pas affichées sur Tambouille. La pochette, elle, est bien importée.
+            </span>
+          </span>
+        </label>
+      </fieldset>
+
+      <div v-if="!useMixcloudAudio">
         <label class="mb-1 block text-sm text-tambouille-muted">Fichier audio (mp3, wav, ogg, m4a, aac)</label>
         <input
           type="file"
@@ -241,6 +315,10 @@ async function onSubmit() {
         />
         <MixAudioPreview :src="audioPreviewUrl" class="mt-3" @capture="onCapture" />
       </div>
+      <p v-else class="text-sm text-tambouille-muted">
+        L'audio reste hébergé sur Mixcloud (<span class="font-mono text-xs">{{ importedMixcloudKey }}</span>).
+        Aucun fichier à envoyer.
+      </p>
 
       <div class="tracklist-editor border border-tambouille-accent bg-tambouille-surface rounded-lg p-4 text-tambouille-white">
         <label class="mb-2 block text-sm text-tambouille-muted">Tracklist (optionnel)</label>
