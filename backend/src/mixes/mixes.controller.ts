@@ -25,16 +25,17 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
 import {
   AUDIO_MIME_TYPES,
-  diskStorageByField,
-  diskStorageFor,
+  r2StorageByField,
+  r2StorageFor,
   fileFilterByField,
   fileFilterFor,
   IMAGE_MIME_TYPES,
+  type UploadedFile as R2File,
 } from '../common/upload.utils';
 
 type UploadedFilesShape = {
-  audio?: Express.Multer.File[];
-  cover?: Express.Multer.File[];
+  audio?: R2File[];
+  cover?: R2File[];
 };
 
 @Controller('mixes')
@@ -96,7 +97,7 @@ export class MixesController {
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileFieldsInterceptor([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }], {
-      storage: diskStorageByField({ audio: 'audio', cover: 'covers' }),
+      storage: r2StorageByField({ audio: 'audio', cover: 'covers' }),
       fileFilter: fileFilterByField({ audio: AUDIO_MIME_TYPES, cover: IMAGE_MIME_TYPES }),
       limits: { fileSize: 250 * 1024 * 1024 },
     }),
@@ -113,8 +114,8 @@ export class MixesController {
     const coverFile = files.cover?.[0];
 
     return this.mixesService.create(userId, dto, {
-      audioUrl: `/uploads/audio/${audioFile.filename}`,
-      coverUrl: coverFile ? `/uploads/covers/${coverFile.filename}` : undefined,
+      audioUrl: audioFile.key,
+      coverUrl: coverFile ? coverFile.key : undefined,
     });
   }
 
@@ -122,7 +123,7 @@ export class MixesController {
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('cover', {
-      storage: diskStorageFor('covers'),
+      storage: r2StorageFor('covers'),
       fileFilter: fileFilterFor(IMAGE_MIME_TYPES),
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
@@ -131,9 +132,9 @@ export class MixesController {
     @Param('id') id: string,
     @CurrentUserId() userId: string,
     @Body() dto: UpdateMixDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFile() file?: R2File,
   ) {
-    const coverUrl = file ? `/uploads/covers/${file.filename}` : undefined;
+    const coverUrl = file ? file.key : undefined;
     return this.mixesService.update(id, userId, dto, coverUrl);
   }
 
