@@ -34,7 +34,10 @@ export interface Mix {
   id: string
   title: string
   description: string | null
-  audioUrl: string
+  /** R2 object key. Null when the audio is hosted on Mixcloud. */
+  audioUrl: string | null
+  /** Mixcloud cloudcast key, e.g. `/Notamusic/vorwerk-7-passages-pas-sages/`. Null when the audio is hosted on R2. */
+  mixcloudKey: string | null
   coverUrl: string | null
   durationSec: number | null
   playsCount: number
