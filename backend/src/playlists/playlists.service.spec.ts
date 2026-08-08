@@ -1,3 +1,12 @@
+/**
+ * Reached transitively: `playlists.service` imports `mixes.service`, which
+ * imports `upload.utils` for R2 cleanup — and that module builds its client
+ * and demands the R2_* variables at load time. Nothing here deletes anything.
+ */
+jest.mock('../common/upload.utils', () => ({
+  deleteFromR2: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PlaylistsService } from './playlists.service';
 import { PrismaService } from '../prisma/prisma.service';

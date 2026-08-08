@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { deleteFromR2 } from '../common/upload.utils';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
@@ -312,7 +313,23 @@ export class MixesService {
     if (mix.userId !== userId) {
       throw new ForbiddenException('You can only delete your own mixes');
     }
+
     await this.prisma.mix.delete({ where: { id } });
+
+    // The row goes first on purpose. Deleting from R2 first and then failing on
+    // the row would leave a mix that still exists with dead audio and a dead
+    // cover — visible breakage, worse than an orphan nobody sees. This way the
+    // worst case is what already happens today.
+    //
+    // `sourceRef` is absent from this list and must stay absent: it is a URL on
+    // somebody else's host, never something this server stored.
+    //
+    // `deleteFromR2` already swallows its own failures, so the catch is not a
+    // reachable path today — it is here so that the guarantee the caller cares
+    // about, "my delete worked", stays true locally rather than depending on a
+    // promise made in another module. A future edit there cannot turn a
+    // successful deletion into a failed request from here.
+    await deleteFromR2([mix.audioUrl, mix.coverUrl]).catch(() => undefined);
   }
 
   /**

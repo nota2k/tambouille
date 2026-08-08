@@ -1,3 +1,12 @@
+/**
+ * `upload.utils` builds its R2 client at module load and demands the R2_*
+ * variables. The service now imports it for cleanup; no unit test should need
+ * credentials, and none of these tests delete anything for real.
+ */
+jest.mock('../common/upload.utils', () => ({
+  deleteFromR2: jest.fn().mockResolvedValue(undefined),
+}));
+
 import {
   BadRequestException,
   ForbiddenException,
@@ -5,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { deleteFromR2 } from '../common/upload.utils';
 
 /**
  * Prisma is mocked: these cover the service's own rule — that a mix carries
@@ -20,6 +30,7 @@ function createPrismaMock() {
       count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     },
     playHistory: {
       upsert: jest.fn(),
@@ -605,5 +616,107 @@ describe('assertExactlyOneAudioSource', () => {
     expect(() => assertExactlyOneAudioSource(audioUrl, type, ref)).toThrow(
       BadRequestException,
     );
+  });
+});
+
+describe('remove', () => {
+  const asMock = deleteFromR2 as jest.MockedFunction<typeof deleteFromR2>;
+
+  beforeEach(() => {
+    asMock.mockClear();
+  });
+
+  function serviceOwning(mix: Record<string, unknown>) {
+    const prisma = createPrismaMock();
+    prisma.mix.findUnique.mockResolvedValue(mix);
+    prisma.mix.delete.mockResolvedValue(mix);
+    return {
+      prisma,
+      service: new MixesService(prisma as unknown as PrismaService),
+    };
+  }
+
+  it('deletes the audio and the cover together', async () => {
+    const { prisma, service } = serviceOwning({
+      id: MIX_ID,
+      userId: USER_ID,
+      audioUrl: AUDIO_KEY,
+      coverUrl: 'covers/abcd.jpg',
+    });
+
+    await service.remove(MIX_ID, USER_ID);
+
+    expect(prisma.mix.delete).toHaveBeenCalledWith({ where: { id: MIX_ID } });
+    expect(asMock).toHaveBeenCalledWith([AUDIO_KEY, 'covers/abcd.jpg']);
+  });
+
+  it('passes both slots even when the mix has no cover', async () => {
+    const { service } = serviceOwning({
+      id: MIX_ID,
+      userId: USER_ID,
+      audioUrl: AUDIO_KEY,
+      coverUrl: null,
+    });
+
+    await service.remove(MIX_ID, USER_ID);
+
+    // Filtering is the helper's job, not the caller's — the service must not
+    // grow its own copy of the rule.
+    expect(asMock).toHaveBeenCalledWith([AUDIO_KEY, null]);
+  });
+
+  it('never passes sourceRef, which belongs to somebody else', async () => {
+    const { service } = serviceOwning({
+      id: MIX_ID,
+      userId: USER_ID,
+      audioUrl: null,
+      coverUrl: null,
+      sourceType: SOURCE_TYPE,
+      sourceRef: SOURCE_REF,
+    });
+
+    await service.remove(MIX_ID, USER_ID);
+
+    expect(asMock).toHaveBeenCalledWith([null, null]);
+    expect(JSON.stringify(asMock.mock.calls)).not.toContain(SOURCE_REF);
+  });
+
+  it('still succeeds when the cleanup fails', async () => {
+    asMock.mockRejectedValueOnce(new Error('R2 down'));
+    const { prisma, service } = serviceOwning({
+      id: MIX_ID,
+      userId: USER_ID,
+      audioUrl: AUDIO_KEY,
+      coverUrl: null,
+    });
+
+    await expect(service.remove(MIX_ID, USER_ID)).resolves.toBeUndefined();
+    expect(prisma.mix.delete).toHaveBeenCalled();
+  });
+
+  it('deletes nothing when the mix belongs to someone else', async () => {
+    const { prisma, service } = serviceOwning({
+      id: MIX_ID,
+      userId: 'someone-else',
+      audioUrl: AUDIO_KEY,
+      coverUrl: 'covers/abcd.jpg',
+    });
+
+    await expect(service.remove(MIX_ID, USER_ID)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(prisma.mix.delete).not.toHaveBeenCalled();
+    expect(asMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes nothing when the mix does not exist', async () => {
+    const prisma = createPrismaMock();
+    prisma.mix.findUnique.mockResolvedValue(null);
+    const service = new MixesService(prisma as unknown as PrismaService);
+
+    await expect(service.remove(MIX_ID, USER_ID)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(asMock).not.toHaveBeenCalled();
   });
 });
