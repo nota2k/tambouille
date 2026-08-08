@@ -33,6 +33,7 @@ export const useAuthStore = defineStore('auth', {
       this.setSession(data)
     },
 
+<<<<<<< HEAD
     async setUsername(username: string) {
       const { data } = await apiClient.post<AuthUser>('/auth/username', { username })
       this.user = data
@@ -43,6 +44,8 @@ export const useAuthStore = defineStore('auth', {
       this.user = data
     },
 
+=======
+>>>>>>> 5b0accf (feat(auth): add the Google sign-in button)
     async fetchCurrentUser() {
       if (!this.accessToken) return
       const { data } = await apiClient.get<AuthUser>('/auth/me')
