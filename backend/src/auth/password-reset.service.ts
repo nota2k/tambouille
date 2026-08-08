@@ -30,6 +30,9 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
+/** How often a sweep runs even when the map is nowhere near its ceiling. */
+const SWEEP_EVERY_CALLS = 500;
+
 /**
  * A fixed-budget sliding window, per process and in memory. Enough for the
  * single API instance this runs on; behind more than one it becomes a
@@ -37,18 +40,37 @@ function hashToken(token: string): string {
  *
  * It exists because without it the endpoint mails an arbitrary inbox as fast
  * as it is called, and the person being harassed is not even a user.
+ *
+ * Both the keys and the timestamps are attacker-controlled and
+ * unauthenticated: every request with a fresh address is a fresh key, whether
+ * or not it was within budget. So the structure is bounded in two ways — spent
+ * windows are swept out, and past `maxKeys` the oldest entries are dropped.
+ *
+ * Dropping rather than refusing is deliberate. A full map that turned people
+ * away would let anyone disable password recovery for everyone by flooding it
+ * with junk keys, which is a worse outcome than the limit lapsing for whoever
+ * got evicted. The same reasoning runs through `callerIdentity` below: where
+ * this limit cannot be applied honestly, it is skipped rather than faked.
  */
-class SlidingWindow {
+export class SlidingWindow {
   private readonly hits = new Map<string, number[]>();
+  private callsSinceSweep = 0;
 
   constructor(
     private readonly limit: number,
     private readonly windowMs: number,
+    private readonly maxKeys: number,
   ) {}
 
   /** True when the request fits inside the budget, and counts it if so. */
   tryConsume(key: string): boolean {
     const now = Date.now();
+
+    this.callsSinceSweep += 1;
+    if (this.callsSinceSweep >= SWEEP_EVERY_CALLS || this.hits.size >= this.maxKeys) {
+      this.sweep(now);
+    }
+
     const cutoff = now - this.windowMs;
     const recent = (this.hits.get(key) ?? []).filter((at) => at > cutoff);
 
@@ -59,9 +81,80 @@ class SlidingWindow {
     }
 
     recent.push(now);
+    // Re-inserted rather than mutated in place, so Map insertion order tracks
+    // "least recently touched" and the eviction below drops the stalest key.
+    this.hits.delete(key);
     this.hits.set(key, recent);
     return true;
   }
+
+  /** Tracked keys. Exposed so the ceiling can be asserted rather than assumed. */
+  get size(): number {
+    return this.hits.size;
+  }
+
+  private sweep(now: number): void {
+    this.callsSinceSweep = 0;
+    const cutoff = now - this.windowMs;
+
+    for (const [key, times] of this.hits) {
+      // Ascending, so the last entry is the most recent: if even that one has
+      // fallen out of the window, the whole budget has been restored and the
+      // key carries no information.
+      if ((times[times.length - 1] ?? 0) <= cutoff) {
+        this.hits.delete(key);
+      }
+    }
+
+    // Still at the ceiling with nothing left to reclaim — a flood of live junk
+    // keys. Drop the stalest until there is room. See the class comment for
+    // why this evicts instead of refusing.
+    while (this.hits.size >= this.maxKeys) {
+      const stalest = this.hits.keys().next();
+      if (stalest.done) {
+        break;
+      }
+      this.hits.delete(stalest.value);
+    }
+  }
+}
+
+/**
+ * The rate-limit identity of a caller, or null when there is not an honest one
+ * to be had.
+ *
+ * `req.ip` is only a client address if Express has been told about the proxy
+ * in front of it (`main.ts` sets `trust proxy`). When that is wrong, or when
+ * the request genuinely arrives over loopback, every caller in the world
+ * resolves to the same string — and a shared key does not mean "one very busy
+ * user", it means the per-caller budget has quietly become a global one. Ten
+ * requests would then switch password recovery off for the entire site while
+ * the form went on saying a link had been sent.
+ *
+ * So an address that cannot identify anybody yields null and the per-caller
+ * limit is skipped. No cap is better than a global cap here: the per-address
+ * limit still stands, and it is the one that protects the mailbox being
+ * written to. Private LAN ranges are deliberately NOT rejected — behind a
+ * reverse proxy on a private network those are real, distinct clients.
+ */
+export function callerIdentity(ip: string | undefined): string | null {
+  if (!ip) {
+    return null;
+  }
+
+  const address = ip.trim().toLowerCase();
+  // IPv4-mapped IPv6, the form Node hands back on a dual-stack socket.
+  const bare = address.startsWith('::ffff:') ? address.slice('::ffff:'.length) : address;
+
+  if (bare === '' || bare === '::' || bare === '::1' || bare === '0.0.0.0') {
+    return null;
+  }
+  // The whole 127.0.0.0/8 block, not just 127.0.0.1.
+  if (/^127\./.test(bare)) {
+    return null;
+  }
+
+  return bare;
 }
 
 @Injectable()
@@ -69,9 +162,9 @@ export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
 
   /** Per address: the mailbox being written to, whoever asks for it. */
-  private readonly perAddress = new SlidingWindow(3, 60 * 60 * 1000);
+  private readonly perAddress = new SlidingWindow(3, 60 * 60 * 1000, MAX_TRACKED_KEYS);
   /** Per caller: one client walking a list of addresses. */
-  private readonly perCaller = new SlidingWindow(10, 60 * 60 * 1000);
+  private readonly perCaller = new SlidingWindow(10, 60 * 60 * 1000, MAX_TRACKED_KEYS);
 
   /**
    * Deliveries still in flight. See `deliver` for why sending is not awaited;
@@ -92,14 +185,37 @@ export class PasswordResetService {
    * different response time — turns this form into an oracle for discovering
    * who is registered. That matters more here than on most sites, because
    * usernames are public, so an address confirms which human is behind one.
+   *
+   * The response time is held to a floor here rather than left to the branch,
+   * because the branches are not equally fast: an unregistered address is one
+   * SELECT, a registered one is a SELECT and an INSERT. Left alone those are
+   * two visibly different populations, and a few hundred samples separate
+   * them — the status code says nothing while the clock answers the question.
    */
   async forgot(email: string, callerIp?: string): Promise<void> {
+    const startedAt = Date.now();
+    try {
+      await this.attemptForgot(email, callerIp);
+    } finally {
+      await this.holdUntilFloor(startedAt);
+    }
+  }
+
+  private async attemptForgot(email: string, callerIp?: string): Promise<void> {
     // Both budgets are checked before the account lookup, so a refusal here
     // is indistinguishable from every other outcome.
     if (!this.perAddress.tryConsume(email.toLowerCase())) {
       return;
     }
-    if (callerIp && !this.perCaller.tryConsume(callerIp)) {
+
+    // Null when no honest per-caller identity can be derived — see
+    // `callerIdentity`. The limit is then skipped rather than applied to a
+    // key every caller shares, which would be a global cap on password
+    // recovery rather than a per-caller one.
+    const caller = callerIdentity(callerIp);
+    if (caller === null) {
+      this.warnOnceAboutCallerIdentity(callerIp);
+    } else if (!this.perCaller.tryConsume(caller)) {
       return;
     }
 
@@ -116,15 +232,22 @@ export class PasswordResetService {
       return;
     }
 
-    // Asking twice does not mint a second key. The live one still works and
-    // is still in the user's mailbox.
-    const live = await this.prisma.passwordResetToken.findFirst({
-      where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date() } },
-    });
-    if (live) {
-      return;
-    }
-
+    // There is deliberately no "a live token already exists, so send nothing"
+    // short-circuit here. It reads like flood protection but is not: the
+    // per-address budget above is what limits how much mail this endpoint can
+    // produce, and it does so whether or not a token happens to be live.
+    //
+    // What the short-circuit did instead was make every failure permanent for
+    // an hour. The row is committed before the message is handed to SMTP, and
+    // delivery is neither awaited nor able to report back (see `deliver`), so
+    // a refused relay — or, far more likely on a shared host, a message that
+    // was accepted and then filtered into a spam folder — left a live token
+    // that no retry could get past. The user pressed the button again, the
+    // form said a link had been sent, and nothing was sent, for sixty minutes.
+    //
+    // Minting a fresh token per request costs nothing: each is single-use, and
+    // `reset` invalidates every other live token for the user the moment one
+    // is spent, so several outstanding links still collapse to one working key.
     const token = randomBytes(TOKEN_BYTES).toString('base64url');
     await this.prisma.passwordResetToken.create({
       data: {

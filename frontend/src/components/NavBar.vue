@@ -244,11 +244,11 @@ onUnmounted(() => {
           </template>
 
           <template v-else>
-            <RouterLink to="/login" class="text-sm font-medium text-tambouille-muted hover:text-tambouille-text">
+            <RouterLink to="/login" class="text-sm font-medium text-tambouille-white rounded-full px-4 py-1 border border-tambouille-white hover:bg-tambouille-accent-dark">
               Connexion
             </RouterLink>
             <RouterLink to="/register"
-              class="rounded-full bg-tambouille-accent px-4 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover">
+              class="text-sm font-medium text-tambouille-white rounded-full px-4 py-1 border border-tambouille-white hover:bg-tambouille-accent-dark">
               S'inscrire
             </RouterLink>
           </template>
