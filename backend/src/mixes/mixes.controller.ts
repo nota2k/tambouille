@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -117,10 +116,10 @@ export class MixesController {
     @Body() dto: CreateMixDto,
     @UploadedFiles() files: UploadedFilesShape,
   ) {
+    // No audio file is no longer an error here: a Mixcloud-hosted mix has
+    // none by design. Whether this request names exactly one audio source is
+    // `MixesService`'s rule, and it answers with which of the two is wrong.
     const audioFile = files.audio?.[0];
-    if (!audioFile) {
-      throw new BadRequestException('audio file is required');
-    }
 
     // An uploaded cover always wins over one imported from Mixcloud.
     const coverFile = files.cover?.[0];
@@ -130,7 +129,7 @@ export class MixesController {
     }
 
     return this.mixesService.create(userId, dto, {
-      audioUrl: audioFile.key,
+      audioUrl: audioFile?.key,
       coverUrl,
     });
   }

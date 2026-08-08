@@ -23,8 +23,11 @@ const USERNAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
  *
  * The username segment is deliberately NOT widened: Mixcloud usernames are
  * ASCII, and there is no reason to loosen what does not need loosening.
+ *
+ * Exported because a Mixcloud-hosted mix stores such a key, and the mix DTOs
+ * must accept exactly what this relay accepts — one pattern, not two copies.
  */
-const KEY_PATTERN = /^\/[A-Za-z0-9_-]+\/(?:[A-Za-z0-9_.-]|%[89A-Fa-f][0-9A-Fa-f])+\/$/;
+export const KEY_PATTERN = /^\/[A-Za-z0-9_-]+\/(?:[A-Za-z0-9_.-]|%[89A-Fa-f][0-9A-Fa-f])+\/$/;
 
 /** Largest first: the upload form wants the best cover Mixcloud offers. */
 const PICTURE_PREFERENCE = ['1024wx1024h', '768wx768h', '640wx640h', 'extra_large', '320wx320h', 'large', 'medium', 'small'];

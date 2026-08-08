@@ -58,6 +58,24 @@ function parseTracklist(tracklist?: string): TracklistEntryInput[] {
   return entries.sort((a, b) => a.timecodeSec - b.timecodeSec);
 }
 
+/**
+ * A mix carries exactly one audio source: an R2 object key, or a Mixcloud
+ * cloudcast key. Prisma cannot express "exactly one of these two columns",
+ * so the rule lives here — the single door every write goes through.
+ *
+ * Both failure cases are real states someone can ask for, and each gets its
+ * own message: with neither source the mix is unplayable, and with both it is
+ * ambiguous about which one the player should use.
+ */
+function assertExactlyOneAudioSource(audioUrl: string | null, mixcloudKey: string | null): void {
+  if (!audioUrl && !mixcloudKey) {
+    throw new BadRequestException('A mix must have either an audio file or a Mixcloud key');
+  }
+  if (audioUrl && mixcloudKey) {
+    throw new BadRequestException('A mix cannot have both an audio file and a Mixcloud key');
+  }
+}
+
 /** Mix include shape. When `currentUserId` is set, also fetches whether that user favorited each mix. */
 export function buildMixInclude(currentUserId?: string) {
   return {
@@ -99,14 +117,21 @@ export class MixesService {
   async create(
     userId: string,
     dto: CreateMixDto,
-    files: { audioUrl: string; coverUrl?: string },
+    files: { audioUrl?: string; coverUrl?: string },
   ) {
+    // An absent upload and a blank Mixcloud key are the same thing — no
+    // source — so both are normalised to null before the rule sees them.
+    const audioUrl = files.audioUrl || null;
+    const mixcloudKey = dto.mixcloudKey || null;
+    assertExactlyOneAudioSource(audioUrl, mixcloudKey);
+
     const mix = await this.prisma.mix.create({
       data: {
         title: dto.title,
         description: dto.description,
         tags: parseTags(dto.tags),
-        audioUrl: files.audioUrl,
+        audioUrl,
+        mixcloudKey,
         coverUrl: files.coverUrl,
         userId,
         tracklist: { create: parseTracklist(dto.tracklist) },
@@ -183,6 +208,17 @@ export class MixesService {
     if (coverUrl !== undefined) data.coverUrl = coverUrl;
     if (dto.tracklist !== undefined) {
       data.tracklist = { deleteMany: {}, create: parseTracklist(dto.tracklist) };
+    }
+
+    // Update never touches `audioUrl` — this route accepts no audio upload —
+    // so the rule is checked against the state the write would leave behind:
+    // the stored audio key, and whatever Mixcloud key this request implies.
+    // That refuses both conversions, which are out of scope, while still
+    // letting a Mixcloud-hosted mix correct a mistyped key.
+    if (dto.mixcloudKey !== undefined) {
+      const mixcloudKey = dto.mixcloudKey || null;
+      assertExactlyOneAudioSource(mix.audioUrl, mixcloudKey);
+      data.mixcloudKey = mixcloudKey;
     }
 
     const updated = await this.prisma.mix.update({
