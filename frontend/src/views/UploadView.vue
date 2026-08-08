@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { formatTime } from '@/utils/time'
 import { buildTracklist, type TrackRow } from '@/utils/tracklist'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
-import type { Mix } from '@/types'
+import type { Mix, MixcloudArtist, MixcloudCloudcastImport, MixcloudCloudcastSummary } from '@/types'
 
 const router = useRouter()
 
@@ -23,6 +23,75 @@ const uploading = ref(false)
 const progress = ref(0)
 const error = ref('')
 
+// Mixcloud import: a starting point that pre-fills the form below. The user
+// still picks the audio file and can edit everything before publishing.
+const mixcloudUsername = ref('')
+const mixcloudLoading = ref(false)
+const mixcloudError = ref('')
+const mixcloudMixes = ref<MixcloudCloudcastSummary[]>([])
+const mixcloudImportingKey = ref<string | null>(null)
+const coverSourceUrl = ref<string | null>(null)
+// Set only by a *successful* import, so it is a key the backend has already
+// validated and fetched. A hand-filled form leaves it null and is never
+// offered the hosting choice — there would be nothing to point at.
+const importedMixcloudKey = ref<string | null>(null)
+// Le compte Mixcloud d'origine. Il n'a pas de colonne en base : le mix appartiendra au
+// compte Tambouille qui l'importe, et c'est le tag ajouté automatiquement qui garde la
+// trace de l'auteur. Cette référence sert à l'afficher pendant l'import.
+const importedArtist = ref<MixcloudArtist | null>(null)
+// false = host the audio on Tambouille, exactly as before. Reversible until
+// the form is submitted.
+const keepAudioOnMixcloud = ref(false)
+
+// The one source of truth for "this mix has no audio file". The intent alone is
+// not enough: without an imported key there is nothing to store, so the form
+// falls back to requiring a file rather than submitting a sourceless mix.
+const useMixcloudAudio = computed(() => keepAudioOnMixcloud.value && importedMixcloudKey.value !== null)
+
+async function fetchMixcloudMixes() {
+  const username = mixcloudUsername.value.trim()
+  if (!username || mixcloudLoading.value) return
+
+  mixcloudLoading.value = true
+  mixcloudError.value = ''
+  mixcloudMixes.value = []
+
+  try {
+    const { data } = await apiClient.get<MixcloudCloudcastSummary[]>(`/mixcloud/${encodeURIComponent(username)}/cloudcasts`)
+    mixcloudMixes.value = data
+    if (data.length === 0) mixcloudError.value = 'Aucun mix trouvé pour ce compte Mixcloud.'
+  } catch (err: any) {
+    mixcloudError.value = err.response?.data?.message ?? 'Impossible de récupérer les mixes Mixcloud'
+  } finally {
+    mixcloudLoading.value = false
+  }
+}
+
+async function importMixcloudMix(mix: MixcloudCloudcastSummary) {
+  if (mixcloudImportingKey.value) return
+
+  mixcloudImportingKey.value = mix.key
+  mixcloudError.value = ''
+
+  try {
+    const { data } = await apiClient.get<MixcloudCloudcastImport>('/mixcloud/cloudcast', { params: { key: mix.key } })
+    title.value = data.title
+    description.value = data.description
+    tags.value = data.tags.join(', ')
+    trackRows.value =
+      data.tracklist.length > 0
+        ? data.tracklist.map((entry) => ({ timecode: formatTime(entry.timecodeSec), artist: entry.artist, title: entry.title }))
+        : [{ timecode: '', artist: '', title: '' }]
+    coverSourceUrl.value = data.coverSourceUrl ?? null
+    importedArtist.value = data.artist ?? null
+    importedMixcloudKey.value = mix.key
+  } catch (err: any) {
+    mixcloudError.value = err.response?.data?.message ?? "Impossible d'importer ce mix"
+  } finally {
+    mixcloudImportingKey.value = null
+  }
+}
+
 function onAudioChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0] ?? null
   audioFile.value = file
@@ -34,6 +103,26 @@ function onCoverChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0] ?? null
   coverFile.value = file
   coverPreview.value = file ? URL.createObjectURL(file) : null
+  // A file the user picked always wins over the cover an import attached, and
+  // the imported one is dropped rather than left waiting silently behind it.
+  if (file) coverSourceUrl.value = null
+}
+
+function removeImportedCover() {
+  coverSourceUrl.value = null
+}
+
+function setKeepAudioOnMixcloud(value: boolean) {
+  keepAudioOnMixcloud.value = value
+  // Leaving the audio on Mixcloud drops any file already picked, rather than
+  // keeping it out of sight: the field is hidden from here on, so a file still
+  // held in memory would be one the user can no longer see or remove, and the
+  // backend refuses a mix carrying both sources. Switching back therefore shows
+  // an empty, required field again — the state and the form agree either way.
+  if (!value) return
+  audioFile.value = null
+  if (audioPreviewUrl.value) URL.revokeObjectURL(audioPreviewUrl.value)
+  audioPreviewUrl.value = null
 }
 
 function onCapture(seconds: number) {
@@ -45,7 +134,10 @@ onBeforeUnmount(() => {
 })
 
 async function onSubmit() {
-  if (!audioFile.value) {
+  // A mix carries exactly one audio source. `useMixcloudAudio` is the only case
+  // where no file is needed, and it cannot be true without an imported key.
+  const mixcloudKey = useMixcloudAudio.value ? importedMixcloudKey.value : null
+  if (!mixcloudKey && !audioFile.value) {
     error.value = 'Un fichier audio est requis'
     return
   }
@@ -65,8 +157,12 @@ async function onSubmit() {
   if (description.value) formData.append('description', description.value)
   if (tags.value) formData.append('tags', tags.value)
   if (tracklist.entries.length > 0) formData.append('tracklist', JSON.stringify(tracklist.entries))
-  formData.append('audio', audioFile.value)
+  // Exactly one of the two, never both — the backend rejects a mix carrying
+  // both sources, and the cover is imported either way.
+  if (mixcloudKey) formData.append('mixcloudKey', mixcloudKey)
+  else if (audioFile.value) formData.append('audio', audioFile.value)
   if (coverFile.value) formData.append('cover', coverFile.value)
+  if (coverSourceUrl.value) formData.append('coverSourceUrl', coverSourceUrl.value)
 
   try {
     const { data } = await apiClient.post<Mix>('/mixes', formData, {
@@ -85,85 +181,250 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl px-4 py-8">
-    <h1 class="mb-6 text-tambouille-title-big font-bold">Uploader un mix</h1>
+  <div class="mx-auto max-w-6xl px-4 py-10">
+    <h1 class="text-tambouille-title-big leading-none">Mettre un mix à la casserole</h1>
 
-    <form class="space-y-5" @submit.prevent="onSubmit">
-      <div>
-        <label class="mb-1 block text-sm text-tambouille-muted">Titre</label>
-        <input
-          v-model="title"
-          type="text"
-          required
-          maxlength="120"
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
-        />
-      </div>
+    <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_360px]">
+      <div class="min-w-0">
+        <!--
+          L'import Mixcloud passe de note de bas de page à porte d'entrée : c'est
+          le meilleur atout du produit, et il était enterré dans un encadré pâle
+          en haut d'un long formulaire.
+        -->
+        <p class="tb-eyebrow">Le plus rapide</p>
 
-      <div>
-        <label class="mb-1 block text-sm text-tambouille-muted">Description</label>
-        <textarea
-          v-model="description"
-          rows="4"
-          maxlength="2000"
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
-        />
-      </div>
+        <div class="flex items-stretch pt-5">
+          <input
+            v-model="mixcloudUsername"
+            type="text"
+            placeholder="ton nom d'utilisateur Mixcloud…"
+            class="min-w-0 flex-1 border-2 border-r-0 border-tambouille-accent bg-white px-4 py-4 text-[17px] outline-none placeholder:text-tambouille-faint"
+            @keyup.enter="fetchMixcloudMixes"
+          />
+          <button
+            type="button"
+            :disabled="mixcloudLoading || !mixcloudUsername.trim()"
+            class="tb-btn shrink-0 px-8"
+            @click="fetchMixcloudMixes"
+          >
+            {{ mixcloudLoading ? 'Recherche…' : 'Go' }}
+          </button>
+        </div>
 
-      <div>
-        <label class="mb-1 block text-sm text-tambouille-muted">Tags (séparés par des virgules)</label>
-        <input
-          v-model="tags"
-          type="text"
-          placeholder="house, deep-house, live"
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
-        />
-      </div>
-
-      <div>
-        <label class="mb-1 block text-sm text-tambouille-muted">Fichier audio (mp3, wav, ogg, m4a, aac)</label>
-        <input
-          type="file"
-          accept="audio/mpeg,audio/mp4,audio/wav,audio/x-wav,audio/ogg,audio/x-m4a,audio/aac"
-          required
-          class="w-full text-sm text-tambouille-muted file:mr-4 file:rounded-full file:border-0 file:bg-tambouille-accent file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-tambouille-accent-hover"
-          @change="onAudioChange"
-        />
-        <MixAudioPreview :src="audioPreviewUrl" class="mt-3" @capture="onCapture" />
-      </div>
-
-      <div class="tracklist-editor border border-tambouille-accent bg-tambouille-surface rounded-lg p-4 text-tambouille-white">
-        <label class="mb-2 block text-sm text-tambouille-muted">Tracklist (optionnel)</label>
-        <p v-if="audioPreviewUrl" class="mb-2 text-xs text-tambouille-muted">
-          Écoutez l'aperçu ci-dessus et cliquez sur « + Ajouter un morceau ici » pour capturer le timecode.
+        <p class="mt-3 max-w-[640px] text-[13.5px] leading-relaxed text-tambouille-muted">
+          On récupère le titre, la description, les tags, la tracklist et la pochette. L'audio n'est
+          jamais copié&nbsp;: soit tu envoies le fichier ensuite, soit on lit depuis la source d'origine.
         </p>
-        <TracklistEditor v-model="trackRows" />
+
+        <p v-if="mixcloudError" class="mt-2 text-sm text-tambouille-accent">{{ mixcloudError }}</p>
+
+        <ul v-if="mixcloudMixes.length > 0" class="mt-5 max-h-96 overflow-y-auto border-t border-black/12">
+          <li v-for="mix in mixcloudMixes" :key="mix.key">
+            <button
+              type="button"
+              :disabled="mixcloudImportingKey !== null"
+              class="flex w-full items-center gap-4 border-b border-black/12 px-2 py-3 text-left transition hover:bg-tambouille-surface-hover disabled:opacity-50"
+              @click="importMixcloudMix(mix)"
+            >
+              <img v-if="mix.pictureUrl" :src="mix.pictureUrl" class="h-14 w-14 shrink-0 object-cover" alt="" />
+              <div v-else class="h-14 w-14 shrink-0 bg-tambouille-surface-hover" />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate font-display text-[15px] font-bold">{{ mix.name }}</span>
+                <span class="block truncate text-[13px] text-tambouille-muted">
+                  <template v-if="mix.artist">{{ mix.artist.name }} · </template>
+                  <template v-if="mix.audioLengthSec">{{ formatTime(mix.audioLengthSec) }} · </template>
+                  {{ mix.tags.join(', ') }}
+                </span>
+              </span>
+              <span v-if="mixcloudImportingKey === mix.key" class="shrink-0 text-xs text-tambouille-muted">
+                Import…
+              </span>
+            </button>
+          </li>
+        </ul>
+
+        <form class="mt-10" @submit.prevent="onSubmit">
+          <!-- Le mix sera publié sous le compte Tambouille qui l'importe : afficher ici de
+               qui il vient évite de confondre l'auteur d'origine et l'importateur. -->
+          <p v-if="importedArtist" class="mb-6 border-l-2 border-tambouille-accent py-1 pl-4 text-sm">
+            <span class="text-tambouille-muted">Publié sur Mixcloud par</span>
+            <a
+              v-if="importedArtist.profileUrl"
+              :href="importedArtist.profileUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="ml-1 font-bold hover:underline"
+            >
+              {{ importedArtist.name }}
+            </a>
+            <span v-else class="ml-1 font-bold">{{ importedArtist.name }}</span>
+          </p>
+
+          <p class="tb-eyebrow">Les infos</p>
+
+          <div class="pt-5">
+            <label class="mb-1.5 block text-sm text-tambouille-muted">Titre</label>
+            <input v-model="title" type="text" required maxlength="120" class="tb-field" />
+          </div>
+
+          <div class="pt-5">
+            <label class="mb-1.5 block text-sm text-tambouille-muted">Description</label>
+            <textarea v-model="description" rows="4" maxlength="2000" class="tb-field" />
+          </div>
+
+          <div class="pt-5">
+            <label class="mb-1.5 block text-sm text-tambouille-muted">Tags (séparés par des virgules)</label>
+            <input v-model="tags" type="text" placeholder="house, deep-house, live" class="tb-field" />
+            <!-- Sans cette ligne, le nom apparaîtrait dans le champ sans que rien n'explique
+                 d'où il vient. Le champ reste éditable : c'est une proposition, pas un verrou. -->
+            <p v-if="importedArtist" class="mt-1.5 text-xs text-tambouille-muted">
+              «&nbsp;{{ importedArtist.name }}&nbsp;» a été ajouté d'après le compte Mixcloud d'origine.
+            </p>
+          </div>
+
+          <!-- Offered only after an import: a hand-filled form has no Mixcloud key
+               to point at, so there is no choice to make. -->
+          <fieldset v-if="importedMixcloudKey" class="mt-8 border border-tambouille-rule p-5">
+            <legend class="tb-eyebrow-plain px-2">Où se trouve l'audio&nbsp;?</legend>
+
+            <label class="flex cursor-pointer items-start gap-3">
+              <input
+                type="radio"
+                name="audio-hosting"
+                :checked="!keepAudioOnMixcloud"
+                class="mt-1 shrink-0 accent-tambouille-accent"
+                @change="setKeepAudioOnMixcloud(false)"
+              />
+              <span class="min-w-0">
+                <span class="block text-sm font-bold">Héberger l'audio sur Tambouille</span>
+                <span class="block text-xs leading-relaxed text-tambouille-muted">
+                  Tu choisis le fichier audio ci-dessous. Il est copié sur Tambouille et y reste.
+                </span>
+              </span>
+            </label>
+
+            <label class="mt-4 flex cursor-pointer items-start gap-3">
+              <input
+                type="radio"
+                name="audio-hosting"
+                :checked="keepAudioOnMixcloud"
+                class="mt-1 shrink-0 accent-tambouille-accent"
+                @change="setKeepAudioOnMixcloud(true)"
+              />
+              <span class="min-w-0">
+                <span class="block text-sm font-bold">Laisser l'audio sur Mixcloud</span>
+                <span class="block text-xs leading-relaxed text-tambouille-muted">
+                  Aucun fichier audio à fournir&nbsp;: la lecture se fait depuis Mixcloud, via les commandes de
+                  Tambouille. L'audio <strong>n'est pas copié</strong>&nbsp;: si tu le supprimes ou le passes en
+                  privé sur Mixcloud, le mix cesse de fonctionner ici. Les écoutes sont comptées par Mixcloud
+                  et ne sont donc pas affichées sur Tambouille. La pochette, elle, est bien importée.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+
+          <div v-if="!useMixcloudAudio" class="pt-8">
+            <p class="tb-eyebrow">Ou dépose le fichier</p>
+            <input
+              type="file"
+              accept="audio/mpeg,audio/mp4,audio/wav,audio/x-wav,audio/ogg,audio/x-m4a,audio/aac"
+              required
+              class="mt-4 w-full border-2 border-dashed border-tambouille-faint p-6 text-sm text-tambouille-muted file:mr-4 file:border-0 file:bg-tambouille-accent file:px-4 file:py-2 file:font-bold file:text-white hover:file:bg-tambouille-accent-hover"
+              @change="onAudioChange"
+            />
+            <MixAudioPreview :src="audioPreviewUrl" class="mt-4" @capture="onCapture" />
+          </div>
+          <p v-else class="pt-6 text-sm text-tambouille-muted">
+            L'audio reste hébergé sur Mixcloud (<span class="font-mono text-xs">{{ importedMixcloudKey }}</span>).
+            Aucun fichier à envoyer.
+          </p>
+
+          <div class="pt-8">
+            <p class="tb-eyebrow">Tracklist — colle-la telle quelle, on découpe</p>
+            <p v-if="audioPreviewUrl" class="pt-3 text-xs text-tambouille-muted">
+              Écoute l'aperçu ci-dessus et clique sur «&nbsp;+ Ajouter un morceau ici&nbsp;» pour capturer le timecode.
+            </p>
+            <div class="pt-3">
+              <TracklistEditor v-model="trackRows" />
+            </div>
+          </div>
+
+          <div class="pt-8">
+            <p class="tb-eyebrow">Pochette (optionnel)</p>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              class="mt-4 w-full text-sm text-tambouille-muted file:mr-4 file:border file:border-tambouille-rule file:bg-transparent file:px-4 file:py-2 file:font-bold hover:file:bg-tambouille-surface-hover"
+              @change="onCoverChange"
+            />
+            <div v-if="!coverPreview && coverSourceUrl" class="mt-3">
+              <p class="text-xs text-tambouille-muted">
+                Pochette importée depuis Mixcloud. Choisis un fichier ci-dessus pour la remplacer.
+              </p>
+              <button type="button" class="tb-btn-outline tb-btn-sm mt-2" @click="removeImportedCover">
+                Retirer la pochette importée
+              </button>
+            </div>
+          </div>
+
+          <p v-if="error" class="pt-6 text-sm text-tambouille-accent">{{ error }}</p>
+
+          <!-- Un mix de 2 h ne s'envoie pas en trente secondes : la barre dit où on en est. -->
+          <div v-if="uploading" class="flex items-center gap-4 pt-8">
+            <span class="h-1.5 flex-1 bg-tambouille-surface-hover">
+              <span class="block h-full bg-tambouille-accent transition-all" :style="{ width: `${progress}%` }" />
+            </span>
+            <span class="shrink-0 text-[13px] text-tambouille-muted">envoi {{ progress }}&nbsp;%</span>
+          </div>
+
+          <div class="pt-8">
+            <button type="submit" :disabled="uploading" class="tb-btn px-8 py-4">
+              {{ uploading ? 'Envoi en cours…' : 'Publier le mix' }}
+            </button>
+          </div>
+        </form>
       </div>
 
-      <div>
-        <label class="mb-1 block text-sm text-tambouille-muted">Pochette (optionnel)</label>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          class="w-full text-sm text-tambouille-muted file:mr-4 file:rounded-full file:border-0 file:bg-tambouille-surface-hover file:px-4 file:py-2 file:font-semibold hover:file:bg-tambouille-border"
-          @change="onCoverChange"
-        />
-        <img v-if="coverPreview" :src="coverPreview" class="mt-3 h-32 w-32 rounded-lg object-cover" alt="" />
-      </div>
+      <!--
+        Aperçu en direct : c'est exactement ce que verront les autres. Il remplace
+        le formulaire aveugle, où l'on remplissait dix champs sans jamais voir le
+        résultat.
+      -->
+      <aside class="min-w-0">
+        <div class="tb-panel-dark lg:sticky lg:top-24">
+          <p class="tb-eyebrow-plain border-b border-white pb-2.5 text-neutral-400">Aperçu en direct</p>
 
-      <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+          <div class="mt-4 aspect-square w-full bg-neutral-800">
+            <img
+              v-if="coverPreview || coverSourceUrl"
+              :src="coverPreview || coverSourceUrl || undefined"
+              class="h-full w-full object-cover"
+              alt=""
+            />
+          </div>
 
-      <div v-if="uploading" class="h-2 w-full overflow-hidden rounded-full bg-tambouille-surface-hover">
-        <div class="h-full bg-tambouille-accent transition-all" :style="{ width: `${progress}%` }" />
-      </div>
+          <p class="mt-4 font-display text-xl font-bold leading-tight">
+            {{ title || 'Sans titre pour l’instant' }}
+          </p>
+          <p class="mt-2 text-[13px] text-neutral-400">
+            {{ trackRows.length }} morceaux
+          </p>
 
-      <button
-        type="submit"
-        :disabled="uploading"
-        class="w-full rounded-full bg-tambouille-accent py-2 font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
-      >
-        {{ uploading ? `Envoi en cours... ${progress}%` : 'Publier le mix' }}
-      </button>
-    </form>
+          <div v-if="tags.trim()" class="mt-3 flex flex-wrap gap-2">
+            <span
+              v-for="tag in tags.split(',').map((t) => t.trim()).filter(Boolean)"
+              :key="tag"
+              class="border border-white px-2.5 py-1 text-[13px]"
+            >
+              {{ tag }}
+            </span>
+          </div>
+
+          <p class="mt-4 text-[13px] leading-relaxed text-neutral-400">
+            Tout se modifie à gauche, sans quitter la page.
+          </p>
+        </div>
+      </aside>
+    </div>
   </div>
 </template>

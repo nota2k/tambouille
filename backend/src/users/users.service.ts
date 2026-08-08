@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PaginationDto } from './dto/pagination.dto';
+import { SearchUsersDto } from './dto/search-users.dto';
 
 const userSummarySelect = {
   id: true,
@@ -12,7 +13,45 @@ const userSummarySelect = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
+
+  async search(dto: SearchUsersDto) {
+    const limit = dto.limit ?? 5;
+    const q = dto.q.trim();
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        // Google-created accounts keep `username: null` until signup is
+        // completed. They have no public profile to link to, and the
+        // `displayName` clause below would otherwise surface them: the
+        // frontend then builds a profile route with a null param, which
+        // throws and breaks the search dropdown for every visitor, not just
+        // for the pending account.
+        username: { not: null },
+        OR: [
+          { username: { contains: q, mode: 'insensitive' } },
+          { displayName: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: userSummarySelect,
+      orderBy: { username: 'asc' },
+      take: limit,
+    });
+
+    return { items: users };
+  }
+
+  // Google-created accounts start with username === null until signup is
+  // completed. Read and checked before any write below, so a null-username
+  // account is refused up front instead of after the mutation has already
+  // been committed.
+  private async requireUsername(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (!user.username) {
+      throw new ConflictException('Choose a username before updating your profile');
+    }
+    return user.username;
+  }
 
   async getPublicProfile(username: string, currentUserId?: string) {
     const user = await this.prisma.user.findUnique({
@@ -49,27 +88,30 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
-    const user = await this.prisma.user.update({
+    const username = await this.requireUsername(userId);
+    await this.prisma.user.update({
       where: { id: userId },
       data: dto,
     });
-    return this.getPublicProfile(user.username);
+    return this.getPublicProfile(username);
   }
 
   async updateAvatar(userId: string, avatarUrl: string) {
-    const user = await this.prisma.user.update({
+    const username = await this.requireUsername(userId);
+    await this.prisma.user.update({
       where: { id: userId },
       data: { avatarUrl },
     });
-    return this.getPublicProfile(user.username);
+    return this.getPublicProfile(username);
   }
 
   async updateCover(userId: string, coverUrl: string) {
-    const user = await this.prisma.user.update({
+    const username = await this.requireUsername(userId);
+    await this.prisma.user.update({
       where: { id: userId },
       data: { coverUrl },
     });
-    return this.getPublicProfile(user.username);
+    return this.getPublicProfile(username);
   }
 
   async follow(currentUserId: string, targetUsername: string) {
@@ -124,6 +166,10 @@ export class UsersService {
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
     };
+  }
+
+  async deleteAccount(userId: string) {
+    await this.prisma.user.delete({ where: { id: userId } });
   }
 
   async listFollowing(username: string, query: PaginationDto) {

@@ -109,7 +109,7 @@ watch(() => route.params.id, loadPlaylist)
       <div class="flex flex-col gap-6 sm:flex-row">
         <div class="mx-auto w-48 shrink-0 sm:mx-0">
           <div
-            class="grid aspect-square w-full overflow-hidden rounded-xl bg-tambouille-surface-hover"
+            class="grid aspect-square w-full overflow-hidden rounded-none bg-tambouille-surface-hover"
             :class="playlist.coverUrls.length > 1 ? 'grid-cols-2 grid-rows-2 gap-0.5' : ''"
           >
             <template v-if="playlist.coverUrls.length">
@@ -135,20 +135,20 @@ watch(() => route.params.id, loadPlaylist)
               v-model="editTitle"
               type="text"
               maxlength="120"
-              class="w-full rounded-lg border border-tambouille-border bg-transparent px-3 py-2 text-xl font-bold outline-none focus:border-tambouille-accent"
+              class="w-full tb-field text-xl font-bold"
             />
             <textarea
               v-model="editDescription"
               rows="3"
               maxlength="2000"
               placeholder="Description..."
-              class="w-full rounded-lg border border-tambouille-border bg-transparent px-3 py-2 text-sm outline-none focus:border-tambouille-accent"
+              class="w-full tb-field text-sm"
             />
             <div class="flex items-center gap-3">
               <button
                 type="submit"
                 :disabled="savingEdit || !editTitle.trim()"
-                class="rounded-full bg-tambouille-accent px-5 py-2 text-sm font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+                class="tb-btn"
               >
                 {{ savingEdit ? 'Enregistrement...' : 'Enregistrer' }}
               </button>
@@ -198,7 +198,7 @@ watch(() => route.params.id, loadPlaylist)
       </div>
 
       <div class="mt-10">
-        <p v-if="!playlist.mixes.length" class="rounded-xl border border-tambouille-border p-8 text-center text-sm text-tambouille-muted">
+        <p v-if="!playlist.mixes.length" class="rounded-none border border-tambouille-border p-8 text-center text-sm text-tambouille-muted">
           Cette playlist est vide.
           <template v-if="isOwner">
             Ajoutez-y des mixs depuis leur page ou depuis les cartes de la page d'accueil.
@@ -210,7 +210,7 @@ watch(() => route.params.id, loadPlaylist)
             <MixListItem :mix="mix" class="min-w-0 flex-1" />
             <button
               v-if="isOwner"
-              class="shrink-0 rounded-full p-2 text-tambouille-muted transition hover:bg-tambouille-surface-hover hover:text-red-400"
+              class="shrink-0 rounded-none p-2 text-tambouille-muted transition hover:bg-tambouille-surface-hover hover:text-red-400"
               title="Retirer de la playlist"
               aria-label="Retirer de la playlist"
               @click="removeMix(mix.id)"

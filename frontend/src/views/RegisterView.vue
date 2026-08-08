@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -12,6 +13,21 @@ const displayName = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+
+const googleError = ref('')
+
+// Unchanged behaviour, just moved out of the button: sign in, then go to
+// discover — the router guard sends a Google-created account without a
+// username on to the selection screen from there.
+async function onGoogleCredential(credential: string) {
+  googleError.value = ''
+  try {
+    await authStore.loginWithGoogle(credential)
+    router.push({ name: 'discover' })
+  } catch (e: any) {
+    googleError.value = e?.response?.data?.message ?? 'La connexion avec Google a échoué. Réessaie.'
+  }
+}
 
 async function onSubmit() {
   error.value = ''
@@ -43,7 +59,7 @@ async function onSubmit() {
           v-model="displayName"
           type="text"
           required
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -54,7 +70,7 @@ async function onSubmit() {
           type="text"
           required
           pattern="[a-zA-Z0-9_.\-]+"
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -64,7 +80,7 @@ async function onSubmit() {
           v-model="email"
           type="email"
           required
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -75,7 +91,7 @@ async function onSubmit() {
           type="password"
           minlength="8"
           required
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -84,11 +100,19 @@ async function onSubmit() {
       <button
         type="submit"
         :disabled="loading"
-        class="w-full rounded-full bg-tambouille-accent py-2 font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+        class="w-full tb-btn"
       >
         {{ loading ? 'Création...' : "S'inscrire" }}
       </button>
     </form>
+
+    <div class="my-4 flex items-center gap-3 text-xs text-tambouille-muted">
+      <span class="h-px flex-1 bg-tambouille-border"></span>
+      ou
+      <span class="h-px flex-1 bg-tambouille-border"></span>
+    </div>
+    <GoogleSignInButton @credential="onGoogleCredential" />
+    <p v-if="googleError" class="mt-2 text-sm text-red-500">{{ googleError }}</p>
 
     <p class="mt-4 text-sm text-tambouille-muted">
       Déjà un compte ?

@@ -34,12 +34,12 @@ function onToggle(tag: string) {
     <div class="absolute inset-0 bg-black/40" @click="emit('close')" />
 
     <div
-      class="relative z-10 w-full max-w-lg rounded-2xl bg-tambouille-surface p-6 shadow-2xl"
+      class="relative z-10 w-full max-w-lg rounded-none bg-tambouille-surface p-6 shadow-2xl"
     >
       <div class="mb-4 flex items-center justify-between">
         <h2 class="text-lg font-semibold">Filtrer par tags</h2>
         <button
-          class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-tambouille-surface-hover"
+          class="flex h-8 w-8 items-center justify-center rounded-none hover:bg-tambouille-surface-hover"
           @click="emit('close')"
         >
           <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current">
@@ -58,7 +58,7 @@ function onToggle(tag: string) {
         <button
           v-for="tag in tags"
           :key="tag"
-          class="rounded-full border px-3 py-1.5 text-sm transition"
+          class="rounded-none border px-3 py-1.5 text-sm transition"
           :class="
             isSelected(tag)
               ? 'border-tambouille-accent bg-tambouille-accent text-white'

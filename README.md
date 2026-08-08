@@ -7,7 +7,7 @@ Un site de partage et d'écoute de mixs audio (inspiré de Mixcloud).
 - **Frontend** : Vue 3, TypeScript, Vite, Pinia, Vue Router, Tailwind CSS
 - **Backend** : NestJS, Prisma (driver adapter `@prisma/adapter-pg`), JWT (Passport), Multer
 - **Base de données** : PostgreSQL (via Docker)
-- **Stockage des fichiers** : disque local (`backend/uploads/`), servi statiquement avec support des requêtes `Range` (scrubbing audio)
+- **Stockage des fichiers** : Cloudflare R2 (stockage objet compatible S3, via `multer-s3`), fichiers publiquement lisibles, avec support natif des requêtes `Range` par R2 (scrubbing audio)
 
 ## Fonctionnalités (MVP)
 
@@ -31,8 +31,7 @@ tambouille/
 │   │   ├── users/      # profils
 │   │   ├── mixes/      # upload, liste, détail, suppression
 │   │   ├── prisma/     # service Prisma partagé
-│   │   └── common/     # utilitaires upload (multer)
-│   └── uploads/        # fichiers audio/covers/avatars (non versionnés)
+│   │   └── common/     # utilitaires upload (multer + R2/S3)
 ├── frontend/          # App Vue 3
 │   └── src/
 │       ├── api/         # client axios
@@ -59,9 +58,9 @@ npx prisma migrate dev   # première fois seulement
 npm run start:dev
 ```
 
-L'API tourne sur `http://localhost:3000`, préfixée en `/api`. Les fichiers uploadés sont servis sur `/uploads`.
+L'API tourne sur `http://localhost:3000`, préfixée en `/api`.
 
-Variables d'environnement (`backend/.env`) : `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `PORT`, `FRONTEND_URL`.
+Variables d'environnement (`backend/.env`) : `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `PORT`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `FRONTEND_URL`.
 
 ⚠️ Pense à changer `JWT_SECRET` avant tout déploiement.
 
@@ -73,10 +72,10 @@ npm install
 npm run dev
 ```
 
-L'app tourne sur `http://localhost:5173`. En dev, Vite proxy `/api` et `/uploads` vers le backend (voir `vite.config.ts`), donc pas besoin de configurer CORS ni d'URL d'API côté frontend.
+L'app tourne sur `http://localhost:5173`. En dev, Vite proxy `/api` vers le backend (voir `vite.config.ts`), donc pas besoin de configurer CORS côté frontend. En revanche, l'URL publique R2 doit être configurée explicitement : voir `frontend/.env.example` et renseigner `VITE_R2_PUBLIC_URL` avec l'URL publique du bucket R2.
 
 ## Notes techniques
 
 - Prisma 7 nécessite un driver adapter explicite (`@prisma/adapter-pg`) et le générateur client est configuré en `moduleFormat = "cjs"` pour rester compatible avec la compilation CommonJS de NestJS.
-- Le streaming audio avec possibilité de scrubbing (seek) fonctionne nativement grâce au support des en-têtes `Range` par `express.static` (`@nestjs/serve-static`) — aucune logique de streaming custom n'a été nécessaire.
+- Le streaming audio avec possibilité de scrubbing (seek) fonctionne nativement grâce au support des en-têtes `Range` par Cloudflare R2 lui-même (les objets sont servis directement depuis R2, pas par le backend NestJS) — aucune logique de streaming custom n'a été nécessaire.
 - La durée des morceaux (`durationSec`) n'est pas calculée côté serveur (pas de dépendance ffprobe) ; le lecteur récupère la durée directement depuis l'élément `<audio>` une fois les métadonnées chargées.

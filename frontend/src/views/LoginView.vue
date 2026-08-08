@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -11,6 +12,25 @@ const emailOrUsername = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+
+const googleError = ref('')
+
+// Set by `ResetPasswordView` on its way here, so the arrival is explained
+// rather than looking like a random bounce back to the sign-in form.
+const justReset = computed(() => route.query.reinitialise === '1')
+
+// Unchanged behaviour, just moved out of the button: sign in, then go to
+// discover — the router guard sends a Google-created account without a
+// username on to the selection screen from there.
+async function onGoogleCredential(credential: string) {
+  googleError.value = ''
+  try {
+    await authStore.loginWithGoogle(credential)
+    router.push({ name: 'discover' })
+  } catch (e: any) {
+    googleError.value = e?.response?.data?.message ?? 'La connexion avec Google a échoué. Réessaie.'
+  }
+}
 
 async function onSubmit() {
   error.value = ''
@@ -31,6 +51,10 @@ async function onSubmit() {
   <div class="mx-auto max-w-sm px-4 py-16">
     <h1 class="mb-6 text-2xl font-bold">Connexion</h1>
 
+    <p v-if="justReset" class="mb-4 text-sm text-tambouille-accent">
+      Ton mot de passe a été changé. Connecte-toi avec le nouveau.
+    </p>
+
     <form class="space-y-4" @submit.prevent="onSubmit">
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Email ou nom d'utilisateur</label>
@@ -38,17 +62,25 @@ async function onSubmit() {
           v-model="emailOrUsername"
           type="text"
           required
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
       <div>
-        <label class="mb-1 block text-sm text-tambouille-muted">Mot de passe</label>
+        <div class="mb-1 flex items-baseline justify-between gap-2">
+          <label class="block text-sm text-tambouille-muted">Mot de passe</label>
+          <RouterLink
+            to="/mot-de-passe-oublie"
+            class="text-xs text-tambouille-accent hover:underline"
+          >
+            Mot de passe oublié ?
+          </RouterLink>
+        </div>
         <input
           v-model="password"
           type="password"
           required
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -57,11 +89,19 @@ async function onSubmit() {
       <button
         type="submit"
         :disabled="loading"
-        class="w-full rounded-full bg-tambouille-accent py-2 font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+        class="w-full tb-btn"
       >
         {{ loading ? 'Connexion...' : 'Se connecter' }}
       </button>
     </form>
+
+    <div class="my-4 flex items-center gap-3 text-xs text-tambouille-muted">
+      <span class="h-px flex-1 bg-tambouille-border"></span>
+      ou
+      <span class="h-px flex-1 bg-tambouille-border"></span>
+    </div>
+    <GoogleSignInButton @credential="onGoogleCredential" />
+    <p v-if="googleError" class="mt-2 text-sm text-red-500">{{ googleError }}</p>
 
     <p class="mt-4 text-sm text-tambouille-muted">
       Pas de compte ?

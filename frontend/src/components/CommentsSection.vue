@@ -85,13 +85,13 @@ onMounted(loadComments)
 </script>
 
 <template>
-  <div class="mt-10">
-    <h2 class="mb-3 text-lg font-semibold">Commentaires</h2>
+  <div class="flex-[2]">
+    <h2 class="mb-3 text-xl font-semibold">Commentaires</h2>
 
     <form class="mb-4 flex flex-wrap items-center gap-2" @submit.prevent="postComment">
       <span
         v-if="isCurrentlyPlayingThisMix"
-        class="shrink-0 rounded bg-tambouille-surface-hover px-2 py-1.5 font-mono text-xs text-tambouille-muted"
+        class="shrink-0 rounded-none bg-tambouille-surface-hover px-2 py-1.5 font-mono text-xs text-tambouille-muted"
         title="Timecode capturé automatiquement depuis la lecture en cours"
       >
         {{ formatTime(playerStore.currentTime) }}
@@ -101,19 +101,19 @@ onMounted(loadComments)
         v-model="manualTimecode"
         type="text"
         placeholder="mm:ss"
-        class="w-20 shrink-0 rounded-lg border border-tambouille-border bg-tambouille-surface px-2 py-1.5 text-sm outline-none focus:border-tambouille-accent"
+        class="w-20 shrink-0 tb-field text-sm"
       />
       <input
         v-model="body"
         type="text"
         placeholder="Commenter ce mix..."
         maxlength="1000"
-        class="min-w-0 flex-1 rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-1.5 text-sm outline-none focus:border-tambouille-accent"
+        class="min-w-0 flex-1 tb-field text-sm"
       />
       <button
         type="submit"
         :disabled="posting"
-        class="shrink-0 rounded-full bg-tambouille-accent px-4 py-1.5 text-sm font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+        class="shrink-0 tb-btn"
       >
         Commenter
       </button>
@@ -124,7 +124,7 @@ onMounted(loadComments)
     <div v-else-if="comments.length === 0" class="py-6 text-center text-sm text-tambouille-muted">
       Aucun commentaire pour l'instant. Soyez le premier à réagir !
     </div>
-    <ul v-else class="divide-y divide-tambouille-border overflow-hidden rounded-xl border border-tambouille-border">
+    <ul v-else class="divide-y divide-tambouille-border overflow-hidden rounded-none border border-tambouille-border">
       <CommentItem
         v-for="comment in comments"
         :key="comment.id"

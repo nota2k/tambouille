@@ -26,6 +26,12 @@ const router = createRouter({
       component: () => import('@/views/PlaylistDetailView.vue'),
     },
     {
+      path: '/bienvenue',
+      name: 'choose-username',
+      component: () => import('@/views/ChooseUsernameView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
@@ -38,9 +44,30 @@ const router = createRouter({
       meta: { guestOnly: true },
     },
     {
+      path: '/mot-de-passe-oublie',
+      name: 'forgot-password',
+      component: () => import('@/views/ForgotPasswordView.vue'),
+      meta: { guestOnly: true },
+    },
+    {
+      // Deliberately not `guestOnly`, unlike every other screen in the sign-in
+      // flow: this path is what the emailed link points at, and a link has to
+      // work when it is opened. Bouncing a signed-in browser to discover would
+      // strand someone who still needs to set a new password.
+      path: '/reinitialiser-mot-de-passe',
+      name: 'reset-password',
+      component: () => import('@/views/ResetPasswordView.vue'),
+    },
+    {
       path: '/upload',
       name: 'upload',
       component: () => import('@/views/UploadView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('@/views/SettingsView.vue'),
       meta: { requiresAuth: true },
     },
     {
@@ -75,6 +102,23 @@ router.beforeEach((to) => {
 
   if (to.meta.guestOnly && authStore.isAuthenticated) {
     return { name: 'discover' }
+  }
+
+  // An account created through Google has no username until it picks one.
+  // Nothing else is reachable until then: without a handle it has no public
+  // profile, and its uploads could not be attributed.
+  // `reset-password` is exempt alongside `choose-username`: an account created
+  // through Google has no username, and such a user following a reset link
+  // would otherwise be bounced to /bienvenue and never reach the form — locked
+  // out by the very screen meant to let them back in.
+  if (
+    authStore.isAuthenticated &&
+    authStore.user &&
+    !authStore.user.username &&
+    to.name !== 'choose-username' &&
+    to.name !== 'reset-password'
+  ) {
+    return { name: 'choose-username' }
   }
 })
 

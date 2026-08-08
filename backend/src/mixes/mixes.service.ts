@@ -58,6 +58,29 @@ function parseTracklist(tracklist?: string): TracklistEntryInput[] {
   return entries.sort((a, b) => a.timecodeSec - b.timecodeSec);
 }
 
+/**
+ * A mix carries exactly one audio source: an R2 object key, or a Mixcloud
+ * cloudcast key. Prisma cannot express "exactly one of these two columns",
+ * so the rule lives here — the single door every write goes through.
+ *
+ * Both failure cases are real states someone can ask for, and each gets its
+ * own message: with neither source the mix is unplayable, and with both it is
+ * ambiguous about which one the player should use.
+ *
+ * Exported so `MixesController` can reject a hopeless create *before* it
+ * imports a cover into R2, which nothing in this codebase can delete. That
+ * early call is a cheap gate in front of this rule, never a replacement for
+ * it: this remains the guarantee for every caller, including later ones.
+ */
+export function assertExactlyOneAudioSource(audioUrl: string | null, mixcloudKey: string | null): void {
+  if (!audioUrl && !mixcloudKey) {
+    throw new BadRequestException('A mix must have either an audio file or a Mixcloud key');
+  }
+  if (audioUrl && mixcloudKey) {
+    throw new BadRequestException('A mix cannot have both an audio file and a Mixcloud key');
+  }
+}
+
 /** Mix include shape. When `currentUserId` is set, also fetches whether that user favorited each mix. */
 export function buildMixInclude(currentUserId?: string) {
   return {
@@ -99,14 +122,21 @@ export class MixesService {
   async create(
     userId: string,
     dto: CreateMixDto,
-    files: { audioUrl: string; coverUrl?: string },
+    files: { audioUrl?: string; coverUrl?: string },
   ) {
+    // An absent upload and a blank Mixcloud key are the same thing — no
+    // source — so both are normalised to null before the rule sees them.
+    const audioUrl = files.audioUrl || null;
+    const mixcloudKey = dto.mixcloudKey || null;
+    assertExactlyOneAudioSource(audioUrl, mixcloudKey);
+
     const mix = await this.prisma.mix.create({
       data: {
         title: dto.title,
         description: dto.description,
         tags: parseTags(dto.tags),
-        audioUrl: files.audioUrl,
+        audioUrl,
+        mixcloudKey,
         coverUrl: files.coverUrl,
         userId,
         tracklist: { create: parseTracklist(dto.tracklist) },
@@ -185,6 +215,17 @@ export class MixesService {
       data.tracklist = { deleteMany: {}, create: parseTracklist(dto.tracklist) };
     }
 
+    // Update never touches `audioUrl` — this route accepts no audio upload —
+    // so the rule is checked against the state the write would leave behind:
+    // the stored audio key, and whatever Mixcloud key this request implies.
+    // That refuses both conversions, which are out of scope, while still
+    // letting a Mixcloud-hosted mix correct a mistyped key.
+    if (dto.mixcloudKey !== undefined) {
+      const mixcloudKey = dto.mixcloudKey || null;
+      assertExactlyOneAudioSource(mix.audioUrl, mixcloudKey);
+      data.mixcloudKey = mixcloudKey;
+    }
+
     const updated = await this.prisma.mix.update({
       where: { id },
       data,
@@ -204,11 +245,155 @@ export class MixesService {
     await this.prisma.mix.delete({ where: { id } });
   }
 
-  async registerPlay(id: string, userId?: string) {
-    await this.prisma.mix.update({
+  /**
+   * "Les auditeurs de ce mix ont aussi écouté…" — du filtrage collaboratif orienté objet,
+   * ancré sur le mix affiché.
+   *
+   * On part des co-auditeurs (les utilisateurs qui ont ce mix dans leur historique), puis
+   * on classe leurs autres écoutes par nombre de co-auditeurs distincts. `PlayHistory` est
+   * unique sur (userId, mixId), donc compter les lignes compte bien des personnes et non
+   * des lectures répétées : un utilisateur qui réécoute vingt fois ne pèse pas vingt voix.
+   *
+   * Le signal est souvent nul — mix récent, personne connecté au moment de l'écoute — et
+   * une section vide en bas de chaque page ne rend service à personne. On complète donc
+   * par les mixs partageant au moins un tag, du plus récent au plus ancien. Le complément
+   * n'est jamais mélangé au score : il vient après, en remplissage.
+   *
+   * Le visiteur connecté ne se voit pas proposer ce qu'il a déjà écouté, ni ses propres
+   * écoutes comme signal — sinon son propre historique se recommanderait lui-même.
+   */
+  async listSuggestions(id: string, limit: number, currentUserId?: string) {
+    const mix = await this.prisma.mix.findUnique({
       where: { id },
-      data: { playsCount: { increment: 1 } },
+      select: { id: true, tags: true },
     });
+    if (!mix) {
+      throw new NotFoundException('Mix not found');
+    }
+
+    // Ce que le visiteur a déjà écouté n'est pas une suggestion. Le mix affiché en fait
+    // partie d'office, qu'il soit connecté ou non.
+    const excludedIds = new Set<string>([id]);
+    if (currentUserId) {
+      const own = await this.prisma.playHistory.findMany({
+        where: { userId: currentUserId },
+        select: { mixId: true },
+      });
+      own.forEach((play) => excludedIds.add(play.mixId));
+    }
+
+    const coListeners = await this.prisma.playHistory.findMany({
+      where: {
+        mixId: id,
+        ...(currentUserId ? { userId: { not: currentUserId } } : {}),
+      },
+      select: { userId: true },
+      // Borne de sécurité : sur un mix très écouté, la liste des co-auditeurs ne doit pas
+      // devenir un `IN (...)` de plusieurs milliers d'identifiants. Les plus récents
+      // suffisent largement à un classement de trois cartes.
+      orderBy: { playedAt: 'desc' },
+      take: 500,
+    });
+    const coListenerIds = coListeners.map((play) => play.userId);
+
+    const ranked = coListenerIds.length
+      ? await this.prisma.playHistory.groupBy({
+          by: ['mixId'],
+          where: {
+            userId: { in: coListenerIds },
+            mixId: { notIn: Array.from(excludedIds) },
+          },
+          _count: { userId: true },
+          orderBy: { _count: { userId: 'desc' } },
+          take: limit,
+        })
+      : [];
+
+    const orderedIds = ranked.map((row) => row.mixId);
+    orderedIds.forEach((mixId) => excludedIds.add(mixId));
+
+    /**
+     * Complète la liste avec les mixs les plus récents répondant à `where`, sans jamais
+     * reprendre un identifiant déjà retenu. Ne fait rien si le compte est atteint : chaque
+     * palier ne comble que ce qui manque, et n'interroge la base que s'il reste des places.
+     */
+    const fill = async (where: Record<string, unknown>, skip: Set<string>) => {
+      if (orderedIds.length >= limit) return;
+      const rows = await this.prisma.mix.findMany({
+        where: { ...where, id: { notIn: Array.from(skip) } },
+        select: { id: true },
+        orderBy: { createdAt: 'desc' },
+        take: limit - orderedIds.length,
+      });
+      for (const row of rows) {
+        orderedIds.push(row.id);
+        excludedIds.add(row.id);
+      }
+    };
+
+    // Paliers de repli, du plus proche du mix au plus générique. Ils existent parce que le
+    // signal collaboratif est nul tant que peu de gens ont écouté : sans eux, la section
+    // disparaît précisément chez l'utilisateur le plus actif, dont l'historique vide les
+    // candidats un à un. Aucun ne se mélange au classement, ils viennent après.
+    if (mix.tags.length) {
+      await fill({ tags: { hasSome: mix.tags } }, excludedIds);
+    }
+    await fill({}, excludedIds);
+
+    // Dernier recours : réécouter est normal en musique, et une carte déjà entendue vaut
+    // mieux qu'une section vide. Seul le mix affiché reste exclu — se proposer lui-même
+    // n'aurait aucun sens.
+    if (orderedIds.length < limit) {
+      await fill({}, new Set<string>([id, ...orderedIds]));
+    }
+
+    if (orderedIds.length === 0) {
+      return { items: [] };
+    }
+
+    const items = await this.prisma.mix.findMany({
+      where: { id: { in: orderedIds } },
+      ...buildMixInclude(currentUserId),
+    });
+
+    // `findMany` avec un `in` ne garantit aucun ordre : on réapplique celui du classement,
+    // sinon le score calculé plus haut ne se voit nulle part.
+    const byId = new Map(items.map((item) => [item.id, item]));
+    return {
+      items: orderedIds
+        .map((mixId) => byId.get(mixId))
+        .filter((item): item is (typeof items)[number] => item !== undefined)
+        .map(toMixResponse),
+    };
+  }
+
+  /**
+   * `playsCount` counts plays that happened *on Tambouille*. A Mixcloud-hosted mix is
+   * streamed by Mixcloud — that is the whole point of importing one — and its play count
+   * lives there, which is why the UI never shows one for it. Counting those plays anyway
+   * would leave an invisible number ranking `sort=plays` and the following feed, so the
+   * increment is skipped here rather than in the client: the endpoint is public, and the
+   * rule has to hold whatever any client does with it.
+   *
+   * The listen still enters the user's own play history. That list is "what did *I* play
+   * recently", a personal trail rather than a public score, and dropping Mixcloud mixes
+   * from it would only make it lie about the user's own listening.
+   */
+  async registerPlay(id: string, userId?: string) {
+    const mix = await this.prisma.mix.findUnique({
+      where: { id },
+      select: { mixcloudKey: true },
+    });
+    if (!mix) {
+      throw new NotFoundException('Mix not found');
+    }
+
+    if (!mix.mixcloudKey) {
+      await this.prisma.mix.update({
+        where: { id },
+        data: { playsCount: { increment: 1 } },
+      });
+    }
 
     if (userId) {
       await this.prisma.playHistory.upsert({
@@ -264,7 +449,15 @@ export class MixesService {
       this.prisma.mix.findMany({
         where,
         ...buildMixInclude(userId),
-        orderBy: { playsCount: 'desc' },
+        // Newest first, and not by `playsCount`. This feed is "what the people I follow
+        // have put out", so recency is what it is for — a popularity ranking here buries
+        // a brand-new mix under a years-old one from the same person.
+        //
+        // Since `registerPlay` freezes the counter on a Mixcloud-hosted mix, ordering by
+        // it would also be actively broken: every imported mix would sink permanently
+        // below every uploaded one, ranked by a number it can no longer earn. `sort=plays`
+        // on Discover is a choice the visitor makes; this feed's only ordering is not.
+        orderBy: { createdAt: 'desc' as const },
         skip: (page - 1) * limit,
         take: limit,
       }),

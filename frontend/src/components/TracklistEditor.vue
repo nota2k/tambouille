@@ -20,25 +20,25 @@ function removeRow(index: number) {
           v-model="row.timecode"
           type="text"
           placeholder="mm:ss"
-          class="w-20 shrink-0 rounded-lg border border-tambouille-border bg-tambouille-surface px-2 py-1.5 text-sm outline-none focus:border-tambouille-accent"
+          class="w-20 shrink-0 tb-field text-sm"
         />
         <input
           v-model="row.artist"
           type="text"
           placeholder="Artiste"
           maxlength="200"
-          class="min-w-0 flex-1 rounded-lg border border-tambouille-border bg-tambouille-surface px-2 py-1.5 text-sm outline-none focus:border-tambouille-accent"
+          class="min-w-0 flex-1 tb-field text-sm"
         />
         <input
           v-model="row.title"
           type="text"
           placeholder="Titre du morceau"
           maxlength="200"
-          class="min-w-0 flex-1 rounded-lg border border-tambouille-border bg-tambouille-surface px-2 py-1.5 text-sm outline-none focus:border-tambouille-accent"
+          class="min-w-0 flex-1 tb-field text-sm"
         />
         <button
           type="button"
-          class="shrink-0 rounded-full p-1.5 text-tambouille-muted hover:bg-tambouille-surface-hover hover:text-red-400"
+          class="shrink-0 rounded-none p-1.5 text-tambouille-muted hover:bg-tambouille-surface-hover hover:text-red-400"
           title="Supprimer ce morceau"
           @click="removeRow(index)"
         >

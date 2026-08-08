@@ -85,12 +85,12 @@ async function deleteReply(reply: CommentReply) {
         <img
           v-if="comment.user.avatarUrl"
           :src="mediaUrl(comment.user.avatarUrl)"
-          class="h-9 w-9 rounded-full object-cover"
+          class="h-9 w-9 rounded-none object-cover"
           alt=""
         />
         <div
           v-else
-          class="flex h-9 w-9 items-center justify-center rounded-full bg-tambouille-surface-hover text-xs font-semibold"
+          class="flex h-9 w-9 items-center justify-center rounded-none bg-tambouille-surface-hover text-xs font-semibold"
         >
           {{ comment.user.displayName[0]?.toUpperCase() }}
         </div>
@@ -105,7 +105,7 @@ async function deleteReply(reply: CommentReply) {
             {{ comment.user.displayName }}
           </RouterLink>
           <button
-            class="rounded bg-tambouille-surface-hover px-2 py-0.5 font-mono text-xs text-tambouille-muted hover:text-tambouille-accent"
+            class="rounded-none bg-tambouille-surface-hover px-2 py-0.5 font-mono text-xs text-tambouille-muted hover:text-tambouille-accent"
             @click="seekToComment"
           >
             {{ formatTime(comment.timecodeSec) }}
@@ -131,12 +131,12 @@ async function deleteReply(reply: CommentReply) {
             type="text"
             placeholder="Votre réponse..."
             maxlength="1000"
-            class="min-w-0 flex-1 rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-1.5 text-sm outline-none focus:border-tambouille-accent"
+            class="min-w-0 flex-1 tb-field text-sm"
           />
           <button
             type="submit"
             :disabled="postingReply"
-            class="shrink-0 rounded-full bg-tambouille-accent px-3 py-1.5 text-sm font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+            class="shrink-0 tb-btn"
           >
             Envoyer
           </button>
@@ -149,12 +149,12 @@ async function deleteReply(reply: CommentReply) {
               <img
                 v-if="reply.user.avatarUrl"
                 :src="mediaUrl(reply.user.avatarUrl)"
-                class="h-7 w-7 rounded-full object-cover"
+                class="h-7 w-7 rounded-none object-cover"
                 alt=""
               />
               <div
                 v-else
-                class="flex h-7 w-7 items-center justify-center rounded-full bg-tambouille-surface-hover text-[10px] font-semibold"
+                class="flex h-7 w-7 items-center justify-center rounded-none bg-tambouille-surface-hover text-[10px] font-semibold"
               >
                 {{ reply.user.displayName[0]?.toUpperCase() }}
               </div>

@@ -34,7 +34,10 @@ export interface Mix {
   id: string
   title: string
   description: string | null
-  audioUrl: string
+  /** R2 object key. Null when the audio is hosted on Mixcloud. */
+  audioUrl: string | null
+  /** Mixcloud cloudcast key, e.g. `/Notamusic/vorwerk-7-passages-pas-sages/`. Null when the audio is hosted on R2. */
+  mixcloudKey: string | null
   coverUrl: string | null
   durationSec: number | null
   playsCount: number
@@ -110,14 +113,49 @@ export interface PlaylistListResponse {
 export interface AuthUser {
   id: string
   email: string
-  username: string
+  username: string | null
   displayName: string
   bio: string | null
   avatarUrl: string | null
   createdAt: string
+  hasPassword: boolean
+  /** Whether a Google account is attached. The identifier itself is never sent. */
+  hasGoogle: boolean
 }
 
 export interface AuthResponse {
   accessToken: string
   user: AuthUser
+}
+
+/** Le compte Mixcloud qui a publié le mix — distinct du compte Tambouille qui l'importe. */
+export interface MixcloudArtist {
+  name: string
+  username: string
+  profileUrl?: string
+}
+
+export interface MixcloudCloudcastSummary {
+  key: string
+  name: string
+  tags: string[]
+  pictureUrl?: string
+  audioLengthSec?: number
+  createdAt?: string
+  artist?: MixcloudArtist
+}
+
+export interface MixcloudTracklistEntry {
+  artist: string
+  title: string
+  timecodeSec: number
+}
+
+export interface MixcloudCloudcastImport {
+  title: string
+  description: string
+  tags: string[]
+  coverSourceUrl?: string
+  tracklist: MixcloudTracklistEntry[]
+  artist?: MixcloudArtist
 }

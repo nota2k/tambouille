@@ -9,7 +9,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 let animId = 0
 
-const bars = props.barCount ?? 80
+const WAVEFORM_RESOLUTION = 200
 
 const isThisMixPlaying = computed(
   () => playerStore.currentMix?.id === props.mix.id,
@@ -32,18 +32,30 @@ function seededRandom(seed: string) {
 function generateWaveform(): number[] {
   const rng = seededRandom(props.mix.id)
   const raw: number[] = []
-  for (let i = 0; i < bars; i++) {
+  for (let i = 0; i < WAVEFORM_RESOLUTION; i++) {
     const base = 0.15 + rng() * 0.85
-    const envelope = Math.sin((i / bars) * Math.PI) * 0.4 + 0.6
+    const envelope = Math.sin((i / WAVEFORM_RESOLUTION) * Math.PI) * 0.4 + 0.6
     raw.push(base * envelope)
   }
   for (let i = 1; i < raw.length - 1; i++) {
-    raw[i] = raw[i] * 0.6 + (raw[i - 1] + raw[i + 1]) * 0.2
+    raw[i] = raw[i]! * 0.6 + (raw[i - 1]! + raw[i + 1]!) * 0.2
   }
   return raw
 }
 
 const waveform = generateWaveform()
+
+function sampleWaveform(count: number): number[] {
+  const result: number[] = []
+  for (let i = 0; i < count; i++) {
+    const idx = (i / count) * waveform.length
+    const lo = Math.floor(idx)
+    const hi = Math.min(lo + 1, waveform.length - 1)
+    const t = idx - lo
+    result.push(waveform[lo]! * (1 - t) + waveform[hi]! * t)
+  }
+  return result
+}
 
 function getProgress(): number {
   if (!isThisMixPlaying.value) return 0
@@ -64,27 +76,46 @@ function draw() {
   const dpr = window.devicePixelRatio || 1
   const w = rect.width
   const h = rect.height
+  // Un conteneur replié (onglet caché, parent en cours de montage) mesure 0 :
+  // dessiner produirait un canvas vide qu'aucun redimensionnement ne rattrape.
+  // Le ResizeObserver rappellera draw() dès qu'il aura une taille.
+  if (w <= 0 || h <= 0) return
 
-  canvas.width = w * dpr
-  canvas.height = h * dpr
-  canvas.style.width = `${w}px`
-  canvas.style.height = `${h}px`
-  ctx.scale(dpr, dpr)
+  // La taille CSS du canvas vient de `absolute inset-0`, jamais d'un style en
+  // ligne. Y écrire des pixels en dur — ce que faisait cette fonction — donnait
+  // au canvas une largeur définie, donc une taille min-content, que le
+  // `min-width: auto` des éléments de grille et de flex propageait jusqu'en
+  // haut : la piste refusait de se réduire, draw() re-mesurait cette largeur
+  // gonflée et se la réécrivait. Une fois élargie, la vague ne revenait jamais.
+  // Ici on ne dimensionne que le backing store.
+  const bufferW = Math.round(w * dpr)
+  const bufferH = Math.round(h * dpr)
+  if (canvas.width !== bufferW || canvas.height !== bufferH) {
+    canvas.width = bufferW
+    canvas.height = bufferH
+  }
 
+  // Écrire canvas.width réinitialise la transformation, mais pas les frames où
+  // la taille n'a pas bougé : on la repose donc à chaque passage plutôt que de
+  // cumuler un scale() par frame.
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
 
   const progress = getProgress()
   const gap = 2
-  const barWidth = Math.max(1, (w - gap * (bars - 1)) / bars)
+  const targetBarWidth = 3
+  const barCount = props.barCount ?? Math.max(10, Math.floor((w + gap) / (targetBarWidth + gap)))
+  const sampled = sampleWaveform(barCount)
+  const barWidth = Math.max(1, (w - gap * (barCount - 1)) / barCount)
   const progressX = progress * w
 
   const style = getComputedStyle(canvas)
   const accentColor = style.getPropertyValue('--waveform-accent').trim() || '#f97316'
   const mutedColor = style.getPropertyValue('--waveform-muted').trim() || 'rgba(255,255,255,0.25)'
 
-  for (let i = 0; i < bars; i++) {
+  for (let i = 0; i < barCount; i++) {
     const x = i * (barWidth + gap)
-    const barH = Math.max(2, waveform[i] * h)
+    const barH = Math.max(2, sampled[i]! * h)
     const y = (h - barH) / 2
 
     ctx.fillStyle = x + barWidth <= progressX ? accentColor : mutedColor
@@ -153,7 +184,7 @@ function onToggle(event: Event) {
 <template>
   <div class="flex items-center gap-3 w-full">
     <button
-      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tambouille-accent text-white hover:bg-tambouille-accent-hover transition"
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-white hover:bg-tambouille-accent-hover transition"
       @click="onToggle"
     >
       <svg v-if="!isPlaying" viewBox="0 0 24 24" class="ml-0.5 h-3.5 w-3.5 fill-current">
@@ -164,12 +195,15 @@ function onToggle(event: Event) {
       </svg>
     </button>
 
+    <!-- min-w-0 : sans lui, cet élément flex refuse de descendre sous la taille
+         min-content de son contenu. Le canvas est en absolu pour la même raison,
+         côté contenu — voir le commentaire de draw(). -->
     <div
       ref="containerRef"
-      class="waveform-container flex-1 h-10 cursor-pointer"
+      class="waveform-container relative h-10 min-w-0 flex-1 cursor-pointer"
       @click="onSeek"
     >
-      <canvas ref="canvasRef" class="block w-full h-full" />
+      <canvas ref="canvasRef" class="absolute inset-0 block h-full w-[95%]" />
     </div>
   </div>
 </template>

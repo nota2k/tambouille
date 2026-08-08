@@ -1,0 +1,7 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/bane2718/tambouille/backend"
+PassengerBaseURI "/"
+PassengerNodejs "/home/bane2718/nodevenv/tambouille/backend/22/bin/node"
+PassengerAppType node
+PassengerStartupFile dist/src/main.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END

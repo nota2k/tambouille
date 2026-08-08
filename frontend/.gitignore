@@ -10,7 +10,9 @@ lerna-debug.log*
 node_modules
 .DS_Store
 .env
-dist
+# dist/ est versionné sur la branche o2switch-db : la prod le récupère par
+# `git pull`, il n'y a pas d'étape de build côté serveur. L'ignorer obligeait à
+# un `git add -f` à chaque fois, et un build oublié partait donc en silence.
 dist-ssr
 coverage
 *.local
@@ -38,3 +40,5 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+tmp/

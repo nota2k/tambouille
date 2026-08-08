@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -16,30 +15,37 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
-import { MixesService } from './mixes.service';
+import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
+import { CoverImportService } from './cover-import.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
+import { QuerySuggestionsDto } from './dto/query-suggestions.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
 import {
   AUDIO_MIME_TYPES,
-  diskStorageByField,
-  diskStorageFor,
+  COVER_MAX_BYTES,
+  r2StorageByField,
+  r2StorageFor,
   fileFilterByField,
   fileFilterFor,
   IMAGE_MIME_TYPES,
+  type UploadedFile as R2File,
 } from '../common/upload.utils';
 
 type UploadedFilesShape = {
-  audio?: Express.Multer.File[];
-  cover?: Express.Multer.File[];
+  audio?: R2File[];
+  cover?: R2File[];
 };
 
 @Controller('mixes')
 export class MixesController {
-  constructor(private readonly mixesService: MixesService) {}
+  constructor(
+    private readonly mixesService: MixesService,
+    private readonly coverImportService: CoverImportService,
+  ) {}
 
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
@@ -76,6 +82,16 @@ export class MixesController {
     return this.mixesService.findOne(id, currentUserId);
   }
 
+  @Get(':id/suggestions')
+  @UseGuards(OptionalJwtAuthGuard)
+  listSuggestions(
+    @Param('id') id: string,
+    @Query() query: QuerySuggestionsDto,
+    @OptionalUserId() currentUserId?: string,
+  ) {
+    return this.mixesService.listSuggestions(id, query.limit ?? 3, currentUserId);
+  }
+
   @Post(':id/play')
   @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -101,25 +117,46 @@ export class MixesController {
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileFieldsInterceptor([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }], {
-      storage: diskStorageByField({ audio: 'audio', cover: 'covers' }),
+      storage: r2StorageByField({ audio: 'audio', cover: 'covers' }),
       fileFilter: fileFilterByField({ audio: AUDIO_MIME_TYPES, cover: IMAGE_MIME_TYPES }),
       limits: { fileSize: 250 * 1024 * 1024 },
     }),
   )
-  create(
+  async create(
     @CurrentUserId() userId: string,
     @Body() dto: CreateMixDto,
     @UploadedFiles() files: UploadedFilesShape,
   ) {
+    // No audio file is no longer an error by itself: a Mixcloud-hosted mix has
+    // none by design. But the audio source is checked *here*, before the cover
+    // import below, and not left to `MixesService` alone — importing a cover
+    // writes an object to R2, and nothing in this codebase deletes R2 objects,
+    // so a refused create would leave one behind for good.
+    //
+    // What this check protects is exactly that: the cover import, and nothing
+    // else. It does NOT protect the audio upload. Multer-s3 streams the audio
+    // body straight to R2 during interception, before this method is entered,
+    // so a create carrying both an audio file and a `mixcloudKey` has already
+    // written up to 250 MB by the time the request is refused — an orphan
+    // nothing ever deletes. Known gap: closing it means restaging uploads
+    // (buffer, or write then delete on failure), which is a separate job.
+    //
+    // This is the same function the service calls, imported rather than
+    // restated, so the two cannot drift. The service keeps its own check: that
+    // is the real guarantee, and this is only a cheap gate in front of it.
     const audioFile = files.audio?.[0];
-    if (!audioFile) {
-      throw new BadRequestException('audio file is required');
-    }
+    assertExactlyOneAudioSource(audioFile?.key ?? null, dto.mixcloudKey || null);
+
+    // An uploaded cover always wins over one imported from Mixcloud.
     const coverFile = files.cover?.[0];
+    let coverUrl = coverFile?.key;
+    if (!coverUrl && dto.coverSourceUrl) {
+      coverUrl = await this.coverImportService.importFromUrl(dto.coverSourceUrl);
+    }
 
     return this.mixesService.create(userId, dto, {
-      audioUrl: `/uploads/audio/${audioFile.filename}`,
-      coverUrl: coverFile ? `/uploads/covers/${coverFile.filename}` : undefined,
+      audioUrl: audioFile?.key,
+      coverUrl,
     });
   }
 
@@ -127,18 +164,18 @@ export class MixesController {
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('cover', {
-      storage: diskStorageFor('covers'),
+      storage: r2StorageFor('covers'),
       fileFilter: fileFilterFor(IMAGE_MIME_TYPES),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: COVER_MAX_BYTES },
     }),
   )
   update(
     @Param('id') id: string,
     @CurrentUserId() userId: string,
     @Body() dto: UpdateMixDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFile() file?: R2File,
   ) {
-    const coverUrl = file ? `/uploads/covers/${file.filename}` : undefined;
+    const coverUrl = file ? file.key : undefined;
     return this.mixesService.update(id, userId, dto, coverUrl);
   }
 

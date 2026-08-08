@@ -33,8 +33,8 @@ onUnmounted(() => clearTimeout(resetTimer))
   <button
     :class="
       variant === 'overlay'
-        ? 'flex items-center justify-center rounded-sm border border-tambouille-muted text-sm hover:bg-tambouille-surface-hover px-2 bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
-        : 'flex items-center justify-center rounded-sm border border-tambouille-muted text-sm hover:bg-tambouille-surface-hover px-2'
+        ? 'flex items-center justify-center rounded-none border border-tambouille-muted text-sm hover:bg-tambouille-surface-hover px-2 bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
+        : 'flex items-center justify-center rounded-none border border-tambouille-muted text-sm hover:bg-tambouille-surface-hover px-2'
     "
     :title="copied ? 'Lien copié' : ''"
     :aria-label="copied ? 'Lien copié' : ''"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -24,6 +24,8 @@ const description = ref('')
 const tags = ref('')
 const trackRows = ref<TrackRow[]>([{ timecode: '', artist: '', title: '' }])
 const existingAudioUrl = ref<string | null>(null)
+/** Null on a Mixcloud-hosted mix, which stores no audio of its own — there is nothing to preview. */
+const previewSrc = computed(() => mediaUrl(existingAudioUrl.value) ?? null)
 const existingCoverUrl = ref<string | null>(null)
 const coverFile = ref<File | null>(null)
 const coverPreview = ref<string | null>(null)
@@ -118,7 +120,7 @@ onMounted(load)
           type="text"
           required
           maxlength="120"
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -128,7 +130,7 @@ onMounted(load)
           v-model="description"
           rows="4"
           maxlength="2000"
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
@@ -138,18 +140,24 @@ onMounted(load)
           v-model="tags"
           type="text"
           placeholder="house, deep-house, live"
-          class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
+          class="w-full tb-field"
         />
       </div>
 
-      <div>
+      <!--
+        A Mixcloud-hosted mix has no `audioUrl`, so `MixAudioPreview` renders nothing.
+        The label and the "écoutez l'aperçu ci-dessus" instruction below are hidden with
+        it rather than left pointing at empty space. The tracklist editor stays: timecodes
+        can still be typed by hand, only the capture button is out of reach.
+      -->
+      <div v-if="previewSrc">
         <label class="mb-1 block text-sm text-tambouille-muted">Aperçu audio</label>
-        <MixAudioPreview :src="mediaUrl(existingAudioUrl) ?? null" @capture="onCapture" />
+        <MixAudioPreview :src="previewSrc" @capture="onCapture" />
       </div>
 
       <div>
         <label class="mb-2 block text-sm text-tambouille-muted">Tracklist</label>
-        <p class="mb-2 text-xs text-tambouille-muted">
+        <p v-if="previewSrc" class="mb-2 text-xs text-tambouille-muted">
           Écoutez l'aperçu ci-dessus et cliquez sur « + Ajouter un morceau ici » pour capturer le timecode.
         </p>
         <TracklistEditor v-model="trackRows" />
@@ -160,13 +168,13 @@ onMounted(load)
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"
-          class="w-full text-sm text-tambouille-muted file:mr-4 file:rounded-full file:border-0 file:bg-tambouille-surface-hover file:px-4 file:py-2 file:font-semibold hover:file:bg-tambouille-border"
+          class="w-full text-sm text-tambouille-muted file:mr-4 file:rounded-none file:border-0 file:bg-tambouille-surface-hover file:px-4 file:py-2 file:font-semibold hover:file:bg-tambouille-border"
           @change="onCoverChange"
         />
         <img
           v-if="coverPreview || existingCoverUrl"
           :src="coverPreview ?? mediaUrl(existingCoverUrl)"
-          class="mt-3 h-32 w-32 rounded-lg object-cover"
+          class="mt-3 h-32 w-32 rounded-none object-cover"
           alt=""
         />
       </div>
@@ -177,13 +185,13 @@ onMounted(load)
         <button
           type="submit"
           :disabled="saving"
-          class="flex-1 rounded-full bg-tambouille-accent py-2 font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
+          class="flex-1 tb-btn"
         >
           {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
         </button>
         <RouterLink
           :to="{ name: 'mix-detail', params: { id: mixId } }"
-          class="rounded-full border border-tambouille-border px-5 py-2 text-center font-semibold hover:bg-tambouille-surface-hover"
+          class="tb-btn-outline"
         >
           Annuler
         </RouterLink>
