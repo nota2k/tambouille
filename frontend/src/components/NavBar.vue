@@ -184,8 +184,15 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 
             <div v-if="menuOpen"
               class="absolute right-0 mt-2 w-48 rounded-lg border border-tambouille-border bg-tambouille-surface py-1 shadow-xl"
+<<<<<<< HEAD
               @mouseleave="menuOpen = false">
               <RouterLink v-if="authStore.user?.username"
+=======
+              @mouseleave="menuOpen = false"
+            >
+              <RouterLink
+                v-if="authStore.user?.username"
+>>>>>>> 7860251 (feat(auth): add the username selection screen for Google accounts)
                 :to="{ name: 'profile', params: { username: authStore.user.username } }"
                 class="block px-4 py-2 text-sm hover:bg-tambouille-surface-hover" @click="menuOpen = false">
                 Mon profil
