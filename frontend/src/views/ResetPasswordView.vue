@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -7,7 +7,25 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
+// Read once, into a value this component owns for its lifetime. Everything
+// below works from this, never from the query string.
 const token = typeof route.query.token === 'string' ? route.query.token : ''
+
+// Then taken straight back out of the address bar. The token is a bearer
+// credential — whoever holds it takes the account — and a URL is the least
+// private place it could sit: browser history keeps it after the form is
+// abandoned, and it rides along in a `Referer` on any outbound link.
+//
+// `replace` rather than `push` so the version carrying the token is not left
+// one Back press away. The route record is unchanged, so this component is
+// reused rather than rebuilt and `token` above survives; a reload afterwards
+// genuinely has no token, which is the intended trade — the credential is
+// gone rather than lingering.
+onMounted(() => {
+  if (route.query.token !== undefined) {
+    void router.replace({ name: 'reset-password' })
+  }
+})
 
 // 32 bytes base64url is 43 characters, and nothing else is ever minted. Checked
 // here so a link that was truncated by a mail client — or opened without one at

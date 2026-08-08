@@ -107,11 +107,16 @@ router.beforeEach((to) => {
   // An account created through Google has no username until it picks one.
   // Nothing else is reachable until then: without a handle it has no public
   // profile, and its uploads could not be attributed.
+  // `reset-password` is exempt alongside `choose-username`: an account created
+  // through Google has no username, and such a user following a reset link
+  // would otherwise be bounced to /bienvenue and never reach the form — locked
+  // out by the very screen meant to let them back in.
   if (
     authStore.isAuthenticated &&
     authStore.user &&
     !authStore.user.username &&
-    to.name !== 'choose-username'
+    to.name !== 'choose-username' &&
+    to.name !== 'reset-password'
   ) {
     return { name: 'choose-username' }
   }

@@ -1,7 +1,12 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
-import { PasswordResetService } from './password-reset.service';
+import {
+  PasswordResetService,
+  RESPONSE_FLOOR_MS,
+  SlidingWindow,
+  callerIdentity,
+} from './password-reset.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from '../mail/mailer.service';
 
@@ -178,23 +183,50 @@ describe('PasswordResetService', () => {
       expect(ttlMs).toBeLessThanOrEqual(60 * 60 * 1000 + 5000);
     });
 
-    it('does not mint a second key while a live one exists', async () => {
+    // The lockout the live-token short-circuit used to cause. The row is
+    // committed before the message is handed to SMTP and delivery cannot
+    // report back, so a send that failed — or a message a spam filter ate,
+    // which on a shared host is the likelier one — must not leave a live token
+    // that blocks every retry for the next hour.
+    it('mints a fresh token on a retry after a failed send', async () => {
       prisma.user.findFirst.mockResolvedValue(USER);
-      prisma.passwordResetToken.findFirst.mockResolvedValue({
-        id: 't-live',
-        userId: USER.id,
-        usedAt: null,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
-      });
+      mailer.send.mockRejectedValueOnce(new Error('SMTP refused the message'));
+      const silenced = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
 
-      await expect(service.forgot('nelly@example.com', '203.0.113.1')).resolves.toBeUndefined();
+      await forgotNow('nelly@example.com', '203.0.113.1');
+      await service.flushDeliveries();
+      await forgotNow('nelly@example.com', '203.0.113.1');
+      await service.flushDeliveries();
 
-      expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
-      expect(mailer.send).not.toHaveBeenCalled();
-      // Only unused, unexpired tokens count as live.
-      expect(prisma.passwordResetToken.findFirst).toHaveBeenCalledWith({
-        where: { userId: USER.id, usedAt: null, expiresAt: { gt: expect.any(Date) } },
-      });
+      // The second attempt really did mint and send again, rather than
+      // silently doing nothing while the form claimed a link had been sent.
+      expect(prisma.passwordResetToken.create).toHaveBeenCalledTimes(2);
+      expect(mailer.send).toHaveBeenCalledTimes(2);
+
+      // And it is a genuinely new token, not the same one resent.
+      const first = prisma.passwordResetToken.create.mock.calls[0][0] as {
+        data: { tokenHash: string };
+      };
+      const second = prisma.passwordResetToken.create.mock.calls[1][0] as {
+        data: { tokenHash: string };
+      };
+      expect(second.data.tokenHash).not.toBe(first.data.tokenHash);
+
+      silenced.mockRestore();
+    });
+
+    it('mints a fresh token on every request, needing no live-token lookup', async () => {
+      prisma.user.findFirst.mockResolvedValue(USER);
+
+      await forgotNow('nelly@example.com', '203.0.113.1');
+      await forgotNow('nelly@example.com', '203.0.113.1');
+      await service.flushDeliveries();
+
+      expect(prisma.passwordResetToken.create).toHaveBeenCalledTimes(2);
+      // Nothing queries for an existing live token any more: the per-address
+      // budget is what limits the mail, and `reset` collapses several
+      // outstanding links to one working key when any of them is spent.
+      expect(prisma.passwordResetToken.findFirst).not.toHaveBeenCalled();
     });
 
     it('stops mailing an address that is being hammered, still without failing', async () => {
@@ -204,17 +236,48 @@ describe('PasswordResetService', () => {
       for (let i = 0; i < 6; i += 1) {
         // A different caller each time, so it is the address budget that bites
         // and not the per-caller one.
-        await expect(service.forgot('nelly@example.com', `203.0.113.${i}`)).resolves.toBeUndefined();
+        await expect(forgotNow('nelly@example.com', `203.0.113.${i}`)).resolves.toBeUndefined();
       }
       await service.flushDeliveries();
 
       expect(mailer.send).toHaveBeenCalledTimes(3);
     });
 
+    // The critical one. Under Passenger, `req.ip` is the agent's socket unless
+    // `trust proxy` is set — so it is the same value for everybody. Applying
+    // the per-caller budget to that shared value would turn a 10/hour limit
+    // into a 10/hour limit for the entire site, and ten requests would switch
+    // password recovery off for every user while the form kept saying a link
+    // had been sent.
+    it.each(['127.0.0.1', '127.0.0.53', '::1', '::ffff:127.0.0.1', '0.0.0.0', '', undefined])(
+      'skips the per-caller budget rather than sharing one bucket when the address is %p',
+      async (unusable) => {
+        const silenced = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+        prisma.user.findFirst.mockResolvedValue(USER);
+
+        // Well past the 10/hour per-caller budget, each on a different address
+        // so the per-address limit never bites.
+        for (let i = 0; i < 14; i += 1) {
+          await expect(forgotNow(`user${i}@example.com`, unusable)).resolves.toBeUndefined();
+        }
+        await service.flushDeliveries();
+
+        // Every one of them sent. Had the unusable address been used as a key,
+        // the last four would have been swallowed.
+        expect(mailer.send).toHaveBeenCalledTimes(14);
+        // And the condition is reported, once, so a misconfigured proxy is
+        // findable rather than silent.
+        expect(silenced).toHaveBeenCalledTimes(1);
+        expect(silenced.mock.calls[0][0]).toMatch(/trust proxy/i);
+
+        silenced.mockRestore();
+      },
+    );
+
     it('stops one caller walking a list of addresses', async () => {
       prisma.user.findFirst.mockResolvedValue(USER);
       for (let i = 0; i < 14; i += 1) {
-        await expect(service.forgot(`user${i}@example.com`, '198.51.100.9')).resolves.toBeUndefined();
+        await expect(forgotNow(`user${i}@example.com`, '198.51.100.9')).resolves.toBeUndefined();
       }
       await service.flushDeliveries();
 
@@ -229,13 +292,41 @@ describe('PasswordResetService', () => {
       prisma.user.findFirst.mockResolvedValue(USER);
       mailer.send.mockRejectedValue(new Error('Missing required environment variable: SMTP_HOST'));
 
-      await expect(service.forgot('nelly@example.com', '203.0.113.1')).resolves.toBeUndefined();
+      await expect(forgotNow('nelly@example.com', '203.0.113.1')).resolves.toBeUndefined();
       await expect(service.flushDeliveries()).resolves.toBeUndefined();
 
       // The log is the only signal a broken mailbox produces, so it has to
       // carry the underlying message — here, the name of the missing variable.
       expect(logged).toHaveBeenCalledWith(expect.stringContaining('SMTP_HOST'));
       logged.mockRestore();
+    });
+  });
+
+  // Real timers, deliberately: this is the one case that has to observe the
+  // floor actually elapsing rather than a clock being advanced past it. It
+  // costs the suite one floor's worth of wall time, which is the price of
+  // pinning the property at all.
+  describe('forgot — response time floor (real timers)', () => {
+    beforeEach(() => {
+      prisma.passwordResetToken.create.mockImplementation(({ data }: { data: unknown }) =>
+        Promise.resolve({ id: 't1', ...(data as object) }),
+      );
+    });
+
+    // The unregistered path is the one an attacker probes, and it is the
+    // cheapest — one SELECT and out. Without the floor it returns visibly
+    // sooner than a registered address, and the endpoint answers by its
+    // timing the question its status code refuses to answer.
+    it('holds the unregistered path to the same floor as every other', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      const startedAt = Date.now();
+      await service.forgot('inconnu@example.com', '203.0.113.1');
+      const elapsed = Date.now() - startedAt;
+
+      // A few milliseconds of slack for timer resolution.
+      expect(elapsed).toBeGreaterThanOrEqual(RESPONSE_FLOOR_MS - 20);
+      expect(mailer.send).not.toHaveBeenCalled();
     });
   });
 
@@ -387,5 +478,108 @@ describe('PasswordResetService', () => {
       // happens inside the transaction so nothing is written.
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('callerIdentity', () => {
+  // Anything that resolves to the same string for every client on earth is
+  // not an identity. Used as one, it converts a per-caller budget into a
+  // global one — and a global cap on password recovery is a denial of service
+  // on the last door a locked-out user has.
+  it.each([undefined, '', '   ', '127.0.0.1', '127.0.0.53', '::1', '::ffff:127.0.0.1', '0.0.0.0', '::'])(
+    'refuses %p as an identity, so the limit is skipped rather than shared',
+    (input) => {
+      expect(callerIdentity(input)).toBeNull();
+    },
+  );
+
+  it('accepts a routable address', () => {
+    expect(callerIdentity('203.0.113.7')).toBe('203.0.113.7');
+    expect(callerIdentity('::ffff:203.0.113.7')).toBe('203.0.113.7');
+    // Same client whichever form the socket reported.
+    expect(callerIdentity('203.0.113.7')).toBe(callerIdentity('::ffff:203.0.113.7'));
+  });
+
+  // Deliberately allowed. Behind a reverse proxy on a private network these
+  // are real, distinct clients, and rejecting them would disable the limit on
+  // exactly the deployments that have it configured correctly.
+  it('accepts private LAN addresses as distinct clients', () => {
+    expect(callerIdentity('10.0.0.4')).toBe('10.0.0.4');
+    expect(callerIdentity('192.168.1.20')).toBe('192.168.1.20');
+  });
+});
+
+describe('SlidingWindow', () => {
+  it('allows the budget and refuses past it', () => {
+    const window = new SlidingWindow(3, 60_000, 100);
+
+    expect([window.tryConsume('a'), window.tryConsume('a'), window.tryConsume('a')]).toEqual([
+      true, true, true,
+    ]);
+    expect(window.tryConsume('a')).toBe(false);
+    // Budgets are per key.
+    expect(window.tryConsume('b')).toBe(true);
+  });
+
+  it('restores the budget once the window has passed', () => {
+    jest.useFakeTimers();
+    try {
+      const window = new SlidingWindow(1, 60_000, 100);
+      expect(window.tryConsume('a')).toBe(true);
+      expect(window.tryConsume('a')).toBe(false);
+
+      jest.advanceTimersByTime(60_001);
+      expect(window.tryConsume('a')).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // The keys are unauthenticated and attacker-chosen: every request with a
+  // fresh address is a fresh key, in budget or not. Without a ceiling the map
+  // grows until the process is killed.
+  it('stays under its ceiling under a flood of distinct keys', () => {
+    const maxKeys = 200;
+    const window = new SlidingWindow(3, 60 * 60 * 1000, maxKeys);
+
+    for (let i = 0; i < 25_000; i += 1) {
+      window.tryConsume(`junk-${i}@example.com`);
+      expect(window.size).toBeLessThanOrEqual(maxKeys);
+    }
+
+    expect(window.size).toBeLessThanOrEqual(maxKeys);
+  });
+
+  it('reclaims keys whose windows have expired', () => {
+    jest.useFakeTimers();
+    try {
+      const window = new SlidingWindow(3, 60_000, 10_000);
+      for (let i = 0; i < 100; i += 1) {
+        window.tryConsume(`old-${i}`);
+      }
+      expect(window.size).toBe(100);
+
+      // Past the window, then enough calls to trigger the amortised sweep.
+      jest.advanceTimersByTime(60_001);
+      for (let i = 0; i < 500; i += 1) {
+        window.tryConsume('fresh');
+      }
+
+      // The hundred spent windows are gone; only the live key remains.
+      expect(window.size).toBe(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // Evicting rather than refusing is the point: a full map that turned people
+  // away would let anyone disable password recovery for everyone by filling it
+  // with junk.
+  it('keeps serving new keys when full, rather than refusing them', () => {
+    const window = new SlidingWindow(1, 60 * 60 * 1000, 50);
+
+    for (let i = 0; i < 5_000; i += 1) {
+      expect(window.tryConsume(`flood-${i}`)).toBe(true);
+    }
   });
 });
