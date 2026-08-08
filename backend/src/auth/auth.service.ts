@@ -6,7 +6,10 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { GoogleTokenVerifier } from './google-token-verifier';
 
-const SALT_ROUNDS = 12;
+// Exported so `PasswordResetService` hashes at the same cost as registration
+// and `setPassword`. A reset that landed a cheaper hash would quietly weaken
+// every account that used it.
+export const SALT_ROUNDS = 12;
 
 // Deliberately identical wherever Google hands us an address it has not
 // verified, whether or not an account exists on that address. A distinct

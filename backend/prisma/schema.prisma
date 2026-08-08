@@ -40,7 +40,28 @@ model User {
   // Rows where this user is being followed (their followers).
   followedBy Follow[] @relation("Followers")
 
+  passwordResetTokens PasswordResetToken[]
+
   @@map("users")
+}
+
+/// A bearer credential: whoever holds the clear token can take the account, so
+/// it is treated like a password. Only the SHA-256 hash is stored — the
+/// database is one more copy of every live token, and a readable one is a
+/// working key. SHA-256 rather than bcrypt is deliberate: the input is already
+/// 256 bits from `crypto.randomBytes`, so there is nothing to brute-force, and
+/// the lookup has to stay a single indexed read.
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 model Mix {
