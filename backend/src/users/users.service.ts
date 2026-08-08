@@ -21,6 +21,13 @@ export class UsersService {
 
     const users = await this.prisma.user.findMany({
       where: {
+        // Google-created accounts keep `username: null` until signup is
+        // completed. They have no public profile to link to, and the
+        // `displayName` clause below would otherwise surface them: the
+        // frontend then builds a profile route with a null param, which
+        // throws and breaks the search dropdown for every visitor, not just
+        // for the pending account.
+        username: { not: null },
         OR: [
           { username: { contains: q, mode: 'insensitive' } },
           { displayName: { contains: q, mode: 'insensitive' } },

@@ -11,7 +11,14 @@ const router = useRouter()
 const menuOpen = ref(false)
 const headerSearch = ref('')
 
-const searchResults = ref<AuthorSummary[]>([])
+// Un compte créé via Google reste sans username tant que l'inscription n'est
+// pas terminée. Le backend exclut désormais ces comptes de /users/search, mais
+// on ne s'appuie pas dessus ici : un seul résultat sans username suffirait à
+// faire échouer le router (MissingRequiredParamError) et à casser la recherche
+// pour tous les visiteurs. Le champ est donc modélisé nullable côté composant.
+type SearchResult = Omit<AuthorSummary, 'username'> & { username: string | null }
+
+const searchResults = ref<SearchResult[]>([])
 const showDropdown = ref(false)
 const activeIndex = ref(-1)
 const searchContainer = ref<HTMLElement>()
@@ -28,11 +35,11 @@ watch(headerSearch, (q) => {
   }
   searchTimeout = setTimeout(async () => {
     try {
-      const { data } = await apiClient.get<{ items: AuthorSummary[] }>('/users/search', {
+      const { data } = await apiClient.get<{ items: SearchResult[] }>('/users/search', {
         params: { q: trimmed, limit: 5 },
       })
-      searchResults.value = data.items
-      showDropdown.value = data.items.length > 0
+      searchResults.value = data.items.filter((user) => user.username)
+      showDropdown.value = searchResults.value.length > 0
       activeIndex.value = -1
     } catch {
       searchResults.value = []
@@ -73,7 +80,7 @@ function onKeydown(e: KeyboardEvent) {
     // L'index peut pointer hors du tableau si une réponse de recherche arrive
     // entre la sélection au clavier et la validation.
     const selected = searchResults.value[activeIndex.value]
-    if (selected) goToUser(selected.username)
+    if (selected?.username) goToUser(selected.username)
   } else if (e.key === 'Escape') {
     closeDropdown()
   }
@@ -127,31 +134,35 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
             <div class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-tambouille-muted">
               Utilisateurs
             </div>
-            <RouterLink
-              v-for="(user, i) in searchResults"
-              :key="user.id"
-              :to="{ name: 'profile', params: { username: user.username } }"
-              class="flex items-center gap-3 px-3 py-2 transition"
-              :class="i === activeIndex ? 'bg-tambouille-surface-hover' : 'hover:bg-tambouille-surface-hover'"
-              @click="closeDropdown(); headerSearch = ''"
-            >
-              <img
-                v-if="user.avatarUrl"
-                :src="mediaUrl(user.avatarUrl)"
-                class="h-8 w-8 rounded-full object-cover"
-                alt=""
-              />
-              <div
-                v-else
-                class="flex h-8 w-8 items-center justify-center rounded-full bg-tambouille-accent text-xs font-semibold text-white"
+            <template v-for="(user, i) in searchResults" :key="user.id">
+              <!-- Pas de username = pas de profil public : on n'émet aucun lien
+                   plutôt qu'un lien avec un param nul, qui ferait planter le
+                   router et disparaître tout le menu déroulant. -->
+              <RouterLink
+                v-if="user.username"
+                :to="{ name: 'profile', params: { username: user.username } }"
+                class="flex items-center gap-3 px-3 py-2 transition"
+                :class="i === activeIndex ? 'bg-tambouille-surface-hover' : 'hover:bg-tambouille-surface-hover'"
+                @click="closeDropdown(); headerSearch = ''"
               >
-                {{ user.displayName?.[0]?.toUpperCase() }}
-              </div>
-              <div class="min-w-0">
-                <div class="truncate text-sm font-medium">{{ user.displayName }}</div>
-                <div class="truncate text-xs text-tambouille-muted">@{{ user.username }}</div>
-              </div>
-            </RouterLink>
+                <img
+                  v-if="user.avatarUrl"
+                  :src="mediaUrl(user.avatarUrl)"
+                  class="h-8 w-8 rounded-full object-cover"
+                  alt=""
+                />
+                <div
+                  v-else
+                  class="flex h-8 w-8 items-center justify-center rounded-full bg-tambouille-accent text-xs font-semibold text-white"
+                >
+                  {{ user.displayName?.[0]?.toUpperCase() }}
+                </div>
+                <div class="min-w-0">
+                  <div class="truncate text-sm font-medium">{{ user.displayName }}</div>
+                  <div class="truncate text-xs text-tambouille-muted">@{{ user.username }}</div>
+                </div>
+              </RouterLink>
+            </template>
           </div>
         </div>
       </form>
