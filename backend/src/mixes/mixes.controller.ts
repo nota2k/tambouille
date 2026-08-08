@@ -185,13 +185,15 @@ export class MixesController {
       dto.sourceRef || null,
     );
 
-    // An uploaded cover always wins over one imported from Mixcloud.
+    // An uploaded cover always wins over one imported from the source.
     const coverFile = files.cover?.[0];
     let coverUrl = coverFile?.key;
     if (!coverUrl && dto.coverSourceUrl) {
-      coverUrl = await this.coverImportService.importFromUrl(
-        dto.coverSourceUrl,
-      );
+      // Best-effort: a source whose cover cannot be fetched still yields a
+      // mix, without one.
+      coverUrl =
+        (await this.coverImportService.importFromUrl(dto.coverSourceUrl)) ??
+        undefined;
     }
 
     return this.mixesService.create(userId, dto, {
