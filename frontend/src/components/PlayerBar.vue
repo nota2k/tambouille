@@ -147,6 +147,14 @@ async function awaitCloudcast(owner: MixcloudWidget) {
     if (widget !== owner) return
 
     const total = await owner.getDuration().catch(() => 0)
+    // Ownership has to be re-checked *after* this await, not only before it. A mix switch
+    // can land while the call is in flight: this run then resumes into a world where its
+    // widget was torn down, and every write below is module-level — `widgetLoaded`,
+    // `duration`, `playWhenLoaded`, `widgetLoading`. The damaging one is `playWhenLoaded`,
+    // which records the *new* mix's play intent; a stale run consuming it leaves the new
+    // mix loaded, silent, and showing no error. Same shape as the shared ready timer:
+    // every await is a place the world can change, so every await needs its own check.
+    if (widget !== owner) return
     if (!total) continue
 
     widgetLoaded = true
