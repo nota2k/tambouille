@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -24,6 +24,8 @@ const description = ref('')
 const tags = ref('')
 const trackRows = ref<TrackRow[]>([{ timecode: '', artist: '', title: '' }])
 const existingAudioUrl = ref<string | null>(null)
+/** Null on a Mixcloud-hosted mix, which stores no audio of its own — there is nothing to preview. */
+const previewSrc = computed(() => mediaUrl(existingAudioUrl.value) ?? null)
 const existingCoverUrl = ref<string | null>(null)
 const coverFile = ref<File | null>(null)
 const coverPreview = ref<string | null>(null)
@@ -142,14 +144,20 @@ onMounted(load)
         />
       </div>
 
-      <div>
+      <!--
+        A Mixcloud-hosted mix has no `audioUrl`, so `MixAudioPreview` renders nothing.
+        The label and the "écoutez l'aperçu ci-dessus" instruction below are hidden with
+        it rather than left pointing at empty space. The tracklist editor stays: timecodes
+        can still be typed by hand, only the capture button is out of reach.
+      -->
+      <div v-if="previewSrc">
         <label class="mb-1 block text-sm text-tambouille-muted">Aperçu audio</label>
-        <MixAudioPreview :src="mediaUrl(existingAudioUrl) ?? null" @capture="onCapture" />
+        <MixAudioPreview :src="previewSrc" @capture="onCapture" />
       </div>
 
       <div>
         <label class="mb-2 block text-sm text-tambouille-muted">Tracklist</label>
-        <p class="mb-2 text-xs text-tambouille-muted">
+        <p v-if="previewSrc" class="mb-2 text-xs text-tambouille-muted">
           Écoutez l'aperçu ci-dessus et cliquez sur « + Ajouter un morceau ici » pour capturer le timecode.
         </p>
         <TracklistEditor v-model="trackRows" />
