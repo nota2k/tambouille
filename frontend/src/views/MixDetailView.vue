@@ -29,6 +29,18 @@ const loading = ref(true)
 const deleting = ref(false)
 
 /**
+ * Sites that write their own name differently from their domain. This is a
+ * display lookup, not a stored value: what the design refused to grow one
+ * entry per site was the database column, and `sourceRef` still holds a URL
+ * and nothing else. A host that is not listed shows as its bare hostname,
+ * which reads acceptably for most.
+ */
+const SOURCE_NAMES: Record<string, string> = {
+  'archive.org': 'Archive.org',
+  'ouiedire.net': 'Ouïedire',
+}
+
+/**
  * `sourceType` says which player engine, not which site — Archive.org and a
  * podcast both answer 'remote'. The name shown therefore comes from the host
  * of `sourceRef`, which keeps the stored value from growing one per site.
@@ -39,7 +51,7 @@ const sourceLabel = computed(() => {
   if (current.sourceType === 'mixcloud') return 'Mixcloud'
   try {
     const host = new URL(current.sourceRef).hostname.replace(/^www\./, '')
-    return host === 'archive.org' ? 'Archive.org' : host
+    return SOURCE_NAMES[host] ?? host
   } catch {
     return null
   }
