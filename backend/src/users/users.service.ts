@@ -35,9 +35,11 @@ export class UsersService {
     return { items: users };
 =======
   // Google-created accounts start with username === null until signup is
-  // completed. None of the endpoints below are meant to be reachable before
-  // that point, so this guards them centrally instead of repeating the check.
-  private requireUsername(user: { username: string | null }): string {
+  // completed. Read and checked before any write below, so a null-username
+  // account is refused up front instead of after the mutation has already
+  // been committed.
+  private async requireUsername(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.username) {
       throw new ConflictException('Choose a username before updating your profile');
     }
@@ -80,39 +82,54 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
-    const user = await this.prisma.user.update({
+    const username = await this.requireUsername(userId);
+    await this.prisma.user.update({
       where: { id: userId },
       data: dto,
     });
 <<<<<<< HEAD
+<<<<<<< HEAD
     return this.getPublicProfile(user.username!);
 =======
     return this.getPublicProfile(this.requireUsername(user));
 >>>>>>> d23e2ad (fix(users): refuse profile updates until a username is chosen)
+=======
+    return this.getPublicProfile(username);
+>>>>>>> e609da8 (fix(users): check username before writing, not after)
   }
 
   async updateAvatar(userId: string, avatarUrl: string) {
-    const user = await this.prisma.user.update({
+    const username = await this.requireUsername(userId);
+    await this.prisma.user.update({
       where: { id: userId },
       data: { avatarUrl },
     });
 <<<<<<< HEAD
-    return this.getPublicProfile(user.username!);
-=======
-    return this.getPublicProfile(this.requireUsername(user));
->>>>>>> d23e2ad (fix(users): refuse profile updates until a username is chosen)
-  }
-
-  async updateCover(userId: string, coverUrl: string) {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { coverUrl },
-    });
 <<<<<<< HEAD
     return this.getPublicProfile(user.username!);
 =======
     return this.getPublicProfile(this.requireUsername(user));
 >>>>>>> d23e2ad (fix(users): refuse profile updates until a username is chosen)
+=======
+    return this.getPublicProfile(username);
+>>>>>>> e609da8 (fix(users): check username before writing, not after)
+  }
+
+  async updateCover(userId: string, coverUrl: string) {
+    const username = await this.requireUsername(userId);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { coverUrl },
+    });
+<<<<<<< HEAD
+<<<<<<< HEAD
+    return this.getPublicProfile(user.username!);
+=======
+    return this.getPublicProfile(this.requireUsername(user));
+>>>>>>> d23e2ad (fix(users): refuse profile updates until a username is chosen)
+=======
+    return this.getPublicProfile(username);
+>>>>>>> e609da8 (fix(users): check username before writing, not after)
   }
 
   async follow(currentUserId: string, targetUsername: string) {
