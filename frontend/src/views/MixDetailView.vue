@@ -28,6 +28,31 @@ const suggestions = ref<Mix[]>([])
 const loading = ref(true)
 const deleting = ref(false)
 
+/**
+ * `sourceType` says which player engine, not which site — Archive.org and a
+ * podcast both answer 'remote'. The name shown therefore comes from the host
+ * of `sourceRef`, which keeps the stored value from growing one per site.
+ */
+const sourceLabel = computed(() => {
+  const current = mix.value
+  if (!current?.sourceRef) return null
+  if (current.sourceType === 'mixcloud') return 'Mixcloud'
+  try {
+    const host = new URL(current.sourceRef).hostname.replace(/^www\./, '')
+    return host === 'archive.org' ? 'Archive.org' : host
+  } catch {
+    return null
+  }
+})
+
+const sourcePageUrl = computed(() => {
+  const current = mix.value
+  if (!current?.sourceRef) return null
+  return current.sourceType === 'mixcloud'
+    ? `https://www.mixcloud.com${current.sourceRef}`
+    : current.sourceRef
+})
+
 async function loadMix() {
   loading.value = true
   try {
@@ -207,8 +232,16 @@ watch(
         <WaveformPlayer :mix="mix" />
       </div>
       <p class="flex items-baseline justify-between pt-2 text-xs text-tambouille-muted">
-        <span v-if="mix.audioUrl">{{ mix.playsCount }} écoutes</span>
-        <span v-else>Audio hébergé sur Mixcloud</span>
+        <a
+          v-if="sourcePageUrl"
+          :href="sourcePageUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="hover:underline"
+        >
+          Audio hébergé sur {{ sourceLabel }}
+        </a>
+        <span v-else-if="mix.audioUrl">{{ mix.playsCount }} écoutes</span>
         <span v-if="duration">{{ duration }}</span>
       </p>
 

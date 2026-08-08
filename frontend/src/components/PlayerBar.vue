@@ -44,10 +44,16 @@ const audioSrc = computed(() => {
 const hasNoSource = computed(
   () => playerStore.currentMix != null && !audioSrc.value && !mixcloudRef.value,
 )
+/** Set when the element itself fails, as opposed to the Mixcloud widget. */
+const audioError = ref('')
 const playbackError = computed(() =>
-  hasNoSource.value ? "Ce mix n'a pas de source audio et ne peut pas être lu." : widgetError.value,
+  hasNoSource.value
+    ? "Ce mix n'a pas de source audio et ne peut pas être lu."
+    : widgetError.value || audioError.value,
 )
-const canPlay = computed(() => !hasNoSource.value && !widgetError.value)
+const canPlay = computed(
+  () => !hasNoSource.value && !widgetError.value && !audioError.value,
+)
 
 const currentTrack = computed(() => {
   const tracklist = playerStore.currentMix?.tracklist
@@ -282,6 +288,24 @@ async function setupWidget(mixId: string, key: string) {
 
 // --- Shared transport -----------------------------------------------------
 
+/**
+ * On R2 the object is either there or it is not, so this never fired. With a
+ * remote source, a file that has moved or gone is the ordinary case — and
+ * without this the bar sits at 0:00 saying nothing, which is exactly what the
+ * Mixcloud path takes such care to avoid.
+ */
+function onAudioError() {
+  // A `src` cleared between mixes makes the element fire `error` on an empty
+  // source; there is nothing broken to report in that case.
+  if (!audioSrc.value) return
+
+  audioError.value =
+    playerStore.currentMix?.sourceType === 'remote'
+      ? 'La source de ce mix ne répond plus — elle a peut-être été retirée.'
+      : 'Ce fichier audio est illisible.'
+  playerStore.pause()
+}
+
 function applyPendingSeek() {
   const seconds = playerStore.pendingSeekSec
   if (seconds == null) return
@@ -303,6 +327,7 @@ watch(
   () => {
     duration.value = 0
     widgetError.value = ''
+    audioError.value = ''
     teardownWidget()
 
     if (playerStore.currentMix) {
@@ -433,6 +458,7 @@ function onEnded() {
       @timeupdate="onTimeUpdate"
       @loadedmetadata="onLoadedMetadata"
       @ended="onEnded"
+      @error="onAudioError"
     />
 
     <p
