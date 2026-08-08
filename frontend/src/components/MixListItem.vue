@@ -60,7 +60,8 @@ function toggleFavorite(event: Event) {
       <div class="flex flex-1 shrink-0 items-center gap-3 w-full">
         <div class="hidden gap-1 text-xs text-tambouille-muted sm:flex">
           <div class="flex gap-2">
-            <span class="flex items-center px-2 rounded-sm gap-2 border border-tambouille-muted leading-none shrink w-auto"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            <span v-if="mix.audioUrl"
+              class="flex items-center px-2 rounded-sm gap-2 border border-tambouille-muted leading-none shrink w-auto"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="lucide lucide-play-icon lucide-play">
                 <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />

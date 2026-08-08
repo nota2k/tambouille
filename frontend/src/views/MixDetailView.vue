@@ -104,7 +104,7 @@ onMounted(loadMix)
             </svg>
             Écouter
           </button>
-          <span class="text-sm text-tambouille-muted">{{ mix.playsCount }} écoutes</span>
+          <span v-if="mix.audioUrl" class="text-sm text-tambouille-muted">{{ mix.playsCount }} écoutes</span>
           <span class="text-sm text-tambouille-muted">{{ mix.commentsCount }} commentaires</span>
 
           <button
