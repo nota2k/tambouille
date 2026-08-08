@@ -13,7 +13,7 @@ The deployed topology matters here: the frontend is served from `tambouille.pant
 
 In scope:
 - Sign up and sign in with Google, returning the same JWT session the password flow already returns.
-- Automatic linking of a Google identity to an existing account when the email matches **and Google reports it as verified**.
+- Refusing a Google sign-in whose email already has an account, rather than linking the two.
 - A username-selection step for accounts created through Google, since Google supplies no username.
 - Letting a Google-created account add a password later, from its settings.
 
@@ -28,8 +28,8 @@ Out of scope:
 | Decision | Rationale |
 |---|---|
 | **Google Identity Services ID-token flow**, not the redirect flow | The frontend receives a signed ID token from Google and POSTs it to the API, which verifies it. No cross-origin redirect dance between two subdomains, no JWT passed through a URL (where it would land in browser history and access logs), no callback URL to maintain. It also needs only a **public client ID** — no client secret to store or protect. |
-| Automatic linking on matching email | The user's explicit choice: signing in with Google using an address that already has an account signs into that account rather than failing or creating a duplicate. |
-| Linking gated on `email_verified` | Without this check, anyone able to create a Google account bearing a Tambouille user's email address would take over that account. Google returns the claim in the ID token; honouring it is what makes automatic linking safe rather than dangerous. |
+| **No linking on matching email** — refuse instead | This reverses an earlier decision to link automatically, gated on `email_verified`. That gate only proves the *Google* side of the match. Tambouille verifies no email addresses at all: anyone can register `victim@corp.com` with a password without ever receiving mail there. So an attacker registers the victim's address by password, the victim later signs in with Google, and linking would attach the victim's Google identity to the attacker's row and return a session **on the attacker's account** — which the attacker still has the password to. Linking is only safe when both sides are proven; we can prove one. So an address that already has an account is always refused (409), whatever `email_verified` says and whatever the row's current `googleId` is. Accepted consequence: **a user who registered with a password cannot sign in with Google until email verification exists.** |
+| Account creation still gated on `email_verified` | Anyone controlling an unverified Workspace domain can mint a token for any address at it. Without this check that token creates a real account on someone else's address, which the caller then completes with a username and password using the session the call returns. |
 | Username chosen by the user, not derived | Deriving `nelly` from `nelly@gmail.com` leaks part of the email address into a public handle and produces ugly collisions (`nelly2`, `nelly3`). One extra screen is the cost of a handle the user actually picked. |
 | Google accounts may add a password later | Keeps a second way in if the user loses access to their Google account. |
 
@@ -55,11 +55,10 @@ The token is verified with `google-auth-library`, which checks the signature aga
 
 Resolution order:
 
-1. A user with this `googleId` exists → sign in.
-2. Otherwise, a user with this email exists:
-   - Google reports `email_verified: true` → set `googleId` on that user, then sign in.
-   - Otherwise → **409**, with a message telling the user to sign in with their password. This is the account-takeover guard; it must not silently fall through to creating a second account on the same email, which the unique constraint would reject anyway.
-3. Otherwise → create a user with `googleId`, `email`, `displayName` from Google's `name`, `username: null`, `password: null`.
+1. A user with this `googleId` exists → sign in. This is the only path that signs in an existing row, and it only ever matches an account this flow created.
+2. Otherwise, a user with this email exists (matched case-insensitively, so a case variant cannot slip through into a duplicate) → **409**, with a message telling the user to sign in with their password. Always, regardless of `email_verified` and regardless of whether that user's `googleId` is null or some other subject. No `googleId` is ever written onto an existing row.
+3. Otherwise, `email_verified` is false → **409**. Same wording as the unverified case under step 2, so an unauthenticated caller minting unverified tokens cannot use the difference to discover which addresses are registered.
+4. Otherwise → create a user with `googleId`, `email`, `displayName` from Google's `name`, `username: null`, `password: null`.
 
 Returns `{ accessToken, user }`, the same shape as `login`. `user.username` may be `null`.
 
@@ -91,10 +90,12 @@ The OAuth client must authorise `https://tambouille.pantagruweb.club` and `http:
 
 ## Verification
 
-Consistent with the rest of this project, verification is by real request/response rather than an automated suite, which does not exist here. The cases that matter are the ones where being wrong is expensive: a tampered or expired ID token must be refused; an unverified matching email must produce 409 and must not link; a second call to `/auth/username` must not overwrite a chosen handle; and password login against a Google-only account must fail like any bad credential.
+Consistent with the rest of this project, verification is by real request/response rather than an automated suite, which does not exist here. The cases that matter are the ones where being wrong is expensive: a tampered or expired ID token must be refused; a matching email must produce 409 and must leave the existing row untouched, verified or not; a second call to `/auth/username` must not overwrite a chosen handle; and password login against a Google-only account must fail like any bad credential.
 
 ## Known limitations
 
 **A pending account has no public profile.** Until a username is chosen, profile routes cannot resolve the user. This is accepted: the selection screen is unskippable, so the state is short-lived.
 
-**No unlinking.** Once linked, a Google identity stays attached. Adding a password gives the user a second way in, but not a way to detach the association.
+**A password account cannot use Google sign-in.** This is the accepted consequence of refusing rather than linking: **a user who registered with a password cannot sign in with Google until email verification exists.** They keep their password, which still works; Google simply is not a second door into that account. Adding email verification at registration would make our side of the match provable and let linking be reconsidered — until then the refusal is the correct behaviour, not a gap.
+
+**No unlinking.** A Google identity set at account creation stays attached. Adding a password gives the user a second way in, but not a way to detach the association.

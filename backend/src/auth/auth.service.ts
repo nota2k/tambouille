@@ -15,6 +15,11 @@ const SALT_ROUNDS = 12;
 const UNVERIFIED_GOOGLE_EMAIL =
   'Google has not verified this email address. Sign in with your password instead.';
 
+// Refusal for a Google identity whose address already belongs to an account.
+// There is no linking flow to offer instead, by design — see `loginWithGoogle`.
+const EMAIL_ALREADY_REGISTERED =
+  'An account already uses this email address. Sign in with your password instead.';
+
 // Prisma's unique-constraint violation. Not importing Prisma's own error
 // class here to keep this check working against the plain mock objects the
 // test suite throws, as well as the real `PrismaClientKnownRequestError`.
@@ -96,6 +101,9 @@ export class AuthService {
   async loginWithGoogle(idToken: string) {
     const identity = await this.googleVerifier.verify(idToken);
 
+    // The only sign-in path for an existing row. This account carries this
+    // exact `sub`, which means this flow created it: the Google identity was
+    // there from the start and nothing is being attached to anything.
     const linked = await this.prisma.user.findFirst({
       where: { googleId: identity.googleId },
     });
@@ -105,57 +113,50 @@ export class AuthService {
 
     // Case-insensitive on purpose. Emails are stored verbatim, so an account
     // registered as `Nelly@Example.com` is the same mailbox as Google's
-    // `nelly@example.com` but not the same string. An exact match would miss
-    // it and fall through to the create branch below, silently making a
-    // second account for the same person instead of linking — automatic
-    // linking, the whole point of this flow, failing open into a duplicate.
+    // `nelly@example.com` but not the same string. Since a match now means
+    // "refuse", matching more broadly is the safe direction: an exact match
+    // would miss the case variant and fall through to the create branch below,
+    // making a second account on a mailbox that already has one.
     const sameEmail = await this.prisma.user.findFirst({
       where: { email: { equals: identity.email, mode: 'insensitive' } },
     });
     if (sameEmail) {
-      // Linking on an unverified address would hand this account to anyone who
-      // can create a Google account bearing the same address.
+      // There is deliberately no linking branch here. When an address already
+      // has an account, this flow always refuses — whatever `emailVerified`
+      // says, and whatever the row's current `googleId` is (null or some other
+      // `sub`; an equal one would have signed in above).
+      //
+      // Automatic linking is only safe when *both* sides of the match are
+      // proven, and Tambouille can prove only one. Google's `email_verified`
+      // establishes that the caller owns the address on Google's side. Nothing
+      // establishes it on ours: registration never verifies an email address,
+      // so anyone can sign up as victim@corp.com with a password without ever
+      // receiving mail there. Linking on a match would therefore attach the
+      // real owner's Google identity to whichever row claimed the address
+      // first, and hand the real owner a session on the impostor's account —
+      // an account the impostor still holds the password to, and can keep
+      // reading everything the owner then does with it.
+      //
+      // The accepted cost: someone who registered with a password cannot sign
+      // in with Google. If email verification is ever added at registration,
+      // our side becomes provable too and linking can be reconsidered — this
+      // refusal is a decision, not an oversight.
+      //
+      // Both paths below throw; `emailVerified` chooses the wording only, and
+      // when it is false the wording is identical to the create branch's so
+      // that the two cases stay indistinguishable (see below).
       if (!identity.emailVerified) {
         throw new ConflictException(UNVERIFIED_GOOGLE_EMAIL);
       }
-      // Adopt only an account that no Google identity owns yet.
-      //
-      // A non-null `googleId` here is necessarily a *different* `sub` — an
-      // equal one would have been returned by the `linked` lookup above. This
-      // is the closing half of an account-takeover chain:
-      //
-      //   1. The attacker mints a token for victim@corp.com with
-      //      email_verified: false (an unverified Workspace domain does this)
-      //      and gets a pending account created on the victim's address — the
-      //      create branch below now refuses exactly this.
-      //   2. The attacker sets a username and a password on that account.
-      //   3. The victim later signs in with their real, verified Google
-      //      identity for the same address. The `googleId` lookup misses
-      //      (different `sub`) and this lookup hits the attacker's row.
-      //
-      // Without this guard step 3 overwrites `googleId` and hands the victim a
-      // session on the *attacker's* account — which the attacker still holds
-      // the password to, and can then read everything the victim does with it.
-      // Re-pointing an established link is never a legitimate operation here.
-      if (sameEmail.googleId !== null) {
-        throw new ConflictException(
-          'An account already uses this email address. Sign in with your password.',
-        );
-      }
-      const updated = await this.prisma.user.update({
-        where: { id: sameEmail.id },
-        data: { googleId: identity.googleId },
-      });
-      return this.session(updated);
+      throw new ConflictException(EMAIL_ALREADY_REGISTERED);
     }
 
     // Never create an account on an address Google has not verified. Anyone
     // controlling a Workspace domain they have not verified can mint a token
     // for any address at that domain; without this guard that token creates a
     // real account on someone else's address, which the caller then completes
-    // with a username and a password using the session this very call returns.
-    // That planted account is step 1 of the takeover chain documented on the
-    // link branch above — the two guards only work together.
+    // with a username and a password using the session this very call returns
+    // — a working account on a mailbox they do not own.
     if (!identity.emailVerified) {
       throw new ConflictException(UNVERIFIED_GOOGLE_EMAIL);
     }
