@@ -1,0 +1,15 @@
+# Routage de l'application monopage.
+# Toute URL ne correspondant ni à un fichier ni à un dossier existant est
+# servie par index.html, afin que Vue Router prenne le relais côté navigateur.
+# Sans cette règle, un lien profond comme /mixes/<id> renvoie un 404 Apache.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  # Un fichier manquant sous /assets/ doit rester un 404. Lui servir index.html
+  # renverrait du HTML sous une extension .js ou .css, et l'erreur observée dans
+  # le navigateur porterait alors sur le type MIME plutôt que sur le fichier absent.
+  RewriteCond %{REQUEST_URI} !^/assets/
+  RewriteRule . /index.html [L]
+</IfModule>
