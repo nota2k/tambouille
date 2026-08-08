@@ -1,5 +1,5 @@
 import { BadGatewayException, BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
-import { lookup as dnsLookup } from 'node:dns';
+import { lookup as dnsLookup, type LookupAddress, type LookupOptions } from 'node:dns';
 import { isIP } from 'node:net';
 import { Agent, fetch as undiciFetch, type Dispatcher } from 'undici';
 
@@ -16,25 +16,45 @@ import { Agent, fetch as undiciFetch, type Dispatcher } from 'undici';
  * `fetch` and the `Agent` must come from the same undici, so both do here.
  */
 
-/** Every refusal says this, whatever the reason. Telling "private host" apart
- *  from "no such host" would turn the import form into a network scanner. */
+/**
+ * The refusal for an address written literally into the URL, and the sentinel
+ * the DNS guard fails with internally.
+ *
+ * It may be this specific precisely because it is only ever shown for the
+ * pre-flight case, which happens before any lookup and therefore tells the
+ * caller nothing except what they already typed. Every refusal that happens
+ * *after* the network is involved gets the single generic message instead — see
+ * the catch in `safeFetch`.
+ */
 export const BLOCKED_ADDRESS_MESSAGE = "Cette adresse n'est pas accessible depuis Tambouille";
 
 const MAX_REDIRECTS = 3;
 
 /** base/bits pairs, in the notation people actually check them against. */
 const BLOCKED_V4: ReadonlyArray<readonly [string, number]> = [
-  ['0.0.0.0', 8],
-  ['10.0.0.0', 8],
-  ['100.64.0.0', 10],
-  ['127.0.0.0', 8],
-  ['169.254.0.0', 16],
-  ['172.16.0.0', 12],
-  ['192.168.0.0', 16],
+  ['0.0.0.0', 8], // "this network"
+  ['10.0.0.0', 8], // RFC1918
+  ['100.64.0.0', 10], // CGNAT
+  ['127.0.0.0', 8], // loopback
+  ['169.254.0.0', 16], // link-local, and the cloud metadata service with it
+  ['172.16.0.0', 12], // RFC1918
+  ['192.0.0.0', 24], // IETF protocol assignments
+  ['192.168.0.0', 16], // RFC1918
+  ['198.18.0.0', 15], // benchmarking
+  ['224.0.0.0', 4], // multicast — never a unicast peer
+  ['240.0.0.0', 4], // reserved, and 255.255.255.255 with it
 ];
 
 function ipv4ToInt(ip: string): number {
   return ip.split('.').reduce((acc, part) => ((acc << 8) >>> 0) + Number(part), 0) >>> 0;
+}
+
+function isBlockedV4(ip: string): boolean {
+  const value = ipv4ToInt(ip);
+  return BLOCKED_V4.some(([base, bits]) => {
+    const mask = (0xffffffff << (32 - bits)) >>> 0;
+    return ((value & mask) >>> 0) === ((ipv4ToInt(base) & mask) >>> 0);
+  });
 }
 
 /**
@@ -95,36 +115,54 @@ function parseIPv6(ip: string): number[] | null {
   return bytes;
 }
 
+/**
+ * Applies the IPv6 rules to the 16 bytes, never to a spelling of them.
+ *
+ * Several of these prefixes carry an IPv4 destination inside them. A packet
+ * addressed to one arrives at that IPv4 host, so the address has to be judged
+ * by what it embeds rather than by its own prefix — otherwise the v4 table
+ * above is bypassed simply by writing the address in the other family.
+ */
+function isBlockedV6(bytes: number[]): boolean {
+  const zeroBetween = (from: number, to: number) => bytes.slice(from, to).every((b) => b === 0);
+  const embeddedV4 = (at: number) => isBlockedV4(bytes.slice(at, at + 4).join('.'));
+
+  // `::ffff:0:0/96` — an IPv4 address wearing an IPv6 coat.
+  if (zeroBetween(0, 10) && bytes[10] === 0xff && bytes[11] === 0xff) return embeddedV4(12);
+
+  // `::/96` — the unspecified address `::`, the loopback `::1` and the whole
+  // deprecated "IPv4-compatible" family live in here, and none of them is a
+  // public host. Enumerating just `::` and `::1` is not enough: the URL parser
+  // hands `[::169.254.169.254]` over as `::a9fe:a9fe`, which matches neither
+  // name, so the metadata service walks through one spelling further out.
+  if (zeroBetween(0, 12)) return true;
+
+  // `64:ff9b::/96` (NAT64) and `2002::/16` (6to4) are IPv4 destinations wearing
+  // a native-looking IPv6 prefix; judge them by the address they carry.
+  if (bytes[0] === 0x00 && bytes[1] === 0x64 && bytes[2] === 0xff && bytes[3] === 0x9b && zeroBetween(4, 12)) {
+    return embeddedV4(12);
+  }
+  if (bytes[0] === 0x20 && bytes[1] === 0x02) return embeddedV4(2);
+
+  if ((bytes[0] & 0xfe) === 0xfc) return true; // fc00::/7 unique-local
+  if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) return true; // fe80::/10 link-local
+  if (bytes[0] === 0xff) return true; // ff00::/8 multicast — never a unicast peer
+  return false;
+}
+
 /** True for anything that is not a public unicast address — including inputs
  *  that are not addresses at all, which are refused rather than guessed at. */
 export function isBlockedAddress(ip: string): boolean {
   const family = isIP(ip);
 
-  if (family === 4) {
-    const value = ipv4ToInt(ip);
-    return BLOCKED_V4.some(([base, bits]) => {
-      const mask = (0xffffffff << (32 - bits)) >>> 0;
-      return ((value & mask) >>> 0) === ((ipv4ToInt(base) & mask) >>> 0);
-    });
-  }
+  if (family === 4) return isBlockedV4(ip);
 
   if (family === 6) {
     const bytes = parseIPv6(ip);
-    if (!bytes) return true; // Unparsable — refuse rather than guess.
-
-    const isV4Mapped = bytes.slice(0, 10).every((b) => b === 0) && bytes[10] === 0xff && bytes[11] === 0xff;
-    if (isV4Mapped) {
-      // `::ffff:0:0/96`: an IPv4 address wearing an IPv6 coat. Unwrap it and
-      // re-run the v4 rules, or every rule above is bypassed by spelling the
-      // same address in the other family.
-      return isBlockedAddress(bytes.slice(12).join('.'));
-    }
-
-    if (bytes.every((b) => b === 0)) return true; // `::` unspecified
-    if (bytes.slice(0, 15).every((b) => b === 0) && bytes[15] === 1) return true; // `::1` loopback
-    if ((bytes[0] & 0xfe) === 0xfc) return true; // fc00::/7 unique-local
-    if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) return true; // fe80::/10 link-local
-    return false;
+    // `isIP` already accepted it, so failing to expand it means this file does
+    // not understand the address. Refuse what it cannot judge.
+    if (!bytes) return true;
+    return isBlockedV6(bytes);
   }
 
   return true;
@@ -134,18 +172,18 @@ export function isBlockedAddress(ip: string): boolean {
  * Given the full address set `dns.lookup(..., { all: true })` returned for a
  * hostname, returns the ones safe to connect to, or throws if none are.
  *
- * Rejects only when every candidate is blocked, not when any one is: a
- * dual-stack host with one public and one private address is left free to
- * connect over the public one. That's deliberate, not an oversight — the
- * host itself isn't a threat, only a private *address* is, and undici will
- * try the returned addresses in order until one connects.
+ * Filters, rather than rejecting the whole name as soon as one candidate is
+ * blocked: a legitimate dual-stack host whose AAAA happens to be link-local
+ * must still be reachable over its public address. The host is not the threat,
+ * a private *address* is.
  *
- * Pulled out of the `connect.lookup` hook below so it can be unit-tested on
- * its own: `safeFetch`'s public surface can't be used to prove this filter
- * runs, because every hostname that would demonstrate it — one actually
- * resolving to a private address — is refused earlier by the OS resolver or
- * is a case (like `127.0.0.1` or `localhost`) this file already blocks by
- * the static literal-address check, before DNS is ever consulted.
+ * Filtering is not a weaker check than rejecting. `net` connects to exactly the
+ * list returned here and never re-resolves, so an address dropped here is one
+ * no socket in this request can reach — there is no window between the decision
+ * and the connection for the answer to change back.
+ *
+ * Pulled out of the `connect.lookup` hook below so its decisions can be stated
+ * directly on address sets no offline resolver would hand back.
  */
 export function filterSafeAddresses(addresses: readonly { address: string }[]): { address: string }[] {
   const safe = addresses.filter((entry) => !isBlockedAddress(entry.address));
@@ -153,32 +191,68 @@ export function filterSafeAddresses(addresses: readonly { address: string }[]): 
   return safe;
 }
 
+export type GuardedLookup = (
+  hostname: string,
+  options: LookupOptions,
+  callback: (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void,
+) => void;
+
 /**
  * Validates the address undici is about to connect to, not the hostname it
  * was given. Between a DNS answer and a connection the answer can change; this
  * runs on the far side of that gap.
  */
-const guardedAgent = new Agent({
-  connect: {
-    lookup(hostname, options, callback) {
-      dnsLookup(hostname, { ...options, all: true }, (err, addresses) => {
-        if (err) return callback(err, '', 0);
-        let safe: { address: string; family: number }[];
-        try {
-          safe = filterSafeAddresses(addresses as { address: string; family: number }[]) as {
-            address: string;
-            family: number;
-          }[];
-        } catch (filterErr) {
-          return callback(filterErr as Error, '', 0);
-        }
-        // Cast: undici's callback accepts the `all: true` array form, which
-        // its published types express less precisely than `dns.lookup` does.
-        (callback as unknown as (e: null, a: unknown) => void)(null, safe);
-      });
-    },
-  },
-});
+export const guardedLookup: GuardedLookup = (hostname, options, callback) => {
+  const all: LookupOptions & { all: true } = { ...options, all: true };
+  dnsLookup(hostname, all, (err, addresses) => {
+    if (err) return callback(err, '', 0);
+    let safe: LookupAddress[];
+    try {
+      safe = filterSafeAddresses(addresses) as LookupAddress[];
+    } catch (filterErr) {
+      return callback(filterErr as NodeJS.ErrnoException, '', 0);
+    }
+    callback(null, safe);
+  });
+};
+
+/**
+ * Builds the dispatcher every outgoing request rides on, with the guard wired
+ * into its connector.
+ *
+ * `lookup` is a parameter only so a test can wrap `guardedLookup` in a counter
+ * and prove the connector actually calls it. That proof matters more than it
+ * looks: the whole defence was once dead because `fetch` rejected the
+ * dispatcher before reaching the connector, and every observable symptom of
+ * that — the refusal's status and message — was identical to a working guard
+ * refusing a blocked host. Only counting the calls tells the two apart.
+ */
+export function createGuardedAgent(lookup: GuardedLookup = guardedLookup): Agent {
+  return new Agent({ connect: { lookup } });
+}
+
+let dispatcher: Dispatcher = createGuardedAgent();
+
+/**
+ * Swaps the dispatcher and returns a function that restores the guarded one.
+ *
+ * The redirect loop, the hop limit, the size caps and the body-read failure are
+ * only reachable with a server on the other end, and nothing here may open a
+ * socket in a test; undici's `MockAgent` stands in for one.
+ *
+ * It is a module-level seam rather than a field on `safeFetch`'s options
+ * because this function's whole value is that a caller *cannot* opt out of the
+ * guard. An options field spelled `dispatcher?` is an unguarded fetch one
+ * autocomplete away, in the one place in the codebase where that must be
+ * impossible.
+ */
+export function useDispatcherForTests(next: Dispatcher): () => void {
+  const previous = dispatcher;
+  dispatcher = next;
+  return () => {
+    dispatcher = previous;
+  };
+}
 
 function assertFetchableUrl(rawUrl: string): URL {
   let url: URL;
@@ -260,7 +334,7 @@ export function rethrowBodyReadError(err: unknown): never {
  */
 export async function safeFetch(
   rawUrl: string,
-  options: { maxBytes: number; timeoutMs: number; accept?: string; dispatcher?: Dispatcher },
+  options: { maxBytes: number; timeoutMs: number; accept?: string },
 ): Promise<{ url: URL; contentType: string; body: Buffer }> {
   let url = assertFetchableUrl(rawUrl);
 
@@ -275,22 +349,20 @@ export async function safeFetch(
           signal: controller.signal,
           redirect: 'manual',
           headers: options.accept ? { accept: options.accept } : {},
-          // Only ever overridden in tests, to swap in undici's `MockAgent` and
-          // exercise the redirect loop, hop limit and size caps without a
-          // real socket or DNS lookup. Production callers never set this, so
-          // they always get the guarded agent below.
-          dispatcher: options.dispatcher ?? guardedAgent,
+          dispatcher,
         });
-      } catch (err) {
-        // `fetch` wraps every network-layer failure — including the guarded
-        // lookup's rejection — in a generic `TypeError: fetch failed`, with
-        // the real reason under `err.cause`. That is left unexamined on
-        // purpose: unwrapping it to tell "resolved to a private address"
-        // apart from "no such host" or "connection refused" would turn the
-        // import form into an oracle for probing which internal hostnames
-        // exist. Every failure at this layer collapses onto one status and
-        // one message, deliberately — do not "improve" this by inspecting
-        // `err.cause`.
+      } catch {
+        // The error is not even bound here, let alone inspected, and that is
+        // the point. `fetch` wraps every network-layer failure — the guard's
+        // refusal, ENOTFOUND, ECONNREFUSED, our own deadline — in a generic
+        // `TypeError: fetch failed`, with the real reason sitting in
+        // `err.cause`. Reading it to answer 400 "private address" for one and
+        // 502 "unreachable" for another would tell whoever pasted the URL, for
+        // any hostname they care to submit, whether that name exists inside our
+        // network. That is the scanner this file exists to not be. Every
+        // failure at this layer collapses onto one status and one message on
+        // purpose: the lost detail IS the feature. Do not "improve" this by
+        // unwrapping the cause.
         throw new BadGatewayException('La source est injoignable');
       }
 
