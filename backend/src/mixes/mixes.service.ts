@@ -327,7 +327,15 @@ export class MixesService {
       this.prisma.mix.findMany({
         where,
         ...buildMixInclude(userId),
-        orderBy: { playsCount: 'desc' },
+        // Newest first, and not by `playsCount`. This feed is "what the people I follow
+        // have put out", so recency is what it is for — a popularity ranking here buries
+        // a brand-new mix under a years-old one from the same person.
+        //
+        // Since `registerPlay` freezes the counter on a Mixcloud-hosted mix, ordering by
+        // it would also be actively broken: every imported mix would sink permanently
+        // below every uploaded one, ranked by a number it can no longer earn. `sort=plays`
+        // on Discover is a choice the visitor makes; this feed's only ordering is not.
+        orderBy: { createdAt: 'desc' as const },
         skip: (page - 1) * limit,
         take: limit,
       }),

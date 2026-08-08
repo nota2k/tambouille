@@ -12,11 +12,16 @@ function createPrismaMock() {
   return {
     mix: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
     playHistory: {
       upsert: jest.fn(),
+    },
+    follow: {
+      findMany: jest.fn(),
     },
   };
 }
@@ -204,6 +209,49 @@ describe('MixesService', () => {
       await expect(service.registerPlay(MIX_ID, USER_ID)).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.mix.update).not.toHaveBeenCalled();
       expect(prisma.playHistory.upsert).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * This feed has one ordering and the reader does not choose it, so it has to be the
+   * right one: newest first. Two reasons, and either alone is enough.
+   *
+   * It is "what the people I follow have put out", where recency is the whole point —
+   * ranking by plays buries a mix published today under a years-old one by the same
+   * person. And `registerPlay` freezes `playsCount` on a Mixcloud-hosted mix, so a
+   * popularity ordering would sink every imported mix below every uploaded one forever,
+   * by a number it is no longer allowed to earn.
+   */
+  describe('listFollowingFeed — ordered by recency', () => {
+    beforeEach(() => {
+      prisma.follow.findMany.mockResolvedValue([{ followingId: 'followed-user' }]);
+      prisma.mix.findMany.mockResolvedValue([]);
+      prisma.mix.count.mockResolvedValue(0);
+    });
+
+    it('asks for the newest mixes first', async () => {
+      await service.listFollowingFeed(USER_ID, {});
+
+      const [args] = prisma.mix.findMany.mock.calls[0];
+      expect(args.orderBy).toEqual({ createdAt: 'desc' });
+    });
+
+    it('never orders the feed by play count', async () => {
+      await service.listFollowingFeed(USER_ID, {});
+
+      // Stated separately from the assertion above, because this is the specific
+      // regression: a frozen counter must not become a permanent ranking.
+      const [args] = prisma.mix.findMany.mock.calls[0];
+      expect(args.orderBy).not.toHaveProperty('playsCount');
+    });
+
+    it('still queries nothing when the user follows nobody', async () => {
+      prisma.follow.findMany.mockResolvedValue([]);
+
+      const result = await service.listFollowingFeed(USER_ID, {});
+
+      expect(result).toEqual({ items: [], total: 0, page: 1, limit: 20, totalPages: 1 });
+      expect(prisma.mix.findMany).not.toHaveBeenCalled();
     });
   });
 });
