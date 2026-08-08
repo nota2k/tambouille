@@ -319,6 +319,36 @@ export class PasswordResetService {
   }
 
   /**
+   * Pads the call out to a fixed floor, so every branch takes the same time
+   * from the outside. Note what this is and is not: it collapses the branches
+   * only for as long as they all finish inside the floor. A branch that ever
+   * ran longer would show through, which is why the floor is set well above
+   * the slowest one's normal cost rather than just above it.
+   */
+  private async holdUntilFloor(startedAt: number): Promise<void> {
+    const remaining = RESPONSE_FLOOR_MS - (Date.now() - startedAt);
+    if (remaining > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remaining));
+    }
+  }
+
+  /**
+   * Said once per process, not once per request: a misconfigured `trust proxy`
+   * is a permanent condition, and logging it on every call would bury it.
+   */
+  private warnOnceAboutCallerIdentity(callerIp: string | undefined): void {
+    if (this.warnedAboutCallerIdentity) {
+      return;
+    }
+    this.warnedAboutCallerIdentity = true;
+    this.logger.warn(
+      `Per-caller rate limiting on password reset is disabled: "${callerIp ?? ''}" does not ` +
+        'identify a client. Behind a proxy this means `trust proxy` is not set correctly in ' +
+        'main.ts. The per-address limit is unaffected.',
+    );
+  }
+
+  /**
    * Dispatched without being awaited, and its failures swallowed. Both are
    * about the uniform 204 rather than about speed:
    *
