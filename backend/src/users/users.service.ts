@@ -168,6 +168,10 @@ export class UsersService {
     };
   }
 
+  async deleteAccount(userId: string) {
+    await this.prisma.user.delete({ where: { id: userId } });
+  }
+
   async listFollowing(username: string, query: PaginationDto) {
     const user = await this.prisma.user.findUnique({ where: { username } });
     if (!user) {

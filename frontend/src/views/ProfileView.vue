@@ -8,7 +8,6 @@ import { toggleUserFollow } from '@/utils/follows'
 import MixListItem from '@/components/MixListItem.vue'
 import PlaylistCard from '@/components/PlaylistCard.vue'
 import AvatarStack from '@/components/AvatarStack.vue'
-import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import { createPlaylist, fetchUserPlaylists } from '@/utils/playlists'
 import topographyPattern from '@/assets/img/topography.svg'
 import type { AuthorSummary, Mix, PlaylistSummary, UserProfile } from '@/types'
@@ -47,48 +46,8 @@ async function submitNewPlaylist() {
   }
 }
 
-const editing = ref(false)
-const editDisplayName = ref('')
-const editBio = ref('')
-const savingProfile = ref(false)
 const avatarInput = ref<HTMLInputElement | null>(null)
 const coverInput = ref<HTMLInputElement | null>(null)
-
-const newPassword = ref('')
-const passwordError = ref('')
-const passwordSaved = ref(false)
-
-async function submitPassword() {
-  passwordError.value = ''
-  passwordSaved.value = false
-  try {
-    await authStore.setPassword(newPassword.value)
-    newPassword.value = ''
-    passwordSaved.value = true
-  } catch (e: any) {
-    passwordError.value = e?.response?.data?.message ?? 'Enregistrement impossible.'
-  }
-}
-
-const googleError = ref('')
-const linkingGoogle = ref(false)
-
-async function onGoogleCredential(credential: string) {
-  // Google's button can fire again while the first request is still open;
-  // a second link would only ever be refused, so drop it here.
-  if (linkingGoogle.value) return
-  googleError.value = ''
-  linkingGoogle.value = true
-  try {
-    // The store swaps in the updated user, so `hasGoogle` flips and this
-    // section becomes the confirmation on its own.
-    await authStore.linkGoogle(credential)
-  } catch (e: any) {
-    googleError.value = e?.response?.data?.message ?? 'Association impossible.'
-  } finally {
-    linkingGoogle.value = false
-  }
-}
 
 const isOwnProfile = computed(() => authStore.user?.username === route.params.username)
 
@@ -115,9 +74,6 @@ async function loadProfile() {
     followers.value = followersData.items
     following.value = followingData.items
     playlists.value = playlistsData.items
-    editDisplayName.value = userData.displayName
-    editBio.value = userData.bio ?? ''
-
     if (authStore.user?.username === username) {
       const { data: favoritesData } = await apiClient.get<{ items: Mix[] }>('/mixes/me/favorites', {
         params: { limit: 50 },
@@ -128,24 +84,6 @@ async function loadProfile() {
     }
   } finally {
     loading.value = false
-  }
-}
-
-async function saveProfile() {
-  savingProfile.value = true
-  try {
-    const { data } = await apiClient.patch<UserProfile>('/users/me', {
-      displayName: editDisplayName.value,
-      bio: editBio.value,
-    })
-    profile.value = data
-    if (authStore.user) {
-      authStore.user.displayName = data.displayName
-      authStore.user.bio = data.bio
-    }
-    editing.value = false
-  } finally {
-    savingProfile.value = false
   }
 }
 
@@ -280,18 +218,16 @@ onMounted(loadProfile)
           </div>
 
           <div class="flex-1 text-center sm:pb-1 sm:text-left">
-          <template v-if="!editing">
             <h1 class="text-tambouille-clamp-big font-bold">{{ profile.displayName }}</h1>
             <p class="text-tambouille-muted">@{{ profile.username }}</p>
             <p v-if="profile.bio" class="mt-2 whitespace-pre-line text-sm">{{ profile.bio }}</p>
-            <!-- Nudge the owner to fill it in; visitors just see nothing. -->
-            <button
+            <RouterLink
               v-else-if="isOwnProfile"
-              class="mt-2 text-sm text-tambouille-muted hover:text-tambouille-accent hover:underline"
-              @click="editing = true"
+              :to="{ name: 'settings' }"
+              class="mt-2 inline-block text-sm text-tambouille-muted hover:text-tambouille-accent hover:underline"
             >
               + Ajoutez une description
-            </button>
+            </RouterLink>
 
             <div class="mt-2 flex justify-center gap-4 text-xs text-tambouille-muted sm:justify-start">
               <span>{{ profile.mixesCount }} mixs</span>
@@ -309,13 +245,13 @@ onMounted(loadProfile)
               </RouterLink>
             </div>
 
-            <button
+            <RouterLink
               v-if="isOwnProfile"
-              class="mt-3 rounded-full border border-tambouille-border px-4 py-1.5 text-sm hover:bg-tambouille-surface-hover"
-              @click="editing = true"
+              :to="{ name: 'settings' }"
+              class="mt-3 inline-block rounded-full border border-tambouille-border px-4 py-1.5 text-sm hover:bg-tambouille-surface-hover"
             >
               Modifier le profil
-            </button>
+            </RouterLink>
             <button
               v-else
               :disabled="followBusy"
@@ -329,94 +265,8 @@ onMounted(loadProfile)
             >
               {{ profile.isFollowing ? 'Abonné' : "S'abonner" }}
             </button>
-          </template>
-
-          <form v-else class="mx-auto max-w-md space-y-3 sm:mx-0" @submit.prevent="saveProfile">
-            <label class="block text-left">
-              <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted">
-                Nom affiché
-              </span>
-              <input
-                v-model="editDisplayName"
-                type="text"
-                maxlength="50"
-                class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
-              />
-            </label>
-            <label class="block text-left">
-              <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted">
-                Description
-              </span>
-              <textarea
-                v-model="editBio"
-                rows="5"
-                maxlength="280"
-                placeholder="Présentez-vous, votre style, vos résidences..."
-                class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
-              />
-              <span class="mt-1 block text-right text-xs text-tambouille-muted">
-                {{ editBio.length }}/280
-              </span>
-            </label>
-            <div class="flex gap-2">
-              <button
-                type="submit"
-                :disabled="savingProfile"
-                class="rounded-full bg-tambouille-accent px-4 py-1.5 text-sm font-semibold text-white hover:bg-tambouille-accent-hover disabled:opacity-50"
-              >
-                Enregistrer
-              </button>
-              <button
-                type="button"
-                class="rounded-full border border-tambouille-border px-4 py-1.5 text-sm hover:bg-tambouille-surface-hover"
-                @click="editing = false"
-              >
-                Annuler
-              </button>
-            </div>
-          </form>
         </div>
       </div>
-
-      <section v-if="isOwnProfile && authStore.user && !authStore.user.hasPassword" class="mt-8">
-        <h2 class="mb-2 text-lg font-semibold">Définir un mot de passe</h2>
-        <p class="mb-3 text-sm text-tambouille-muted">
-          Ton compte se connecte avec Google. Un mot de passe te donnera un second
-          moyen d'accès si tu perds ce compte Google.
-        </p>
-        <form class="flex gap-2" @submit.prevent="submitPassword">
-          <input
-            v-model="newPassword"
-            type="password"
-            required
-            minlength="8"
-            maxlength="72"
-            class="flex-1 rounded-lg border border-tambouille-border bg-tambouille-surface px-4 py-2"
-          />
-          <button type="submit" class="rounded-lg bg-tambouille-accent px-4 py-2 font-semibold">
-            Enregistrer
-          </button>
-        </form>
-        <p v-if="passwordError" class="mt-2 text-sm text-red-500">{{ passwordError }}</p>
-        <p v-if="passwordSaved" class="mt-2 text-sm text-green-600">Mot de passe enregistré.</p>
-      </section>
-
-      <section v-if="isOwnProfile && authStore.user" class="mt-8">
-        <h2 class="mb-2 text-lg font-semibold">Google</h2>
-        <template v-if="!authStore.user.hasGoogle">
-          <p class="mb-3 text-sm text-tambouille-muted">
-            Associe ton compte Google pour te connecter en un clic. Ton mot de passe
-            continuera de fonctionner.
-          </p>
-          <!-- Wrapped so the disabled state reads while the request is open:
-               Google renders its own button in an iframe we cannot disable. -->
-          <div :class="linkingGoogle && 'pointer-events-none opacity-50'">
-            <GoogleSignInButton @credential="onGoogleCredential" />
-          </div>
-          <p v-if="googleError" class="mt-2 text-sm text-red-500">{{ googleError }}</p>
-        </template>
-        <p v-else class="text-sm text-tambouille-muted">Ton compte Google est associé.</p>
-      </section>
 
       <!-- Réseau et playlists en colonne latérale, mixs à droite. -->
       <div class="grid items-start gap-10 lg:grid-cols-3">

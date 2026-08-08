@@ -78,6 +78,13 @@ export class UsersController {
     return this.usersService.updateProfile(userId, dto);
   }
 
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteAccount(@CurrentUserId() userId: string) {
+    return this.usersService.deleteAccount(userId);
+  }
+
   @Post('me/avatar')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(

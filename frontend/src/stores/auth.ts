@@ -63,6 +63,12 @@ export const useAuthStore = defineStore('auth', {
       this.user = data.user
     },
 
+    async deleteAccount() {
+      await apiClient.delete('/users/me')
+      this.accessToken = null
+      this.user = null
+    },
+
     logout() {
       this.accessToken = null
       this.user = null
