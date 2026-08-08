@@ -8,6 +8,16 @@ import { GoogleTokenVerifier } from './google-token-verifier';
 
 const SALT_ROUNDS = 12;
 
+// Deliberately identical wherever Google hands us an address it has not
+// verified, whether or not an account exists on that address. A distinct
+// message per branch would let an unauthenticated caller probe which email
+// addresses are registered, simply by minting unverified tokens.
+const UNVERIFIED_GOOGLE_EMAIL =
+  'Google has not verified this email address. Sign in with your password instead.';
+
+const EMAIL_ALREADY_REGISTERED =
+  'An account already uses this email address. Sign in with your password.';
+
 // Prisma's unique-constraint violation. Not importing Prisma's own error
 // class here to keep this check working against the plain mock objects the
 // test suite throws, as well as the real `PrismaClientKnownRequestError`.
@@ -73,8 +83,6 @@ export class AuthService {
       },
     });
     if (!user || !user.password) {
-      // No password hash means this is a Google-only account; it can't
-      // authenticate through the password flow.
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -89,9 +97,6 @@ export class AuthService {
   async loginWithGoogle(idToken: string) {
     const identity = await this.googleVerifier.verify(idToken);
 
-    // The only sign-in path for an existing row. This account carries this
-    // exact `sub`, which means this flow created it: the Google identity was
-    // there from the start and nothing is being attached to anything.
     const linked = await this.prisma.user.findFirst({
       where: { googleId: identity.googleId },
     });
@@ -206,8 +211,6 @@ export class AuthService {
 
   async setPassword(userId: string, password: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-<<<<<<< HEAD
-=======
     // Pre-check only, for a clean error message in the common case: it is
     // check-then-act and cannot be trusted for correctness under concurrency,
     // since two requests could both read `password === null` before either
@@ -215,7 +218,6 @@ export class AuthService {
     // conditional `updateMany` below, which only touches the row if it is
     // still passwordless. There is no unique constraint on `password`, so
     // unlike `setUsername` there is no P2002 case to catch.
->>>>>>> f64cae1 (feat(auth): let a Google account define a password)
     if (user.password) {
       throw new ConflictException('Password already set');
     }
@@ -227,11 +229,8 @@ export class AuthService {
     });
 
     if (result.count === 0) {
-<<<<<<< HEAD
-=======
       // The row no longer matched `password: null` — another request already
       // set a password for this account between our read and this write.
->>>>>>> f64cae1 (feat(auth): let a Google account define a password)
       throw new ConflictException('Password already set');
     }
 

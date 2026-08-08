@@ -2,7 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let users sign up and sign in with Google, linking automatically to an existing account when the email matches and Google reports it verified.
+**Goal:** Let users sign up and sign in with Google. When the email already belongs to an account, refuse and send the user to the password flow.
+
+> **Amended 2026-08-08, after implementation.** This plan was written for *automatic* linking, gated on Google reporting `email_verified: true`. The final review showed that gate only proves the Google side: Tambouille verifies no email addresses, so anyone can register `victim@corp.com` by password without owning it. The victim's later Google sign-in would then be linked onto the attacker's row and hand them the victim's session, with the attacker keeping password access.
+>
+> Automatic linking was therefore **removed** before merge. The sections below have been amended to describe what shipped. If you are adding email verification and want linking back, that is a new decision to take deliberately — do not reinstate it by copying an older revision of this file.
 
 **Architecture:** The frontend uses Google Identity Services to obtain a signed ID token and POSTs it to `POST /api/auth/google`. The backend verifies that token against Google's public keys, resolves or creates the user, and issues the same JWT the password flow already issues. No redirect flow, no client secret. Accounts created this way start with `username: null` and `password: null`; the frontend forces a username choice before letting them in, and settings let them add a password later.
 
@@ -12,7 +16,7 @@
 
 - Username rules must stay identical everywhere: `@MinLength(3)`, `@MaxLength(30)`, `@Matches(/^[a-zA-Z0-9_.-]+$/)` — copied from `backend/src/auth/dto/register.dto.ts`.
 - Password rules must stay identical everywhere: `@MinLength(8)`, `@MaxLength(72)`. Hashing uses `bcrypt` with `SALT_ROUNDS = 12`, as in `AuthService`.
-- Automatic linking happens **only** when Google reports `email_verified: true`. A matching but unverified email must return 409 and must never create or link an account.
+- An email that already belongs to an account must **always** return 409, whatever `email_verified` says and whatever the row's current `googleId` is. No `googleId` is ever written onto an existing row. An account is created only when no row holds that address **and** Google reports the address verified.
 - `GOOGLE_CLIENT_ID` must be read **lazily**, at the moment a Google sign-in is attempted — never at module load or in a constructor. Reading it eagerly would make the whole API fail to boot when the variable is missing, which is exactly how this project's R2 configuration took production down on 2026-08-08.
 - Tests follow the existing style: plain Jest, a hand-written Prisma mock, direct instantiation of the service (see `backend/src/comments/comments.service.spec.ts`). No `@nestjs/testing` module compilation.
 - Run backend tests with `npm test` from `backend/`.
@@ -312,7 +316,11 @@ Append inside `describe('AuthService')` in `backend/src/auth/auth.service.spec.t
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
-    it('links a verified Google identity to the existing account with that email', async () => {
+    // AMENDED: this test originally asserted that a verified identity was linked
+    // onto the matching account. That behaviour was removed before merge — see the
+    // amendment note at the top of this plan. The refusal must not depend on
+    // emailVerified, which is why the fixture here is deliberately verified.
+    it('refuses a verified Google identity whose email already has an account', async () => {
       verifier.verify.mockResolvedValue(IDENTITY);
       prisma.user.findFirst
         .mockResolvedValueOnce(null) // no match on googleId
@@ -320,18 +328,10 @@ Append inside `describe('AuthService')` in `backend/src/auth/auth.service.spec.t
           id: 'u2', email: IDENTITY.email, username: 'nelly',
           password: 'hash', displayName: 'Nelly', googleId: null,
         });
-      prisma.user.update.mockResolvedValue({
-        id: 'u2', email: IDENTITY.email, username: 'nelly',
-        password: 'hash', displayName: 'Nelly', googleId: IDENTITY.googleId,
-      });
 
-      const result = await service.loginWithGoogle('token');
-
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'u2' },
-        data: { googleId: IDENTITY.googleId },
-      });
-      expect(result.user.id).toBe('u2');
+      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
     it('refuses to link when Google has not verified the address', async () => {
@@ -396,22 +396,29 @@ Add to `backend/src/auth/auth.service.ts`:
       return this.session(linked);
     }
 
+    // Matched case-insensitively: register stores the address verbatim, so an
+    // account created as Nelly@Example.com must still be found here. Matching
+    // more broadly is the safe direction now that a match means refusal.
     const sameEmail = await this.prisma.user.findFirst({
-      where: { email: identity.email },
+      where: { email: { equals: identity.email, mode: 'insensitive' } },
     });
     if (sameEmail) {
-      // Linking on an unverified address would hand this account to anyone who
-      // can create a Google account bearing the same address.
-      if (!identity.emailVerified) {
-        throw new ConflictException(
-          'An account already uses this email address. Sign in with your password.',
-        );
-      }
-      const updated = await this.prisma.user.update({
-        where: { id: sameEmail.id },
-        data: { googleId: identity.googleId },
-      });
-      return this.session(updated);
+      // No linking, deliberately. Tambouille never proves that an account's
+      // address belongs to whoever registered it, so attaching a Google identity
+      // to an existing row would hand the real owner's session to whoever
+      // registered that address first — and leave them password access to it.
+      // Revisit only alongside email verification, as a deliberate decision.
+      throw new ConflictException(
+        'An account already uses this email address. Sign in with your password instead.',
+      );
+    }
+
+    // Creating on an unverified address would let anyone squat someone else's
+    // address, which is the same attack from the other end.
+    if (!identity.emailVerified) {
+      throw new ConflictException(
+        'Google has not verified this email address. Sign in with your password instead.',
+      );
     }
 
     const created = await this.prisma.user.create({
@@ -526,7 +533,8 @@ Expected: all tests pass, build exits 0.
 git add backend/src/auth backend/package.json backend/package-lock.json
 git commit -m "feat(auth): resolve or create an account from a Google ID token
 
-Links to an existing account only when Google reports the address verified.
+Refuses when the address already has an account; creates one only when Google
+reports the address verified.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -695,6 +703,17 @@ Add to `AuthService`:
   }
 ```
 
+> **Amended after review.** The write above is check-then-act: two concurrent
+> claims both read `username === null`, both write, and the caller whose write
+> lost still receives a 200 describing a handle that is not the one persisted.
+> What shipped writes conditionally with
+> `updateMany({ where: { id: userId, username: null }, data: { username } })`,
+> treats `count === 0` as `ConflictException`, and catches Prisma's `P2002` so a
+> cross-user collision surfaces as 409 rather than an unhandled 500. The
+> pre-checks stay, but only for friendly error messages — the constraint and the
+> conditional write are what actually guarantee correctness. See
+> `backend/src/auth/auth.service.ts` for the shipped version.
+
 The tests mock `findUnique`; `findUniqueOrThrow` resolves through the same mock name only if it exists on the mock. Add `findUniqueOrThrow: jest.fn()` to `createPrismaMock().user` and use it in the three tests above instead of `findUnique`.
 
 - [ ] **Step 4: Run and watch them pass**
@@ -815,6 +834,13 @@ Expected: FAIL — `service.setPassword is not a function`.
     return this.toPublicUser(updated);
   }
 ```
+
+> **Amended after review.** Same flaw as `setUsername` above, and the same fix:
+> what shipped writes conditionally with
+> `updateMany({ where: { id: userId, password: null }, data: { password: passwordHash } })`
+> and treats `count === 0` as `ConflictException`. No `P2002` handling is needed
+> here — `password` carries no unique constraint. See
+> `backend/src/auth/auth.service.ts` for the shipped version.
 
 - [ ] **Step 4: Run and watch them pass**
 
