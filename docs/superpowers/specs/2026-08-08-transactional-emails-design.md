@@ -151,8 +151,12 @@ No test performs a real SMTP send.
 ## Rollout
 
 1. `docker compose up -d` starts Mailpit. Run `npm run mail:test -- dev@example.com` and confirm the message appears at `localhost:8025`.
-2. Pick an SMTP relay, add its SPF/DKIM records to `pantagruweb.club` in Cloudflare, verify the domain.
-3. Set `SMTP_*` and `MAIL_FROM` in the backend's production environment.
+2. Production sends through **Gmail**, because Cloudflare's free tier does not allow outbound mail. In the Google account: turn on 2-Step Verification, then create an app password at `myaccount.google.com/apppasswords`. The account password is refused.
+3. Set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_SECURE=true`, `SMTP_USER=<the Gmail address>`, `SMTP_PASSWORD=<the app password>`, and `SMTP_FROM` in the backend's production environment.
 4. Deploy, then run `npm run mail:test -- <your address>` against production to smoke-test the real relay without mailing a real user.
 
-No schema change, no migration, and no user-visible behaviour change — nothing calls `send()` from a request path yet.
+Two Gmail constraints worth knowing before step 3. `SMTP_FROM` has to be the Gmail address: Gmail rewrites a sender that does not match the account, so `no-reply@pantagruweb.club` only survives if it is registered and verified under *Settings > Accounts > Send mail as*. And a free account is capped at 500 recipients per day, which is ample for password resets and would not be if the site ever mails anything else.
+
+No SPF or DKIM records are needed on `pantagruweb.club` for this: mail leaves as the Gmail address, under Google's own authentication. That changes only if the domain alias in *Send mail as* is set up.
+
+No schema change and no migration.

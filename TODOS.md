@@ -20,10 +20,12 @@
 
 **Why:** With `secure: false` and no `requireTLS`, nodemailer performs *opportunistic* STARTTLS — `node_modules/nodemailer/lib/smtp-connection/index.js:1506` only upgrades the connection `if (!this.secure && !this.options.ignoreTLS && /STARTTLS/.test(...))`. A relay that does not advertise STARTTLS, or an active attacker who strips the advertisement from the EHLO response, gets `SMTP_PASS` in cleartext, and nothing logs a warning. This service is intended to carry password-reset links, so the traffic is worth protecting.
 
-**Context:** Surfaced by the code quality review of Task 2 (commit `d6b6889`) during the transactional-emails work, 2026-08-08. The obvious one-line fix, `requireTLS: !secure`, cannot be applied as-is: Mailpit does not offer STARTTLS, so it would break every local send and the `mail:test` CLI. Options to weigh: a seventh environment variable (`SMTP_REQUIRE_TLS`, default `true`, set to `false` in `.env.example` for Mailpit); or deriving it from whether the host is loopback, which is implicit and probably worse. Whichever is chosen, the Task 2 constructor validation is the place it goes, and `mail.service.spec.ts` should get a test pinning the resulting option.
+**Context:** Surfaced by the code quality review of Task 2 (commit `d6b6889`) during the transactional-emails work, 2026-08-08. The obvious one-line fix, `requireTLS: !secure`, cannot be applied as-is: Mailpit does not offer STARTTLS, so it would break every local send and the `mail:test` CLI. Options to weigh: a seventh environment variable (`SMTP_REQUIRE_TLS`, default `true`, set to `false` in `.env.example` for Mailpit); or deriving it from whether the host is loopback, which is implicit and probably worse. Whichever is chosen, `getTransporter()` in `backend/src/mail/mail.service.ts` is the place it goes, and `mail.service.spec.ts` should get a test pinning the resulting option.
+
+**Downgraded to P3 on 2026-08-08:** production now sends through Gmail on port 465, which is implicit TLS — the connection is encrypted before any SMTP conversation happens, so there is no STARTTLS advertisement to strip and no cleartext window for the credentials. The gap only reopens if the relay ever moves to port 587, or to any host reached with `SMTP_SECURE=false`. Worth doing as defence in depth against exactly that change, not as a live exposure.
 
 **Effort:** S
-**Priority:** P1
+**Priority:** P3
 **Depends on:** None (the mail service exists as of this branch)
 
 ## Testing
