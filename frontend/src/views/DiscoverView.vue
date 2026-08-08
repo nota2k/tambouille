@@ -120,15 +120,9 @@ onMounted(loadSections)
 
 <template>
   <div class="mx-auto max-w-6xl px-4 py-8">
-    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <h1 class="text-2xl font-bold">Découvrir des mixs</h1>
+    <div class="flex flex-col flex-wrap gap-4 sm:flex-row sm:items-center sm:justify-between min-h-[40vh]">
+      <h1 class="text-tambouille-clamp-big leading-none font-bold w-full">Découvrir des mixs</h1>
       <div class="flex items-center gap-2">
-        <input
-          v-model="search"
-          type="search"
-          placeholder="Rechercher un mix, un style..."
-          class="w-full rounded-full border border-tambouille-border bg-tambouille-surface px-4 py-2 outline-none focus:border-tambouille-accent sm:w-72"
-        />
         <button
           class="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm transition"
           :class="

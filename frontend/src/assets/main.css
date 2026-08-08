@@ -27,6 +27,7 @@
   --color-tambouille-action: #24FF81;
   --color-tambouille-action-hover: #17A151;
   --text-tambouille-title-big:4em;
+  --text-tambouille-clamp-big:clamp(3em, 10vh,18em);
 }
 
 html,

@@ -107,7 +107,11 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   <header class="sticky top-0 z-30 border-b border-tambouille-border bg-tambouille-accent backdrop-blur">
     <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
       <RouterLink to="/" class="flex items-center gap-2 text-2xl font-bold tracking-tight">
-        <span class="text-tambouille-white" style="font-family: 'Gulax', sans-serif">Tambouille</span>
+        <span class="text-tambouille-white flex items-center gap-4" style="font-family: 'Gulax', sans-serif">Tambouille <svg width="46" height="19" viewBox="0 0 46 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0.951891 8.81886L10.6947 1.81886L21.3805 8.81886L33.3233 1.81886L44.9519 8.81886" stroke="#fff" stroke-width="3"/>
+<path d="M0.951891 16.8189L10.6947 8.81886L21.3805 16.8189L33.3233 8.81886L44.9519 16.8189" stroke="#fff" stroke-width="3"/>
+</svg>
+</span>
       </RouterLink>
 
       <form class="hidden flex-1 justify-center px-4 sm:flex" @submit.prevent="onSearch">
