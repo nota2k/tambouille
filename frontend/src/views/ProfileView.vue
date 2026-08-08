@@ -187,7 +187,7 @@ onMounted(loadProfile)
         <input ref="coverInput" type="file" accept="image/*" class="hidden" @change="onCoverChange" />
       </div>
 
-      <div class="mx-auto max-w-4xl px-4 pb-8">
+      <div class="mx-auto max-w-6xl px-4 pb-8">
         <div class="mb-8 bg-tambouille-white flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:gap-6">
           <div class="relative -mt-16 shrink-0 sm:-mt-20 md:-mt-[100px] lg:-mt-[125px]">
             <img
@@ -217,7 +217,7 @@ onMounted(loadProfile)
             <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
           </div>
 
-          <div class="flex-1 text-center sm:pb-1 sm:text-left">
+          <div class="flex-1 text-center sm:pb-1 sm:text-left mt-6">
             <h1 class="text-tambouille-clamp-big font-bold">{{ profile.displayName }}</h1>
             <p class="text-tambouille-muted">@{{ profile.username }}</p>
             <p v-if="profile.bio" class="mt-2 whitespace-pre-line text-sm">{{ profile.bio }}</p>
@@ -229,7 +229,7 @@ onMounted(loadProfile)
               + Ajoutez une description
             </RouterLink>
 
-            <div class="mt-2 flex justify-center gap-4 text-xs text-tambouille-muted sm:justify-start">
+            <div class="mt-8 flex justify-center gap-4 text-xs text-tambouille-muted sm:justify-start">
               <span>{{ profile.mixesCount }} mixs</span>
               <RouterLink
                 :to="{ name: 'user-followers', params: { username: profile.username } }"
