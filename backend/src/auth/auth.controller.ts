@@ -4,6 +4,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { SetUsernameDto } from './dto/set-username.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUserId } from './decorators/current-user.decorator';
 
@@ -39,5 +40,12 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   setUsername(@CurrentUserId() userId: string, @Body() dto: SetUsernameDto) {
     return this.authService.setUsername(userId, dto.username);
+  }
+
+  @Post('password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  setPassword(@CurrentUserId() userId: string, @Body() dto: SetPasswordDto) {
+    return this.authService.setPassword(userId, dto.password);
   }
 }

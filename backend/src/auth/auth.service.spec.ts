@@ -190,4 +190,44 @@ describe('AuthService', () => {
       await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(ConflictException);
     });
   });
+
+  describe('setPassword', () => {
+    it('hashes and stores a password on an account that has none', async () => {
+      prisma.user.findUniqueOrThrow
+        .mockResolvedValueOnce({ id: 'u1', password: null })
+        .mockResolvedValueOnce({
+          id: 'u1', email: 'n@e.com', username: 'nelly',
+          password: 'hashed', displayName: 'Nelly', bio: null, avatarUrl: null,
+          createdAt: new Date(),
+        });
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.setPassword('u1', 'motdepasse123');
+
+      const call = prisma.user.updateMany.mock.calls[0][0];
+      expect(call.where).toEqual({ id: 'u1', password: null });
+      // Stored hashed, never in clear.
+      expect(call.data.password).not.toBe('motdepasse123');
+      expect(call.data.password).toMatch(/^\$2[aby]\$/);
+    });
+
+    it('refuses when a password is already set', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', password: 'existing-hash' });
+
+      await expect(service.setPassword('u1', 'motdepasse123')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses when the write loses a race to another update', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', password: null });
+      prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.setPassword('u1', 'motdepasse123')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
+    });
+  });
 });
