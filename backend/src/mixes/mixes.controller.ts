@@ -20,6 +20,7 @@ import { CoverImportService } from './cover-import.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
+import { QuerySuggestionsDto } from './dto/query-suggestions.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
@@ -79,6 +80,16 @@ export class MixesController {
   @UseGuards(OptionalJwtAuthGuard)
   findOne(@Param('id') id: string, @OptionalUserId() currentUserId?: string) {
     return this.mixesService.findOne(id, currentUserId);
+  }
+
+  @Get(':id/suggestions')
+  @UseGuards(OptionalJwtAuthGuard)
+  listSuggestions(
+    @Param('id') id: string,
+    @Query() query: QuerySuggestionsDto,
+    @OptionalUserId() currentUserId?: string,
+  ) {
+    return this.mixesService.listSuggestions(id, query.limit ?? 3, currentUserId);
   }
 
   @Post(':id/play')

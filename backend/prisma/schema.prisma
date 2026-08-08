@@ -173,6 +173,10 @@ model PlayHistory {
 
   @@unique([userId, mixId])
   @@index([userId])
+  // Les suggestions partent de "qui d'autre a écouté ce mix", donc d'un filtre
+  // sur mixId seul. L'unique ci-dessus a userId en tête de clé et ne peut pas
+  // le servir : sans cet index, chaque page de mix scanne toute la table.
+  @@index([mixId])
   @@map("play_history")
 }
 

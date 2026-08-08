@@ -19,6 +19,8 @@ function createPrismaMock() {
     },
     playHistory: {
       upsert: jest.fn(),
+      findMany: jest.fn(),
+      groupBy: jest.fn(),
     },
     follow: {
       findMany: jest.fn(),
@@ -252,6 +254,92 @@ describe('MixesService', () => {
 
       expect(result).toEqual({ items: [], total: 0, page: 1, limit: 20, totalPages: 1 });
       expect(prisma.mix.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * Les suggestions sont un classement, et un classement qui n'arrive pas au client dans
+   * son ordre n'est pas un classement. Deux choses peuvent le perdre en silence : `findMany`
+   * avec un `in`, qui ne promet aucun ordre, et le remplissage par tags, qui doit rester
+   * derrière le signal collaboratif au lieu de s'y mélanger.
+   */
+  describe('listSuggestions', () => {
+    const SOURCE = 'source-mix';
+
+    beforeEach(() => {
+      prisma.mix.findUnique.mockResolvedValue({ id: SOURCE, tags: ['italo disco'] });
+      prisma.playHistory.findMany.mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }]);
+      prisma.playHistory.groupBy.mockResolvedValue([]);
+      prisma.mix.findMany.mockResolvedValue([]);
+    });
+
+    it('rend les mixs dans l’ordre du classement, pas dans celui de la base', async () => {
+      prisma.playHistory.groupBy.mockResolvedValue([
+        { mixId: 'best', _count: { userId: 9 } },
+        { mixId: 'middle', _count: { userId: 4 } },
+        { mixId: 'worst', _count: { userId: 1 } },
+      ]);
+      // Prisma renvoie ce que l'index lui donne : ici, l'ordre inverse du classement.
+      prisma.mix.findMany.mockResolvedValue([
+        mixRow({ id: 'worst' }),
+        mixRow({ id: 'best' }),
+        mixRow({ id: 'middle' }),
+      ]);
+
+      const result = await service.listSuggestions(SOURCE, 3);
+
+      expect(result.items.map((item) => item.id)).toEqual(['best', 'middle', 'worst']);
+    });
+
+    it('ne se suggère jamais lui-même', async () => {
+      await service.listSuggestions(SOURCE, 3);
+
+      const [args] = prisma.playHistory.groupBy.mock.calls[0];
+      expect(args.where.mixId.notIn).toContain(SOURCE);
+    });
+
+    it('écarte du signal comme des résultats ce que le visiteur a déjà écouté', async () => {
+      prisma.playHistory.findMany
+        .mockResolvedValueOnce([{ mixId: 'already-heard' }])
+        .mockResolvedValueOnce([{ userId: 'u1' }]);
+
+      await service.listSuggestions(SOURCE, 3, USER_ID);
+
+      // Son propre historique ne doit pas alimenter le score, sinon il se recommande lui-même.
+      const [coListenerArgs] = prisma.playHistory.findMany.mock.calls[1];
+      expect(coListenerArgs.where.userId).toEqual({ not: USER_ID });
+
+      const [groupArgs] = prisma.playHistory.groupBy.mock.calls[0];
+      expect(groupArgs.where.mixId.notIn).toContain('already-heard');
+    });
+
+    it('complète par les tags seulement quand le signal ne remplit pas la liste', async () => {
+      prisma.playHistory.groupBy.mockResolvedValue([{ mixId: 'ranked', _count: { userId: 2 } }]);
+      prisma.mix.findMany
+        .mockResolvedValueOnce([{ id: 'tagged' }])
+        .mockResolvedValueOnce([mixRow({ id: 'ranked' }), mixRow({ id: 'tagged' })]);
+
+      const result = await service.listSuggestions(SOURCE, 3);
+
+      const [fillerArgs] = prisma.mix.findMany.mock.calls[0];
+      expect(fillerArgs.take).toBe(2);
+      expect(fillerArgs.where.tags).toEqual({ hasSome: ['italo disco'] });
+      // Le remplissage vient après le classement, il ne s'y intercale pas.
+      expect(result.items.map((item) => item.id)).toEqual(['ranked', 'tagged']);
+    });
+
+    it('ne cherche aucun co-auditeur quand personne n’a écouté le mix', async () => {
+      prisma.playHistory.findMany.mockResolvedValue([]);
+
+      await service.listSuggestions(SOURCE, 3);
+
+      expect(prisma.playHistory.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('signale un mix inexistant plutôt que de suggérer à partir de rien', async () => {
+      prisma.mix.findUnique.mockResolvedValue(null);
+
+      await expect(service.listSuggestions('nope', 3)).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

@@ -25,10 +25,12 @@
   --color-tambouille-accent: #FE2370;
   --color-tambouille-accent-dark: #cc1b59;
   --color-tambouille-accent-hover: #de1a5f;
-  --color-tambouille-action: #cfff6b;
-  --color-tambouille-action-hover: #8caf3f;
+  --color-tambouille-action: #5cff8c;
+  --color-tambouille-action-hover: #44c269;
   --text-tambouille-title-big:4em;
   --text-tambouille-clamp-big:clamp(3em, 10vh,18em);
+
+  --text-xl:2.25em;
 }
 
 html,
@@ -69,4 +71,38 @@ h1, h2, h3, h4, h5, h6 {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/*
+ * Grille « breakout » : le conteneur d'une vue, avec une échappatoire pleine largeur.
+ *
+ * `.page-grid` remplace le couple `mx-auto max-w-* px-4` : la colonne centrale vaut
+ * min(largeur max, 100% - 2×gouttière), donc elle plafonne ET réserve ses marges
+ * latérales en une seule déclaration. Les gouttières sont de vraies colonnes de grille,
+ * ce qui donne un nom à la pleine largeur.
+ *
+ * Tout enfant tient dans la colonne « content ». `.full-bleed` le fait aller de bord à
+ * bord — sans sortir du flux : il garde sa hauteur et pousse ses frères, contrairement à
+ * `position: absolute` ou à un Teleport.
+ *
+ * Pourquoi pas le `width: 100vw; margin-left: 50%; transform: translateX(-50%)` habituel :
+ * `100vw` compte la barre de défilement et déborde donc horizontalement de sa largeur,
+ * et `transform` crée un bloc conteneur qui décroche tout descendant en `position: fixed`.
+ * Ici, aucune unité viewport et aucune transformation — la largeur vient du parent.
+ */
+.page-grid {
+  display: grid;
+  grid-template-columns:
+    [full-start]  minmax(var(--page-gutter, 1rem), 1fr)
+    [content-start] min(var(--page-width, 72rem), 100% - var(--page-gutter, 1rem) * 2) [content-end]
+    minmax(var(--page-gutter, 1rem), 1fr)
+    [full-end];
+}
+
+.page-grid > * {
+  grid-column: content;
+}
+
+.page-grid > .full-bleed {
+  grid-column: full;
 }

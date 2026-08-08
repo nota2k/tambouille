@@ -20,7 +20,7 @@ function toggleFollow() {
 
 <template>
 
-      <h2 class="mb-3 text-lg font-semibold">User</h2>
+      <h2 class="mb-3 text-xl font-semibold">User</h2>
 
   <div class="rounded-xl border border-tambouille-border bg-tambouille-surface p-4">
     <div class="flex items-center gap-4">

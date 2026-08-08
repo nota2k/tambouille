@@ -246,6 +246,106 @@ export class MixesService {
   }
 
   /**
+   * "Les auditeurs de ce mix ont aussi écouté…" — du filtrage collaboratif orienté objet,
+   * ancré sur le mix affiché.
+   *
+   * On part des co-auditeurs (les utilisateurs qui ont ce mix dans leur historique), puis
+   * on classe leurs autres écoutes par nombre de co-auditeurs distincts. `PlayHistory` est
+   * unique sur (userId, mixId), donc compter les lignes compte bien des personnes et non
+   * des lectures répétées : un utilisateur qui réécoute vingt fois ne pèse pas vingt voix.
+   *
+   * Le signal est souvent nul — mix récent, personne connecté au moment de l'écoute — et
+   * une section vide en bas de chaque page ne rend service à personne. On complète donc
+   * par les mixs partageant au moins un tag, du plus récent au plus ancien. Le complément
+   * n'est jamais mélangé au score : il vient après, en remplissage.
+   *
+   * Le visiteur connecté ne se voit pas proposer ce qu'il a déjà écouté, ni ses propres
+   * écoutes comme signal — sinon son propre historique se recommanderait lui-même.
+   */
+  async listSuggestions(id: string, limit: number, currentUserId?: string) {
+    const mix = await this.prisma.mix.findUnique({
+      where: { id },
+      select: { id: true, tags: true },
+    });
+    if (!mix) {
+      throw new NotFoundException('Mix not found');
+    }
+
+    // Ce que le visiteur a déjà écouté n'est pas une suggestion. Le mix affiché en fait
+    // partie d'office, qu'il soit connecté ou non.
+    const excludedIds = new Set<string>([id]);
+    if (currentUserId) {
+      const own = await this.prisma.playHistory.findMany({
+        where: { userId: currentUserId },
+        select: { mixId: true },
+      });
+      own.forEach((play) => excludedIds.add(play.mixId));
+    }
+
+    const coListeners = await this.prisma.playHistory.findMany({
+      where: {
+        mixId: id,
+        ...(currentUserId ? { userId: { not: currentUserId } } : {}),
+      },
+      select: { userId: true },
+      // Borne de sécurité : sur un mix très écouté, la liste des co-auditeurs ne doit pas
+      // devenir un `IN (...)` de plusieurs milliers d'identifiants. Les plus récents
+      // suffisent largement à un classement de trois cartes.
+      orderBy: { playedAt: 'desc' },
+      take: 500,
+    });
+    const coListenerIds = coListeners.map((play) => play.userId);
+
+    const ranked = coListenerIds.length
+      ? await this.prisma.playHistory.groupBy({
+          by: ['mixId'],
+          where: {
+            userId: { in: coListenerIds },
+            mixId: { notIn: Array.from(excludedIds) },
+          },
+          _count: { userId: true },
+          orderBy: { _count: { userId: 'desc' } },
+          take: limit,
+        })
+      : [];
+
+    const orderedIds = ranked.map((row) => row.mixId);
+    orderedIds.forEach((mixId) => excludedIds.add(mixId));
+
+    if (orderedIds.length < limit) {
+      const fillers = await this.prisma.mix.findMany({
+        where: {
+          id: { notIn: Array.from(excludedIds) },
+          ...(mix.tags.length ? { tags: { hasSome: mix.tags } } : {}),
+        },
+        select: { id: true },
+        orderBy: { createdAt: 'desc' },
+        take: limit - orderedIds.length,
+      });
+      fillers.forEach((filler) => orderedIds.push(filler.id));
+    }
+
+    if (orderedIds.length === 0) {
+      return { items: [] };
+    }
+
+    const items = await this.prisma.mix.findMany({
+      where: { id: { in: orderedIds } },
+      ...buildMixInclude(currentUserId),
+    });
+
+    // `findMany` avec un `in` ne garantit aucun ordre : on réapplique celui du classement,
+    // sinon le score calculé plus haut ne se voit nulle part.
+    const byId = new Map(items.map((item) => [item.id, item]));
+    return {
+      items: orderedIds
+        .map((mixId) => byId.get(mixId))
+        .filter((item): item is (typeof items)[number] => item !== undefined)
+        .map(toMixResponse),
+    };
+  }
+
+  /**
    * `playsCount` counts plays that happened *on Tambouille*. A Mixcloud-hosted mix is
    * streamed by Mixcloud — that is the whole point of importing one — and its play count
    * lives there, which is why the UI never shows one for it. Counting those plays anyway

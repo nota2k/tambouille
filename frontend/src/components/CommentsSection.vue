@@ -85,8 +85,8 @@ onMounted(loadComments)
 </script>
 
 <template>
-  <div class="mt-10">
-    <h2 class="mb-3 text-lg font-semibold">Commentaires</h2>
+  <div class="flex-[2]">
+    <h2 class="mb-3 text-xl font-semibold">Commentaires</h2>
 
     <form class="mb-4 flex flex-wrap items-center gap-2" @submit.prevent="postComment">
       <span
