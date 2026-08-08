@@ -14,6 +14,21 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
+const googleError = ref('')
+
+// Unchanged behaviour, just moved out of the button: sign in, then go to
+// discover — the router guard sends a Google-created account without a
+// username on to the selection screen from there.
+async function onGoogleCredential(credential: string) {
+  googleError.value = ''
+  try {
+    await authStore.loginWithGoogle(credential)
+    router.push({ name: 'discover' })
+  } catch (e: any) {
+    googleError.value = e?.response?.data?.message ?? 'La connexion avec Google a échoué. Réessaie.'
+  }
+}
+
 async function onSubmit() {
   error.value = ''
   loading.value = true
@@ -96,7 +111,8 @@ async function onSubmit() {
       ou
       <span class="h-px flex-1 bg-tambouille-border"></span>
     </div>
-    <GoogleSignInButton />
+    <GoogleSignInButton @credential="onGoogleCredential" />
+    <p v-if="googleError" class="mt-2 text-sm text-red-500">{{ googleError }}</p>
 
     <p class="mt-4 text-sm text-tambouille-muted">
       Déjà un compte ?

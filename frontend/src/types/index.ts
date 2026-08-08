@@ -116,6 +116,8 @@ export interface AuthUser {
   avatarUrl: string | null
   createdAt: string
   hasPassword: boolean
+  /** Whether a Google account is attached. The identifier itself is never sent. */
+  hasGoogle: boolean
 }
 
 export interface AuthResponse {

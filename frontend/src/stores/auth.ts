@@ -32,6 +32,16 @@ export const useAuthStore = defineStore('auth', {
       const { data } = await apiClient.post<AuthResponse>('/auth/google', { idToken })
       this.setSession(data)
     },
+    /**
+     * Attaches a Google account to the session already open. Returns the
+     * updated user rather than a session: the caller stays signed in as who
+     * they already were, so there is no new token to store.
+     */
+    async linkGoogle(idToken: string) {
+      const { data } = await apiClient.post<AuthUser>('/auth/google/link', { idToken })
+      this.user = data
+    },
+
     async setUsername(username: string) {
       const { data } = await apiClient.post<AuthUser>('/auth/username', { username })
       this.user = data

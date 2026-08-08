@@ -29,6 +29,15 @@ export class AuthController {
     return this.authService.loginWithGoogle(dto.idToken);
   }
 
+  // Guarded, unlike `POST google` above: the session is what proves the caller
+  // owns the account the Google identity gets attached to.
+  @Post('google/link')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  linkGoogle(@CurrentUserId() userId: string, @Body() dto: GoogleLoginDto) {
+    return this.authService.linkGoogle(userId, dto.idToken);
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   me(@CurrentUserId() userId: string) {

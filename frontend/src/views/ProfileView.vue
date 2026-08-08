@@ -8,6 +8,7 @@ import { toggleUserFollow } from '@/utils/follows'
 import MixListItem from '@/components/MixListItem.vue'
 import PlaylistCard from '@/components/PlaylistCard.vue'
 import AvatarStack from '@/components/AvatarStack.vue'
+import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import { createPlaylist, fetchUserPlaylists } from '@/utils/playlists'
 import topographyPattern from '@/assets/img/topography.svg'
 import type { AuthorSummary, Mix, PlaylistSummary, UserProfile } from '@/types'
@@ -66,6 +67,26 @@ async function submitPassword() {
     passwordSaved.value = true
   } catch (e: any) {
     passwordError.value = e?.response?.data?.message ?? 'Enregistrement impossible.'
+  }
+}
+
+const googleError = ref('')
+const linkingGoogle = ref(false)
+
+async function onGoogleCredential(credential: string) {
+  // Google's button can fire again while the first request is still open;
+  // a second link would only ever be refused, so drop it here.
+  if (linkingGoogle.value) return
+  googleError.value = ''
+  linkingGoogle.value = true
+  try {
+    // The store swaps in the updated user, so `hasGoogle` flips and this
+    // section becomes the confirmation on its own.
+    await authStore.linkGoogle(credential)
+  } catch (e: any) {
+    googleError.value = e?.response?.data?.message ?? 'Association impossible.'
+  } finally {
+    linkingGoogle.value = false
   }
 }
 
@@ -378,6 +399,23 @@ onMounted(loadProfile)
         </form>
         <p v-if="passwordError" class="mt-2 text-sm text-red-500">{{ passwordError }}</p>
         <p v-if="passwordSaved" class="mt-2 text-sm text-green-600">Mot de passe enregistré.</p>
+      </section>
+
+      <section v-if="isOwnProfile && authStore.user" class="mt-8">
+        <h2 class="mb-2 text-lg font-semibold">Google</h2>
+        <template v-if="!authStore.user.hasGoogle">
+          <p class="mb-3 text-sm text-tambouille-muted">
+            Associe ton compte Google pour te connecter en un clic. Ton mot de passe
+            continuera de fonctionner.
+          </p>
+          <!-- Wrapped so the disabled state reads while the request is open:
+               Google renders its own button in an iframe we cannot disable. -->
+          <div :class="linkingGoogle && 'pointer-events-none opacity-50'">
+            <GoogleSignInButton @credential="onGoogleCredential" />
+          </div>
+          <p v-if="googleError" class="mt-2 text-sm text-red-500">{{ googleError }}</p>
+        </template>
+        <p v-else class="text-sm text-tambouille-muted">Ton compte Google est associé.</p>
       </section>
 
       <!-- Réseau et playlists en colonne latérale, mixs à droite. -->

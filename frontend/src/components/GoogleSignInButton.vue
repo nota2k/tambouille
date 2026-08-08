@@ -1,32 +1,28 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 
-const authStore = useAuthStore()
-const router = useRouter()
+/**
+ * Renders Google's own button and hands the resulting credential up. That is
+ * the whole job: what the credential is *for* — signing in, or attaching a
+ * Google account to the one already signed in — is the caller's policy, and
+ * lives with the caller. Keeping it here would mean this component importing
+ * the auth store and the router and growing a branch per use, while still
+ * having to hand back success and error state for the caller to render in its
+ * own layout. Props down, events up instead.
+ */
+const emit = defineEmits<{ (e: 'credential', credential: string): void }>()
+
 const container = ref<HTMLElement | null>(null)
-const error = ref('')
-
-async function handleCredential(response: { credential: string }) {
-  error.value = ''
-  try {
-    await authStore.loginWithGoogle(response.credential)
-    // A Google-created account has no username yet; the router guard added in
-    // Task 8 sends it to the selection screen from here.
-    router.push({ name: 'discover' })
-  } catch (e: any) {
-    error.value =
-      e?.response?.data?.message ?? 'La connexion avec Google a échoué. Réessaie.'
-  }
-}
 
 onMounted(() => {
   const google = (window as any).google
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
   if (!google || !clientId || !container.value) return
 
-  google.accounts.id.initialize({ client_id: clientId, callback: handleCredential })
+  google.accounts.id.initialize({
+    client_id: clientId,
+    callback: (response: { credential: string }) => emit('credential', response.credential),
+  })
   google.accounts.id.renderButton(container.value, {
     theme: 'outline',
     size: 'large',
@@ -37,8 +33,5 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
-    <div ref="container"></div>
-    <p v-if="error" class="mt-2 text-sm text-red-500">{{ error }}</p>
-  </div>
+  <div ref="container"></div>
 </template>

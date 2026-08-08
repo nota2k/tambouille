@@ -219,6 +219,118 @@ describe('AuthService', () => {
     });
   });
 
+  describe('linkGoogle', () => {
+    const IDENTITY = {
+      googleId: 'google-sub-1',
+      email: 'nelly.perso@gmail.com',
+      emailVerified: true,
+      displayName: 'Nelly',
+    };
+
+    /** The signed-in account, before anything is attached to it. */
+    const UNLINKED = {
+      id: 'u1',
+      email: 'nelly@example.com',
+      username: 'nelly',
+      password: 'hash',
+      displayName: 'Nelly',
+      bio: null,
+      avatarUrl: null,
+      createdAt: new Date(),
+      googleId: null,
+    };
+
+    it('attaches the Google identity to the signed-in account', async () => {
+      verifier.verify.mockResolvedValue(IDENTITY);
+      prisma.user.findFirst.mockResolvedValue(null); // no other account holds this sub
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        ...UNLINKED,
+        googleId: IDENTITY.googleId,
+      });
+
+      // Note the addresses differ on purpose: the account is nelly@example.com
+      // and the Google identity is nelly.perso@gmail.com. Linking must not
+      // require them to match — the session is what proves ownership here.
+      expect(UNLINKED.email).not.toBe(IDENTITY.email);
+      const user = await service.linkGoogle('u1', 'token');
+
+      // Conditional write, as in `setUsername`/`setPassword`: it only lands on
+      // a row that still has no Google identity.
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'u1', googleId: null },
+        data: { googleId: IDENTITY.googleId },
+      });
+      expect(user.hasGoogle).toBe(true);
+      // The public shape says only that an identity exists, never which one.
+      expect(JSON.stringify(user)).not.toContain(IDENTITY.googleId);
+    });
+
+    it('reports hasGoogle false for an account with nothing attached', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue(UNLINKED);
+
+      const user = await service.me('u1');
+
+      expect(user.hasGoogle).toBe(false);
+    });
+
+    it('refuses an address Google has not verified, without writing', async () => {
+      verifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
+
+      await expect(service.linkGoogle('u1', 'token')).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    // The decisive one. Two rows carrying the same `googleId` would mean
+    // whichever `loginWithGoogle`'s `findFirst` returned first swallowed the
+    // other's Google sign-ins.
+    it('refuses when another account already holds this Google identity', async () => {
+      verifier.verify.mockResolvedValue(IDENTITY);
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'u2', email: 'someone@example.com', username: 'someone',
+        password: 'hash', displayName: 'Someone', googleId: IDENTITY.googleId,
+      });
+      // The write and the re-read are mocked to succeed on purpose. Without
+      // them, dropping the guard would make this test fail on a TypeError from
+      // an unconfigured mock rather than on the real defect; with them, the
+      // unguarded service would happily return a second account carrying the
+      // same `sub`, and only the assertions below catch it.
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        ...UNLINKED, googleId: IDENTITY.googleId,
+      });
+
+      await expect(service.linkGoogle('u1', 'token')).rejects.toBeInstanceOf(ConflictException);
+      // Nothing is written: the second account does not get a duplicate key,
+      // and the first account's identity is not moved.
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses when the conditional write matches nothing, because the account is already linked', async () => {
+      verifier.verify.mockResolvedValue(IDENTITY);
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.linkGoogle('u1', 'token')).rejects.toBeInstanceOf(ConflictException);
+      // The row stopped matching `googleId: null`, so nothing was changed —
+      // and no retry is attempted that could overwrite the existing identity.
+      expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses when the unique constraint fires on the write', async () => {
+      // The race the pre-check cannot cover: another account claimed this
+      // `sub` between the read and the write, and the index caught it.
+      verifier.verify.mockResolvedValue(IDENTITY);
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.updateMany.mockRejectedValue({ code: 'P2002' });
+
+      await expect(service.linkGoogle('u1', 'token')).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
   describe('setUsername', () => {
     it('sets the username when the account has none', async () => {
       prisma.user.findUniqueOrThrow
