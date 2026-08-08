@@ -206,6 +206,16 @@ export class AuthService {
 
   async setPassword(userId: string, password: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+<<<<<<< HEAD
+=======
+    // Pre-check only, for a clean error message in the common case: it is
+    // check-then-act and cannot be trusted for correctness under concurrency,
+    // since two requests could both read `password === null` before either
+    // write lands. What actually guarantees "set at most once" is the
+    // conditional `updateMany` below, which only touches the row if it is
+    // still passwordless. There is no unique constraint on `password`, so
+    // unlike `setUsername` there is no P2002 case to catch.
+>>>>>>> f64cae1 (feat(auth): let a Google account define a password)
     if (user.password) {
       throw new ConflictException('Password already set');
     }
@@ -217,6 +227,11 @@ export class AuthService {
     });
 
     if (result.count === 0) {
+<<<<<<< HEAD
+=======
+      // The row no longer matched `password: null` — another request already
+      // set a password for this account between our read and this write.
+>>>>>>> f64cae1 (feat(auth): let a Google account define a password)
       throw new ConflictException('Password already set');
     }
 
