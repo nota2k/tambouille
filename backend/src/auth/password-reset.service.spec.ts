@@ -193,6 +193,21 @@ describe('PasswordResetService', () => {
       mailer.send.mockRejectedValueOnce(new Error('SMTP refused the message'));
       const silenced = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
 
+      // What the database really holds by the time the retry arrives: the row
+      // the first request committed, live and unused. Mocked explicitly so
+      // that reinstating a "a live token already exists, so send nothing"
+      // short-circuit would genuinely block the retry and be caught here —
+      // rather than sailing past on a mock that returns undefined and makes
+      // any such check look harmless.
+      prisma.passwordResetToken.findFirst
+        .mockResolvedValueOnce(null) // nothing live yet, on the first request
+        .mockResolvedValue({
+          id: 't-live',
+          userId: USER.id,
+          usedAt: null,
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        });
+
       await forgotNow('nelly@example.com', '203.0.113.1');
       await service.flushDeliveries();
       await forgotNow('nelly@example.com', '203.0.113.1');
