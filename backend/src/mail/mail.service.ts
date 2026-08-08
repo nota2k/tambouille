@@ -80,7 +80,11 @@ export class MailService implements OnModuleInit {
     } catch (error) {
       // Deliberately non-fatal. Making this throw would couple the whole API's
       // availability to the relay's, and would take the e2e suite down with it.
-      this.logger.error(`SMTP transport unavailable: ${String(error)}`);
+      const err = error instanceof Error ? error : undefined;
+      this.logger.error(
+        `SMTP transport unavailable: ${err?.message ?? String(error)}`,
+        err?.stack,
+      );
     }
   }
 }

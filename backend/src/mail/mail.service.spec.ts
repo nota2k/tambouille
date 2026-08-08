@@ -133,6 +133,9 @@ describe('MailService startup verification', () => {
     // Resolving is the whole point: a relay outage must not keep the API down.
     await expect(service.onModuleInit()).resolves.toBeUndefined();
 
-    expect(error).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('ECONNREFUSED'),
+      expect.stringContaining('Error: ECONNREFUSED'),
+    );
   });
 });
