@@ -1,7 +1,13 @@
 import { randomUUID } from 'crypto';
 import { extname } from 'path';
 import { BadRequestException } from '@nestjs/common';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectsCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
+import { Logger } from '@nestjs/common';
+import { r2KeysOnly } from './r2-keys';
 import multerS3 from 'multer-s3';
 import type { Request } from 'express';
 
@@ -54,6 +60,48 @@ export async function putBufferToR2(subdir: string, body: Buffer, contentType: s
     }),
   );
   return key;
+}
+
+const storageLogger = new Logger('R2Storage');
+
+/**
+ * Deletes objects this server wrote. Best-effort by design: it never throws.
+ *
+ * Callers reach here having already done the thing the user asked for — the
+ * row is gone. Raising now would turn a successful deletion into a failed
+ * request over an object nobody can see, and the worst case of staying quiet
+ * is an unreferenced object, which is exactly what this function exists to
+ * reduce.
+ *
+ * Filtering happens inside rather than at the call site so every caller
+ * inherits it, and an empty result issues no request at all.
+ */
+export async function deleteFromR2(
+  keys: readonly (string | null | undefined)[],
+): Promise<void> {
+  const owned = r2KeysOnly(keys);
+  if (owned.length === 0) return;
+
+  try {
+    const result = await r2Client.send(
+      new DeleteObjectsCommand({
+        Bucket: R2_BUCKET_NAME,
+        Delete: { Objects: owned.map((Key) => ({ Key })) },
+      }),
+    );
+
+    // The batch API reports failures per key instead of rejecting, so a
+    // partial failure is only visible here.
+    for (const error of result.Errors ?? []) {
+      storageLogger.warn(
+        `Objet R2 non supprimé: ${error.Key} (${error.Code ?? 'raison inconnue'})`,
+      );
+    }
+  } catch (err) {
+    storageLogger.warn(
+      `Suppression R2 échouée pour ${owned.join(', ')}: ${String(err)}`,
+    );
+  }
 }
 
 export function r2StorageFor(subdir: string) {
