@@ -14,7 +14,10 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FileInterceptor,
+} from '@nestjs/platform-express';
 import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
 import { CoverImportService } from './cover-import.service';
 import { CreateMixDto } from './dto/create-mix.dto';
@@ -23,7 +26,10 @@ import { QueryMixesDto } from './dto/query-mixes.dto';
 import { QuerySuggestionsDto } from './dto/query-suggestions.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
-import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
+import {
+  CurrentUserId,
+  OptionalUserId,
+} from '../auth/decorators/current-user.decorator';
 import {
   AUDIO_MIME_TYPES,
   COVER_MAX_BYTES,
@@ -49,25 +55,37 @@ export class MixesController {
 
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
-  findAll(@Query() query: QueryMixesDto, @OptionalUserId() currentUserId?: string) {
+  findAll(
+    @Query() query: QueryMixesDto,
+    @OptionalUserId() currentUserId?: string,
+  ) {
     return this.mixesService.findAll(query, currentUserId);
   }
 
   @Get('me/favorites')
   @UseGuards(JwtAuthGuard)
-  listFavorites(@CurrentUserId() userId: string, @Query() query: QueryMixesDto) {
+  listFavorites(
+    @CurrentUserId() userId: string,
+    @Query() query: QueryMixesDto,
+  ) {
     return this.mixesService.listFavorites(userId, query);
   }
 
   @Get('me/recent')
   @UseGuards(JwtAuthGuard)
-  listRecentlyPlayed(@CurrentUserId() userId: string, @Query() query: QueryMixesDto) {
+  listRecentlyPlayed(
+    @CurrentUserId() userId: string,
+    @Query() query: QueryMixesDto,
+  ) {
     return this.mixesService.listRecentlyPlayed(userId, query);
   }
 
   @Get('feed/following')
   @UseGuards(JwtAuthGuard)
-  listFollowingFeed(@CurrentUserId() userId: string, @Query() query: QueryMixesDto) {
+  listFollowingFeed(
+    @CurrentUserId() userId: string,
+    @Query() query: QueryMixesDto,
+  ) {
     return this.mixesService.listFollowingFeed(userId, query);
   }
 
@@ -89,13 +107,20 @@ export class MixesController {
     @Query() query: QuerySuggestionsDto,
     @OptionalUserId() currentUserId?: string,
   ) {
-    return this.mixesService.listSuggestions(id, query.limit ?? 3, currentUserId);
+    return this.mixesService.listSuggestions(
+      id,
+      query.limit ?? 3,
+      currentUserId,
+    );
   }
 
   @Post(':id/play')
   @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  registerPlay(@Param('id') id: string, @OptionalUserId() currentUserId?: string) {
+  registerPlay(
+    @Param('id') id: string,
+    @OptionalUserId() currentUserId?: string,
+  ) {
     return this.mixesService.registerPlay(id, currentUserId);
   }
 
@@ -116,11 +141,20 @@ export class MixesController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
-    FileFieldsInterceptor([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }], {
-      storage: r2StorageByField({ audio: 'audio', cover: 'covers' }),
-      fileFilter: fileFilterByField({ audio: AUDIO_MIME_TYPES, cover: IMAGE_MIME_TYPES }),
-      limits: { fileSize: 250 * 1024 * 1024 },
-    }),
+    FileFieldsInterceptor(
+      [
+        { name: 'audio', maxCount: 1 },
+        { name: 'cover', maxCount: 1 },
+      ],
+      {
+        storage: r2StorageByField({ audio: 'audio', cover: 'covers' }),
+        fileFilter: fileFilterByField({
+          audio: AUDIO_MIME_TYPES,
+          cover: IMAGE_MIME_TYPES,
+        }),
+        limits: { fileSize: 250 * 1024 * 1024 },
+      },
+    ),
   )
   async create(
     @CurrentUserId() userId: string,
@@ -136,7 +170,7 @@ export class MixesController {
     // What this check protects is exactly that: the cover import, and nothing
     // else. It does NOT protect the audio upload. Multer-s3 streams the audio
     // body straight to R2 during interception, before this method is entered,
-    // so a create carrying both an audio file and a `mixcloudKey` has already
+    // so a create carrying both an audio file and a remote source has already
     // written up to 250 MB by the time the request is refused — an orphan
     // nothing ever deletes. Known gap: closing it means restaging uploads
     // (buffer, or write then delete on failure), which is a separate job.
@@ -145,13 +179,21 @@ export class MixesController {
     // restated, so the two cannot drift. The service keeps its own check: that
     // is the real guarantee, and this is only a cheap gate in front of it.
     const audioFile = files.audio?.[0];
-    assertExactlyOneAudioSource(audioFile?.key ?? null, dto.mixcloudKey || null);
+    assertExactlyOneAudioSource(
+      audioFile?.key ?? null,
+      dto.sourceType || null,
+      dto.sourceRef || null,
+    );
 
-    // An uploaded cover always wins over one imported from Mixcloud.
+    // An uploaded cover always wins over one imported from the source.
     const coverFile = files.cover?.[0];
     let coverUrl = coverFile?.key;
     if (!coverUrl && dto.coverSourceUrl) {
-      coverUrl = await this.coverImportService.importFromUrl(dto.coverSourceUrl);
+      // Best-effort: a source whose cover cannot be fetched still yields a
+      // mix, without one.
+      coverUrl =
+        (await this.coverImportService.importFromUrl(dto.coverSourceUrl)) ??
+        undefined;
     }
 
     return this.mixesService.create(userId, dto, {

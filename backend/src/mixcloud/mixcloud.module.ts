@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
 import { MixcloudService } from './mixcloud.service';
-import { MixcloudController } from './mixcloud.controller';
 
+/**
+ * No controller: `/imports/*` is the only HTTP surface now, and it reaches this
+ * relay through `MixcloudImporter`. The relay itself is unchanged — only the
+ * routes that used to expose it directly are gone.
+ */
 @Module({
-  controllers: [MixcloudController],
   providers: [MixcloudService],
+  exports: [MixcloudService],
 })
 export class MixcloudModule {}

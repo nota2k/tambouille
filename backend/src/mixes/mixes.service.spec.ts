@@ -1,12 +1,16 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { MixesService } from './mixes.service';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Prisma is mocked: these cover the service's own rule — that a mix carries
- * exactly one audio source, either an R2 object key or a Mixcloud key — not
- * the database itself. Prisma cannot express the rule, so it lives here and
- * is tested here.
+ * exactly one audio source, either an R2 object key or a sourceType/sourceRef
+ * pair — not the database itself. Prisma cannot express the rule, so it lives
+ * here and is tested here.
  */
 function createPrismaMock() {
   return {
@@ -30,7 +34,8 @@ function createPrismaMock() {
 
 const USER_ID = 'user-id';
 const MIX_ID = 'mix-id';
-const MIXCLOUD_KEY = '/Notamusic/vorwerk-7-passages-pas-sages/';
+const SOURCE_TYPE = 'mixcloud';
+const SOURCE_REF = '/Notamusic/vorwerk-7-passages-pas-sages/';
 const AUDIO_KEY = 'audio/1234-abcd.mp3';
 
 /** What `create`/`update` return through `buildMixInclude`, so `toMixResponse` has something to flatten. */
@@ -39,9 +44,15 @@ function mixRow(overrides: Record<string, unknown> = {}) {
     id: MIX_ID,
     title: 'A mix',
     audioUrl: null,
-    mixcloudKey: null,
+    sourceType: null,
+    sourceRef: null,
     userId: USER_ID,
-    user: { id: USER_ID, username: 'nota', displayName: 'Nota', avatarUrl: null },
+    user: {
+      id: USER_ID,
+      username: 'nota',
+      displayName: 'Nota',
+      avatarUrl: null,
+    },
     tracklist: [],
     _count: { favorites: 0, comments: 0 },
     favorites: [],
@@ -56,88 +67,192 @@ describe('MixesService', () => {
   beforeEach(() => {
     prisma = createPrismaMock();
     service = new MixesService(prisma as unknown as PrismaService);
-    prisma.mix.create.mockImplementation(({ data }: any) => Promise.resolve(mixRow(data)));
-    prisma.mix.update.mockImplementation(({ data }: any) => Promise.resolve(mixRow(data)));
+    prisma.mix.create.mockImplementation(({ data }: any) =>
+      Promise.resolve(mixRow(data)),
+    );
+    prisma.mix.update.mockImplementation(({ data }: any) =>
+      Promise.resolve(mixRow(data)),
+    );
   });
 
   describe('create — exactly one audio source', () => {
-    it('accepts an uploaded audio file and stores no Mixcloud key', async () => {
-      const result = await service.create(USER_ID, { title: 'A mix' }, { audioUrl: AUDIO_KEY });
+    it('accepts an uploaded audio file and stores no remote source', async () => {
+      const result = await service.create(
+        USER_ID,
+        { title: 'A mix' },
+        { audioUrl: AUDIO_KEY },
+      );
 
       expect(prisma.mix.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ audioUrl: AUDIO_KEY, mixcloudKey: null }),
+          data: expect.objectContaining({
+            audioUrl: AUDIO_KEY,
+            sourceType: null,
+            sourceRef: null,
+          }),
         }),
       );
       expect(result.audioUrl).toBe(AUDIO_KEY);
     });
 
-    it('accepts a Mixcloud key with no audio file, and stores no audio key', async () => {
-      const result = await service.create(USER_ID, { title: 'A mix', mixcloudKey: MIXCLOUD_KEY }, {});
+    it('accepts a remote source with no audio file, and stores no audio key', async () => {
+      const result = await service.create(
+        USER_ID,
+        { title: 'A mix', sourceType: SOURCE_TYPE, sourceRef: SOURCE_REF },
+        {},
+      );
 
       expect(prisma.mix.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ audioUrl: null, mixcloudKey: MIXCLOUD_KEY }),
+          data: expect.objectContaining({
+            audioUrl: null,
+            sourceType: SOURCE_TYPE,
+            sourceRef: SOURCE_REF,
+          }),
         }),
       );
-      expect(result.mixcloudKey).toBe(MIXCLOUD_KEY);
+      expect(result).toMatchObject({
+        sourceType: SOURCE_TYPE,
+        sourceRef: SOURCE_REF,
+      });
     });
 
     it('rejects a mix with neither source, naming both possibilities', async () => {
-      await expect(service.create(USER_ID, { title: 'A mix' }, {})).rejects.toBeInstanceOf(BadRequestException);
-      await expect(service.create(USER_ID, { title: 'A mix' }, {})).rejects.toThrow(
-        'A mix must have either an audio file or a Mixcloud key',
+      await expect(
+        service.create(USER_ID, { title: 'A mix' }, {}),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.create(USER_ID, { title: 'A mix' }, {}),
+      ).rejects.toThrow(
+        'A mix must have either an audio file or a remote source',
       );
       expect(prisma.mix.create).not.toHaveBeenCalled();
     });
 
     it('rejects a mix with both sources, saying it cannot have both', async () => {
-      const both = () => service.create(USER_ID, { title: 'A mix', mixcloudKey: MIXCLOUD_KEY }, { audioUrl: AUDIO_KEY });
+      const both = () =>
+        service.create(
+          USER_ID,
+          { title: 'A mix', sourceType: SOURCE_TYPE, sourceRef: SOURCE_REF },
+          { audioUrl: AUDIO_KEY },
+        );
 
       await expect(both()).rejects.toBeInstanceOf(BadRequestException);
-      await expect(both()).rejects.toThrow('A mix cannot have both an audio file and a Mixcloud key');
+      await expect(both()).rejects.toThrow(
+        'A mix cannot have both an audio file and a remote source',
+      );
       expect(prisma.mix.create).not.toHaveBeenCalled();
     });
 
-    it('treats an empty Mixcloud key as absent rather than as a source', async () => {
-      await expect(service.create(USER_ID, { title: 'A mix', mixcloudKey: '' }, {})).rejects.toThrow(
-        'A mix must have either an audio file or a Mixcloud key',
+    it('treats an empty sourceType/sourceRef as absent rather than as a source', async () => {
+      await expect(
+        service.create(
+          USER_ID,
+          { title: 'A mix', sourceType: '', sourceRef: '' },
+          {},
+        ),
+      ).rejects.toThrow(
+        'A mix must have either an audio file or a remote source',
       );
+      expect(prisma.mix.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects half a pair: a sourceType with no sourceRef', async () => {
+      await expect(
+        service.create(
+          USER_ID,
+          { title: 'A mix', sourceType: SOURCE_TYPE },
+          {},
+        ),
+      ).rejects.toThrow('A remote source needs both sourceType and sourceRef');
       expect(prisma.mix.create).not.toHaveBeenCalled();
     });
   });
 
   describe('update — exactly one audio source', () => {
-    it('refuses to add a Mixcloud key to a mix that already has audio', async () => {
-      prisma.mix.findUnique.mockResolvedValue({ id: MIX_ID, userId: USER_ID, audioUrl: AUDIO_KEY, mixcloudKey: null });
+    it('refuses to add a remote source to a mix that already has audio', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: USER_ID,
+        audioUrl: AUDIO_KEY,
+        sourceType: null,
+        sourceRef: null,
+      });
 
-      await expect(service.update(MIX_ID, USER_ID, { mixcloudKey: MIXCLOUD_KEY })).rejects.toThrow(
-        'A mix cannot have both an audio file and a Mixcloud key',
+      await expect(
+        service.update(MIX_ID, USER_ID, {
+          sourceType: SOURCE_TYPE,
+          sourceRef: SOURCE_REF,
+        }),
+      ).rejects.toThrow(
+        'A mix cannot have both an audio file and a remote source',
       );
       expect(prisma.mix.update).not.toHaveBeenCalled();
     });
 
-    it('refuses to clear the Mixcloud key of a mix that has no audio', async () => {
-      prisma.mix.findUnique.mockResolvedValue({ id: MIX_ID, userId: USER_ID, audioUrl: null, mixcloudKey: MIXCLOUD_KEY });
+    it('refuses to clear the source of a mix that has no audio', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: USER_ID,
+        audioUrl: null,
+        sourceType: SOURCE_TYPE,
+        sourceRef: SOURCE_REF,
+      });
 
-      await expect(service.update(MIX_ID, USER_ID, { mixcloudKey: '' })).rejects.toThrow(
-        'A mix must have either an audio file or a Mixcloud key',
+      await expect(
+        service.update(MIX_ID, USER_ID, { sourceType: '', sourceRef: '' }),
+      ).rejects.toThrow(
+        'A mix must have either an audio file or a remote source',
       );
       expect(prisma.mix.update).not.toHaveBeenCalled();
     });
 
-    it('allows correcting the Mixcloud key of a Mixcloud-hosted mix', async () => {
-      prisma.mix.findUnique.mockResolvedValue({ id: MIX_ID, userId: USER_ID, audioUrl: null, mixcloudKey: MIXCLOUD_KEY });
+    it('allows correcting the sourceRef of a remotely-hosted mix', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: USER_ID,
+        audioUrl: null,
+        sourceType: SOURCE_TYPE,
+        sourceRef: SOURCE_REF,
+      });
 
-      await service.update(MIX_ID, USER_ID, { mixcloudKey: '/Notamusic/another-mix/' });
+      await service.update(MIX_ID, USER_ID, {
+        sourceRef: '/Notamusic/another-mix/',
+      });
 
       expect(prisma.mix.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ mixcloudKey: '/Notamusic/another-mix/' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({
+            sourceType: SOURCE_TYPE,
+            sourceRef: '/Notamusic/another-mix/',
+          }),
+        }),
       );
+    });
+
+    it('refuses half a pair: a sourceRef edit that would leave sourceType behind alone unset', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: USER_ID,
+        audioUrl: null,
+        sourceType: null,
+        sourceRef: null,
+      });
+
+      await expect(
+        service.update(MIX_ID, USER_ID, { sourceRef: SOURCE_REF }),
+      ).rejects.toThrow('A remote source needs both sourceType and sourceRef');
+      expect(prisma.mix.update).not.toHaveBeenCalled();
     });
 
     it('leaves an untouched audio source alone when editing other fields', async () => {
-      prisma.mix.findUnique.mockResolvedValue({ id: MIX_ID, userId: USER_ID, audioUrl: AUDIO_KEY, mixcloudKey: null });
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: USER_ID,
+        audioUrl: AUDIO_KEY,
+        sourceType: null,
+        sourceRef: null,
+      });
 
       await service.update(MIX_ID, USER_ID, { title: 'Renamed' });
 
@@ -146,33 +261,45 @@ describe('MixesService', () => {
     });
 
     it('still refuses an edit by someone other than the owner', async () => {
-      prisma.mix.findUnique.mockResolvedValue({ id: MIX_ID, userId: 'someone-else', audioUrl: AUDIO_KEY, mixcloudKey: null });
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: 'someone-else',
+        audioUrl: AUDIO_KEY,
+        sourceType: null,
+        sourceRef: null,
+      });
 
-      await expect(service.update(MIX_ID, USER_ID, { mixcloudKey: MIXCLOUD_KEY })).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await expect(
+        service.update(MIX_ID, USER_ID, {
+          sourceType: SOURCE_TYPE,
+          sourceRef: SOURCE_REF,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('still reports a missing mix as missing', async () => {
       prisma.mix.findUnique.mockResolvedValue(null);
 
-      await expect(service.update(MIX_ID, USER_ID, { mixcloudKey: MIXCLOUD_KEY })).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.update(MIX_ID, USER_ID, {
+          sourceType: SOURCE_TYPE,
+          sourceRef: SOURCE_REF,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
   /**
    * `playsCount` is Tambouille's own number and it drives public ordering —
-   * `sort=plays` on Discover, and the following feed. A Mixcloud-hosted mix is
-   * streamed by Mixcloud, so its plays belong to Mixcloud's counter and the UI
+   * `sort=plays` on Discover, and the following feed. A remotely-hosted mix is
+   * streamed by its host, so its plays belong to that host's counter and the UI
    * never shows one for it. Counting them here would leave an invisible number
    * ranking those lists, so the endpoint itself refuses to move the counter —
    * not the client, which anyone can bypass by POSTing the public route.
    */
   describe('registerPlay — only a Tambouille-hosted play counts', () => {
     it('increments the count for a mix whose audio Tambouille serves', async () => {
-      prisma.mix.findUnique.mockResolvedValue({ mixcloudKey: null });
+      prisma.mix.findUnique.mockResolvedValue({ sourceType: null });
 
       await service.registerPlay(MIX_ID);
 
@@ -182,8 +309,8 @@ describe('MixesService', () => {
       });
     });
 
-    it('leaves the count alone for a Mixcloud-hosted mix', async () => {
-      prisma.mix.findUnique.mockResolvedValue({ mixcloudKey: MIXCLOUD_KEY });
+    it('leaves the count alone for a remotely-hosted mix', async () => {
+      prisma.mix.findUnique.mockResolvedValue({ sourceType: SOURCE_TYPE });
 
       await service.registerPlay(MIX_ID);
 
@@ -192,15 +319,17 @@ describe('MixesService', () => {
       expect(prisma.mix.update).not.toHaveBeenCalled();
     });
 
-    it('still records a Mixcloud-hosted play in the listener’s own history', async () => {
-      prisma.mix.findUnique.mockResolvedValue({ mixcloudKey: MIXCLOUD_KEY });
+    it('still records a remotely-hosted play in the listener’s own history', async () => {
+      prisma.mix.findUnique.mockResolvedValue({ sourceType: SOURCE_TYPE });
 
       await service.registerPlay(MIX_ID, USER_ID);
 
       // "What I played recently" is a personal trail, not a public score, and
       // it would lie about the user's own listening if it skipped these.
       expect(prisma.playHistory.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId_mixId: { userId: USER_ID, mixId: MIX_ID } } }),
+        expect.objectContaining({
+          where: { userId_mixId: { userId: USER_ID, mixId: MIX_ID } },
+        }),
       );
       expect(prisma.mix.update).not.toHaveBeenCalled();
     });
@@ -208,7 +337,9 @@ describe('MixesService', () => {
     it('reports a play on a mix that does not exist as missing', async () => {
       prisma.mix.findUnique.mockResolvedValue(null);
 
-      await expect(service.registerPlay(MIX_ID, USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.registerPlay(MIX_ID, USER_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.mix.update).not.toHaveBeenCalled();
       expect(prisma.playHistory.upsert).not.toHaveBeenCalled();
     });
@@ -226,7 +357,9 @@ describe('MixesService', () => {
    */
   describe('listFollowingFeed — ordered by recency', () => {
     beforeEach(() => {
-      prisma.follow.findMany.mockResolvedValue([{ followingId: 'followed-user' }]);
+      prisma.follow.findMany.mockResolvedValue([
+        { followingId: 'followed-user' },
+      ]);
       prisma.mix.findMany.mockResolvedValue([]);
       prisma.mix.count.mockResolvedValue(0);
     });
@@ -252,7 +385,13 @@ describe('MixesService', () => {
 
       const result = await service.listFollowingFeed(USER_ID, {});
 
-      expect(result).toEqual({ items: [], total: 0, page: 1, limit: 20, totalPages: 1 });
+      expect(result).toEqual({
+        items: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      });
       expect(prisma.mix.findMany).not.toHaveBeenCalled();
     });
   });
@@ -276,14 +415,23 @@ describe('MixesService', () => {
     function mockFill(...roundsInOrder: string[][]) {
       const rounds = [...roundsInOrder];
       prisma.mix.findMany.mockImplementation((args: any) => {
-        if (args?.select) return Promise.resolve((rounds.shift() ?? []).map((id) => ({ id })));
-        return Promise.resolve((args.where.id.in as string[]).map((id) => mixRow({ id })));
+        if (args?.select)
+          return Promise.resolve((rounds.shift() ?? []).map((id) => ({ id })));
+        return Promise.resolve(
+          (args.where.id.in as string[]).map((id) => mixRow({ id })),
+        );
       });
     }
 
     beforeEach(() => {
-      prisma.mix.findUnique.mockResolvedValue({ id: SOURCE, tags: ['italo disco'] });
-      prisma.playHistory.findMany.mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }]);
+      prisma.mix.findUnique.mockResolvedValue({
+        id: SOURCE,
+        tags: ['italo disco'],
+      });
+      prisma.playHistory.findMany.mockResolvedValue([
+        { userId: 'u1' },
+        { userId: 'u2' },
+      ]);
       prisma.playHistory.groupBy.mockResolvedValue([]);
       mockFill();
     });
@@ -299,12 +447,20 @@ describe('MixesService', () => {
       prisma.mix.findMany.mockImplementation((args: any) =>
         args?.select
           ? Promise.resolve([])
-          : Promise.resolve([mixRow({ id: 'worst' }), mixRow({ id: 'best' }), mixRow({ id: 'middle' })]),
+          : Promise.resolve([
+              mixRow({ id: 'worst' }),
+              mixRow({ id: 'best' }),
+              mixRow({ id: 'middle' }),
+            ]),
       );
 
       const result = await service.listSuggestions(SOURCE, 3);
 
-      expect(result.items.map((item) => item.id)).toEqual(['best', 'middle', 'worst']);
+      expect(result.items.map((item) => item.id)).toEqual([
+        'best',
+        'middle',
+        'worst',
+      ]);
     });
 
     it('ne se suggère jamais lui-même', async () => {
@@ -330,7 +486,9 @@ describe('MixesService', () => {
     });
 
     it('complète par les tags seulement quand le signal ne remplit pas la liste', async () => {
-      prisma.playHistory.groupBy.mockResolvedValue([{ mixId: 'ranked', _count: { userId: 2 } }]);
+      prisma.playHistory.groupBy.mockResolvedValue([
+        { mixId: 'ranked', _count: { userId: 2 } },
+      ]);
       mockFill(['tagged', 'tagged2']);
 
       const result = await service.listSuggestions(SOURCE, 3);
@@ -339,7 +497,11 @@ describe('MixesService', () => {
       expect(fillerArgs.take).toBe(2);
       expect(fillerArgs.where.tags).toEqual({ hasSome: ['italo disco'] });
       // Le remplissage vient après le classement, il ne s'y intercale pas.
-      expect(result.items.map((item) => item.id)).toEqual(['ranked', 'tagged', 'tagged2']);
+      expect(result.items.map((item) => item.id)).toEqual([
+        'ranked',
+        'tagged',
+        'tagged2',
+      ]);
     });
 
     /**
@@ -356,7 +518,11 @@ describe('MixesService', () => {
         const [, secondFill] = prisma.mix.findMany.mock.calls;
         // Deuxième palier : plus aucune contrainte de tag, mais toujours les exclusions.
         expect(secondFill[0].where.tags).toBeUndefined();
-        expect(result.items.map((item) => item.id)).toEqual(['recent1', 'recent2', 'recent3']);
+        expect(result.items.map((item) => item.id)).toEqual([
+          'recent1',
+          'recent2',
+          'recent3',
+        ]);
       });
 
       it('accepte en dernier recours ce que le visiteur a déjà écouté', async () => {
@@ -373,7 +539,10 @@ describe('MixesService', () => {
         expect(dernier.where.id.notIn).toContain(SOURCE);
         // …mais l'historique, lui, redevient éligible.
         expect(dernier.where.id.notIn).not.toContain('heard1');
-        expect(result.items.map((item) => item.id)).toEqual(['heard1', 'heard2']);
+        expect(result.items.map((item) => item.id)).toEqual([
+          'heard1',
+          'heard2',
+        ]);
       });
 
       it('n’interroge aucun palier de repli quand le classement a déjà rempli la liste', async () => {
@@ -386,7 +555,9 @@ describe('MixesService', () => {
         await service.listSuggestions(SOURCE, 3);
 
         // Seule la relecture finale doit toucher la base, aucune recherche de remplissage.
-        const recherches = prisma.mix.findMany.mock.calls.filter(([args]: any) => args?.select);
+        const recherches = prisma.mix.findMany.mock.calls.filter(
+          ([args]: any) => args?.select,
+        );
         expect(recherches).toHaveLength(0);
       });
     });
@@ -402,7 +573,37 @@ describe('MixesService', () => {
     it('signale un mix inexistant plutôt que de suggérer à partir de rien', async () => {
       prisma.mix.findUnique.mockResolvedValue(null);
 
-      await expect(service.listSuggestions('nope', 3)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.listSuggestions('nope', 3)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
+  });
+});
+
+describe('assertExactlyOneAudioSource', () => {
+  const valid: [string | null, string | null, string | null][] = [
+    ['audio/abc.mp3', null, null],
+    [null, 'mixcloud', '/Notamusic/antimythes/'],
+    [null, 'remote', 'https://archive.org/download/x/y.mp3'],
+  ];
+  it.each(valid)(
+    'accepts audioUrl=%s type=%s ref=%s',
+    (audioUrl, type, ref) => {
+      expect(() =>
+        assertExactlyOneAudioSource(audioUrl, type, ref),
+      ).not.toThrow();
+    },
+  );
+
+  const invalid: [string, string | null, string | null, string | null][] = [
+    ['no source at all', null, null, null],
+    ['both sources', 'audio/abc.mp3', 'remote', 'https://example.org/x.mp3'],
+    ['half a pair: type without ref', null, 'remote', null],
+    ['half a pair: ref without type', null, null, 'https://example.org/x.mp3'],
+  ];
+  it.each(invalid)('rejects %s', (_label, audioUrl, type, ref) => {
+    expect(() => assertExactlyOneAudioSource(audioUrl, type, ref)).toThrow(
+      BadRequestException,
+    );
   });
 });

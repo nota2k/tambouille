@@ -25,18 +25,35 @@ const widgetError = ref('')
  */
 const widgetLoading = ref(false)
 
-/** R2-hosted audio. Undefined on a Mixcloud-hosted mix. */
-const audioSrc = computed(() => mediaUrl(playerStore.currentMix?.audioUrl))
-/** Mixcloud cloudcast key. Null on an R2-hosted mix. */
-const mixcloudKey = computed(() => playerStore.currentMix?.mixcloudKey ?? null)
+/** Cloudcast key. Null unless this mix plays through the Mixcloud widget. */
+const mixcloudRef = computed(() =>
+  playerStore.currentMix?.sourceType === 'mixcloud' ? playerStore.currentMix.sourceRef : null,
+)
+/**
+ * A directly playable URL: R2 goes through `mediaUrl`, anything else is already
+ * absolute. Both end up on the same `<audio>` element — the point of the
+ * source pair is that only Mixcloud needs its own engine.
+ */
+const audioSrc = computed(() => {
+  const mix = playerStore.currentMix
+  if (!mix) return undefined
+  if (mix.sourceType === 'remote') return mix.sourceRef ?? undefined
+  return mediaUrl(mix.audioUrl)
+})
 /** Neither source: the backend forbids it, but a stale payload must still not look playable. */
 const hasNoSource = computed(
-  () => playerStore.currentMix != null && !audioSrc.value && !mixcloudKey.value,
+  () => playerStore.currentMix != null && !audioSrc.value && !mixcloudRef.value,
 )
+/** Set when the element itself fails, as opposed to the Mixcloud widget. */
+const audioError = ref('')
 const playbackError = computed(() =>
-  hasNoSource.value ? "Ce mix n'a pas de source audio et ne peut pas être lu." : widgetError.value,
+  hasNoSource.value
+    ? "Ce mix n'a pas de source audio et ne peut pas être lu."
+    : widgetError.value || audioError.value,
 )
-const canPlay = computed(() => !hasNoSource.value && !widgetError.value)
+const canPlay = computed(
+  () => !hasNoSource.value && !widgetError.value && !audioError.value,
+)
 
 const currentTrack = computed(() => {
   const tracklist = playerStore.currentMix?.tracklist
@@ -271,6 +288,24 @@ async function setupWidget(mixId: string, key: string) {
 
 // --- Shared transport -----------------------------------------------------
 
+/**
+ * On R2 the object is either there or it is not, so this never fired. With a
+ * remote source, a file that has moved or gone is the ordinary case — and
+ * without this the bar sits at 0:00 saying nothing, which is exactly what the
+ * Mixcloud path takes such care to avoid.
+ */
+function onAudioError() {
+  // A `src` cleared between mixes makes the element fire `error` on an empty
+  // source; there is nothing broken to report in that case.
+  if (!audioSrc.value) return
+
+  audioError.value =
+    playerStore.currentMix?.sourceType === 'remote'
+      ? 'La source de ce mix ne répond plus — elle a peut-être été retirée.'
+      : 'Ce fichier audio est illisible.'
+  playerStore.pause()
+}
+
 function applyPendingSeek() {
   const seconds = playerStore.pendingSeekSec
   if (seconds == null) return
@@ -292,6 +327,7 @@ watch(
   () => {
     duration.value = 0
     widgetError.value = ''
+    audioError.value = ''
     teardownWidget()
 
     if (playerStore.currentMix) {
@@ -306,7 +342,7 @@ watch(
 
     // First use of a Mixcloud-hosted mix is what pulls the widget script down.
     const mix = playerStore.currentMix
-    if (mix?.mixcloudKey) void setupWidget(mix.id, mix.mixcloudKey)
+    if (mix?.sourceType === 'mixcloud' && mix.sourceRef) void setupWidget(mix.id, mix.sourceRef)
   },
 )
 
@@ -327,7 +363,7 @@ watch(
 watch(
   () => playerStore.isPlaying,
   (isPlaying) => {
-    if (mixcloudKey.value) {
+    if (mixcloudRef.value) {
       if (!isPlaying) {
         playWhenLoaded = false
         // Whatever was still coming up, the user has stopped asking for it. Dropping the
@@ -405,7 +441,7 @@ function onEnded() {
       change hands `setupWidget` a fresh, blank element, which is what it expects.
     -->
     <iframe
-      v-if="mixcloudKey"
+      v-if="mixcloudRef"
       :key="playerStore.currentMix.id"
       ref="mixcloudFrame"
       title="Lecteur Mixcloud"
@@ -422,6 +458,7 @@ function onEnded() {
       @timeupdate="onTimeUpdate"
       @loadedmetadata="onLoadedMetadata"
       @ended="onEnded"
+      @error="onAudioError"
     />
 
     <p

@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
@@ -44,13 +49,17 @@ function parseTracklist(tracklist?: string): TracklistEntryInput[] {
       typeof (entry as any).title !== 'string' ||
       typeof (entry as any).timecodeSec !== 'number'
     ) {
-      throw new BadRequestException(`Invalid tracklist entry at index ${index}`);
+      throw new BadRequestException(
+        `Invalid tracklist entry at index ${index}`,
+      );
     }
     const artist = (entry as any).artist.trim().slice(0, 200);
     const title = (entry as any).title.trim().slice(0, 200);
     const timecodeSec = Math.max(0, Math.round((entry as any).timecodeSec));
     if (!artist || !title) {
-      throw new BadRequestException(`Invalid tracklist entry at index ${index}`);
+      throw new BadRequestException(
+        `Invalid tracklist entry at index ${index}`,
+      );
     }
     return { artist, title, timecodeSec };
   });
@@ -59,25 +68,40 @@ function parseTracklist(tracklist?: string): TracklistEntryInput[] {
 }
 
 /**
- * A mix carries exactly one audio source: an R2 object key, or a Mixcloud
- * cloudcast key. Prisma cannot express "exactly one of these two columns",
- * so the rule lives here — the single door every write goes through.
+ * A mix carries exactly one audio source: an R2 object key, or a
+ * `sourceType`/`sourceRef` pair naming somewhere else. Prisma cannot express
+ * that, so the rule lives here — the single door every write goes through.
  *
- * Both failure cases are real states someone can ask for, and each gets its
- * own message: with neither source the mix is unplayable, and with both it is
- * ambiguous about which one the player should use.
+ * Three states are refusable and each gets its own message, because each is
+ * something a caller can genuinely ask for: with no source the mix is
+ * unplayable; with both it is ambiguous about which the player should use;
+ * with half a pair it names a player engine with nothing to hand it.
  *
  * Exported so `MixesController` can reject a hopeless create *before* it
  * imports a cover into R2, which nothing in this codebase can delete. That
  * early call is a cheap gate in front of this rule, never a replacement for
  * it: this remains the guarantee for every caller, including later ones.
  */
-export function assertExactlyOneAudioSource(audioUrl: string | null, mixcloudKey: string | null): void {
-  if (!audioUrl && !mixcloudKey) {
-    throw new BadRequestException('A mix must have either an audio file or a Mixcloud key');
+export function assertExactlyOneAudioSource(
+  audioUrl: string | null,
+  sourceType: string | null,
+  sourceRef: string | null,
+): void {
+  if (Boolean(sourceType) !== Boolean(sourceRef)) {
+    throw new BadRequestException(
+      'A remote source needs both sourceType and sourceRef',
+    );
   }
-  if (audioUrl && mixcloudKey) {
-    throw new BadRequestException('A mix cannot have both an audio file and a Mixcloud key');
+  const hasRemote = Boolean(sourceType);
+  if (!audioUrl && !hasRemote) {
+    throw new BadRequestException(
+      'A mix must have either an audio file or a remote source',
+    );
+  }
+  if (audioUrl && hasRemote) {
+    throw new BadRequestException(
+      'A mix cannot have both an audio file and a remote source',
+    );
   }
 }
 
@@ -86,13 +110,25 @@ export function buildMixInclude(currentUserId?: string) {
   return {
     include: {
       user: {
-        select: { id: true, username: true, displayName: true, avatarUrl: true },
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+        },
       },
       tracklist: {
         orderBy: { timecodeSec: 'asc' as const },
       },
       _count: { select: { favorites: true, comments: true } },
-      ...(currentUserId ? { favorites: { where: { userId: currentUserId }, select: { id: true } } } : {}),
+      ...(currentUserId
+        ? {
+            favorites: {
+              where: { userId: currentUserId },
+              select: { id: true },
+            },
+          }
+        : {}),
     },
   } as const;
 }
@@ -124,11 +160,10 @@ export class MixesService {
     dto: CreateMixDto,
     files: { audioUrl?: string; coverUrl?: string },
   ) {
-    // An absent upload and a blank Mixcloud key are the same thing — no
-    // source — so both are normalised to null before the rule sees them.
     const audioUrl = files.audioUrl || null;
-    const mixcloudKey = dto.mixcloudKey || null;
-    assertExactlyOneAudioSource(audioUrl, mixcloudKey);
+    const sourceType = dto.sourceType || null;
+    const sourceRef = dto.sourceRef || null;
+    assertExactlyOneAudioSource(audioUrl, sourceType, sourceRef);
 
     const mix = await this.prisma.mix.create({
       data: {
@@ -136,7 +171,13 @@ export class MixesService {
         description: dto.description,
         tags: parseTags(dto.tags),
         audioUrl,
-        mixcloudKey,
+        sourceType,
+        sourceRef,
+        // Archive.org reports each file's length and an RSS item carries
+        // <itunes:duration>, so an imported mix knows its own duration where an
+        // uploaded one does not (nothing probes the file server-side). This is
+        // what lights up "1 h 12 · 18 morceaux" in the feed.
+        durationSec: dto.durationSec ?? null,
         coverUrl: files.coverUrl,
         userId,
         tracklist: { create: parseTracklist(dto.tracklist) },
@@ -156,18 +197,35 @@ export class MixesService {
           ? {
               OR: [
                 { title: { contains: query.q, mode: 'insensitive' as const } },
-                { description: { contains: query.q, mode: 'insensitive' as const } },
+                {
+                  description: {
+                    contains: query.q,
+                    mode: 'insensitive' as const,
+                  },
+                },
               ],
             }
           : {},
         query.tags
-          ? { tags: { hasEvery: query.tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean) } }
-          : query.tag ? { tags: { has: query.tag.toLowerCase() } } : {},
+          ? {
+              tags: {
+                hasEvery: query.tags
+                  .split(',')
+                  .map((t) => t.trim().toLowerCase())
+                  .filter(Boolean),
+              },
+            }
+          : query.tag
+            ? { tags: { has: query.tag.toLowerCase() } }
+            : {},
         query.username ? { user: { username: query.username } } : {},
       ],
     };
 
-    const orderBy = query.sort === 'plays' ? { playsCount: 'desc' as const } : { createdAt: 'desc' as const };
+    const orderBy =
+      query.sort === 'plays'
+        ? { playsCount: 'desc' as const }
+        : { createdAt: 'desc' as const };
 
     const [items, total] = await Promise.all([
       this.prisma.mix.findMany({
@@ -190,14 +248,22 @@ export class MixesService {
   }
 
   async findOne(id: string, currentUserId?: string) {
-    const mix = await this.prisma.mix.findUnique({ where: { id }, ...buildMixInclude(currentUserId) });
+    const mix = await this.prisma.mix.findUnique({
+      where: { id },
+      ...buildMixInclude(currentUserId),
+    });
     if (!mix) {
       throw new NotFoundException('Mix not found');
     }
     return toMixResponse(mix);
   }
 
-  async update(id: string, userId: string, dto: UpdateMixDto, coverUrl?: string) {
+  async update(
+    id: string,
+    userId: string,
+    dto: UpdateMixDto,
+    coverUrl?: string,
+  ) {
     const mix = await this.prisma.mix.findUnique({ where: { id } });
     if (!mix) {
       throw new NotFoundException('Mix not found');
@@ -212,18 +278,22 @@ export class MixesService {
     if (dto.tags !== undefined) data.tags = parseTags(dto.tags);
     if (coverUrl !== undefined) data.coverUrl = coverUrl;
     if (dto.tracklist !== undefined) {
-      data.tracklist = { deleteMany: {}, create: parseTracklist(dto.tracklist) };
+      data.tracklist = {
+        deleteMany: {},
+        create: parseTracklist(dto.tracklist),
+      };
     }
 
     // Update never touches `audioUrl` — this route accepts no audio upload —
-    // so the rule is checked against the state the write would leave behind:
-    // the stored audio key, and whatever Mixcloud key this request implies.
+    // so the rule is checked against the state the write would leave behind.
     // That refuses both conversions, which are out of scope, while still
-    // letting a Mixcloud-hosted mix correct a mistyped key.
-    if (dto.mixcloudKey !== undefined) {
-      const mixcloudKey = dto.mixcloudKey || null;
-      assertExactlyOneAudioSource(mix.audioUrl, mixcloudKey);
-      data.mixcloudKey = mixcloudKey;
+    // letting a remotely-hosted mix correct a mistyped reference.
+    if (dto.sourceType !== undefined || dto.sourceRef !== undefined) {
+      const sourceType = (dto.sourceType ?? mix.sourceType) || null;
+      const sourceRef = (dto.sourceRef ?? mix.sourceRef) || null;
+      assertExactlyOneAudioSource(mix.audioUrl, sourceType, sourceRef);
+      data.sourceType = sourceType;
+      data.sourceRef = sourceRef;
     }
 
     const updated = await this.prisma.mix.update({
@@ -368,8 +438,8 @@ export class MixesService {
   }
 
   /**
-   * `playsCount` counts plays that happened *on Tambouille*. A Mixcloud-hosted mix is
-   * streamed by Mixcloud — that is the whole point of importing one — and its play count
+   * `playsCount` counts plays that happened *on Tambouille*. A remotely-hosted mix is
+   * streamed by the host — that is the whole point of importing one — and its play count
    * lives there, which is why the UI never shows one for it. Counting those plays anyway
    * would leave an invisible number ranking `sort=plays` and the following feed, so the
    * increment is skipped here rather than in the client: the endpoint is public, and the
@@ -382,13 +452,13 @@ export class MixesService {
   async registerPlay(id: string, userId?: string) {
     const mix = await this.prisma.mix.findUnique({
       where: { id },
-      select: { mixcloudKey: true },
+      select: { sourceType: true },
     });
     if (!mix) {
       throw new NotFoundException('Mix not found');
     }
 
-    if (!mix.mixcloudKey) {
+    if (!mix.sourceType) {
       await this.prisma.mix.update({
         where: { id },
         data: { playsCount: { increment: 1 } },

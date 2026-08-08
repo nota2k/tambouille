@@ -1,5 +1,13 @@
-import { IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
-import { KEY_PATTERN as MIXCLOUD_KEY_PATTERN } from '../../mixcloud/mixcloud.service';
+import {
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  Validate,
+  ValidateIf,
+} from 'class-validator';
+import { SourceRefConstraint } from './source-ref.constraint';
 
 export class UpdateMixDto {
   @IsOptional()
@@ -25,17 +33,32 @@ export class UpdateMixDto {
   tracklist?: string;
 
   /**
-   * Corrects the cloudcast key of a Mixcloud-hosted mix. Same pattern as the
-   * relay's, imported rather than restated.
-   *
-   * This cannot convert a mix from one host to the other: `MixesService`
-   * refuses the result if it would leave the mix with both sources or with
-   * none, which is what either conversion would do. An empty string is let
-   * through so that attempt is answered by the rule, not by the regex.
+   * Which player engine the audio needs: 'mixcloud' or 'remote'. Paired with
+   * `sourceRef`; `MixesService` refuses one without the other.
    */
-  @ValidateIf((dto: UpdateMixDto) => Boolean(dto.mixcloudKey))
+  @IsOptional()
   @IsString()
-  @MaxLength(300)
-  @Matches(MIXCLOUD_KEY_PATTERN, { message: 'mixcloudKey is not a valid Mixcloud key' })
-  mixcloudKey?: string;
+  @IsIn(['mixcloud', 'remote'])
+  sourceType?: string;
+
+  /**
+   * What `sourceType` lets us interpret: a cloudcast key, or an https URL to a
+   * directly playable audio file.
+   *
+   * A cloudcast key is later interpolated into a Mixcloud URL, so it must
+   * satisfy the relay's own guard — the pattern is imported, never restated.
+   * A remote URL is never fetched by the server, but it is served to every
+   * visitor's browser, so it is held to https and to a public address.
+   *
+   * An empty string is deliberately let through instead of being rejected
+   * here, so the service can name the real problem — no audio source at all —
+   * rather than answering a blank field with a regex.
+   */
+  @ValidateIf((dto: { sourceType?: string; sourceRef?: string }) =>
+    Boolean(dto.sourceRef),
+  )
+  @IsString()
+  @MaxLength(2048)
+  @Validate(SourceRefConstraint)
+  sourceRef?: string;
 }

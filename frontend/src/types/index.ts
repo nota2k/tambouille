@@ -34,10 +34,12 @@ export interface Mix {
   id: string
   title: string
   description: string | null
-  /** R2 object key. Null when the audio is hosted on Mixcloud. */
+  /** R2 object key. Null when the audio lives elsewhere. */
   audioUrl: string | null
-  /** Mixcloud cloudcast key, e.g. `/Notamusic/vorwerk-7-passages-pas-sages/`. Null when the audio is hosted on R2. */
-  mixcloudKey: string | null
+  /** `'mixcloud' | 'remote'`. Null when the audio is on R2. */
+  sourceType: string | null
+  /** Cloudcast key, or a directly playable audio URL. Null when the audio is on R2. */
+  sourceRef: string | null
   coverUrl: string | null
   durationSec: number | null
   playsCount: number
@@ -128,34 +130,32 @@ export interface AuthResponse {
   user: AuthUser
 }
 
-/** Le compte Mixcloud qui a publié le mix — distinct du compte Tambouille qui l'importe. */
-export interface MixcloudArtist {
-  name: string
-  username: string
-  profileUrl?: string
-}
-
-export interface MixcloudCloudcastSummary {
-  key: string
-  name: string
-  tags: string[]
-  pictureUrl?: string
-  audioLengthSec?: number
-  createdAt?: string
-  artist?: MixcloudArtist
-}
-
-export interface MixcloudTracklistEntry {
-  artist: string
+/** Une entrée d'une collection — compte Mixcloud, item Archive.org, flux RSS —
+ *  parmi lesquelles il reste à choisir. `ref` est opaque et repart telle quelle. */
+export interface SourceItem {
+  ref: string
   title: string
-  timecodeSec: number
+  durationSec?: number
+  coverUrl?: string
+  publishedAt?: string
 }
 
-export interface MixcloudCloudcastImport {
+/** De quoi préremplir le formulaire à partir d'une entrée de source. */
+export interface MixImport {
   title: string
   description: string
   tags: string[]
   coverSourceUrl?: string
-  tracklist: MixcloudTracklistEntry[]
-  artist?: MixcloudArtist
+  durationSec?: number
+  tracklist: { artist: string; title: string; timecodeSec: number }[]
+  sourceType: 'mixcloud' | 'remote'
+  sourceRef: string
+  sourceLabel: string
+  sourcePageUrl?: string
 }
+
+/** Un corps JSON ne se filtre pas comme une union TypeScript : les deux issues
+ *  de `POST /imports/resolve` sont donc discriminées explicitement. */
+export type ResolveResponse =
+  | { kind: 'mix'; mix: MixImport }
+  | { kind: 'list'; items: SourceItem[] }

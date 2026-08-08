@@ -68,13 +68,17 @@ model Mix {
   id           String   @id @default(uuid())
   title        String
   description  String?
-  // Exactly one of `audioUrl` and `mixcloudKey` is set. Prisma cannot express
-  // that, so `MixesService` enforces it on create and update: a mix with
-  // neither is unplayable, and a mix with both is ambiguous about which wins.
-  /// R2 object key. Null when the audio is hosted on Mixcloud.
+  // Exactly one audio source: either `audioUrl` alone, or `sourceType` and
+  // `sourceRef` together. Prisma cannot express that, so `MixesService`
+  // enforces it on create and update.
+  /// R2 object key. Null when the audio lives elsewhere.
   audioUrl     String?
-  /// Mixcloud cloudcast key, e.g. "/Notamusic/vorwerk-7-passages-pas-sages/".
-  mixcloudKey  String?
+  /// 'mixcloud' | 'remote'. Null when the audio is on R2. A plain string, not
+  /// an enum: adding a source must not need a migration.
+  sourceType   String?
+  /// Interpreted according to `sourceType`: a cloudcast key
+  /// ("/Notamusic/antimythes/") or a directly playable audio URL.
+  sourceRef    String?
   coverUrl     String?
   durationSec  Int?
   playsCount   Int      @default(0)
