@@ -63,7 +63,6 @@ let widgetHasPlayed = false
  * handler that flipped the store, and it is the only thing that lets the load path call `play()`.
  */
 let playWhenLoaded = false
-let readyTimer: ReturnType<typeof setTimeout> | null = null
 
 /**
  * Reads the browser's transient activation. The watcher that calls it runs with
@@ -104,14 +103,7 @@ function onWidgetError() {
   playerStore.pause()
 }
 
-function clearReadyTimer() {
-  if (readyTimer === null) return
-  clearTimeout(readyTimer)
-  readyTimer = null
-}
-
 function teardownWidget() {
-  clearReadyTimer()
   if (widget) {
     widget.events.progress.off(onWidgetProgress)
     widget.events.play.off(onWidgetPlay)
@@ -159,37 +151,56 @@ async function awaitCloudcast(owner: MixcloudWidget) {
 }
 
 /**
- * Builds the widget for `key`. Every await re-checks the key, so a fast mix switch cannot
- * leave two widgets alive.
+ * Is `mixId` still the mix this run is building for? Every await re-asks, so a fast mix
+ * switch cannot leave two widgets alive.
+ *
+ * The question is asked about the mix *id*, never the cloudcast key. A key is not unique
+ * across rows — two users can import the same public cloudcast — so a key comparison would
+ * answer "yes, still current" after a switch between two mixes that happen to share one,
+ * and this run would go on wiring itself to a frame that has since been replaced.
+ */
+function isCurrentMix(mixId: string): boolean {
+  return playerStore.currentMix?.id === mixId
+}
+
+/**
+ * Builds the widget for the mix `mixId`, whose cloudcast is `key`.
  *
  * The order below is not incidental. `PlayerWidget()` completes its handshake by catching the
  * message the iframe posts once it has loaded; a widget built after that message has already
  * gone by never resolves `ready`. So the iframe is rendered blank, the script is fetched, the
  * widget is built on the empty frame, and only then is the feed URL assigned.
  */
-async function setupWidget(key: string) {
+async function setupWidget(mixId: string, key: string) {
   teardownWidget()
 
-  // The iframe is rendered by `v-if` on the same tick the mix changed, and keyed on
-  // `mixcloudKey`, so this is a pristine element with no src yet.
+  // The iframe is rendered by `v-if` on the same tick the mix changed, and keyed on the mix
+  // id, so this is a pristine element with no src yet.
   await nextTick()
   const frame = mixcloudFrame.value
-  if (!frame || mixcloudKey.value !== key) return
+  if (!frame || !isCurrentMix(mixId)) return
 
   let api
   try {
     api = await loadMixcloudWidgetApi()
   } catch {
-    if (mixcloudKey.value !== key) return
+    if (!isCurrentMix(mixId)) return
     widgetError.value = "Le lecteur Mixcloud n'a pas pu être chargé."
     playerStore.pause()
     return
   }
-  if (mixcloudKey.value !== key) return
+  if (!isCurrentMix(mixId)) return
 
   const created = api.PlayerWidget(frame)
   frame.src = mixcloudIframeSrc(key)
 
+  // The timeout handle is local to this run, and cleared the moment the race settles.
+  // It was module-level once, which meant concurrent runs shared one slot: a run that
+  // finished first cleared whatever timer the run after it had just armed, and that
+  // later run — the current one — then waited on a `ready` that would never resolve,
+  // with nothing left to reject it. A dead cloudcast reported no error at all, and the
+  // bar sat at 0:00 forever. Anything that outlives one run must not be shared by name.
+  let readyTimer: ReturnType<typeof setTimeout> | undefined
   try {
     await Promise.race([
       created.ready,
@@ -198,13 +209,14 @@ async function setupWidget(key: string) {
       }),
     ])
   } catch {
-    if (mixcloudKey.value !== key) return
+    if (!isCurrentMix(mixId)) return
     widgetError.value = "Ce mix est introuvable sur Mixcloud — il a peut-être été retiré."
     playerStore.pause()
     return
+  } finally {
+    clearTimeout(readyTimer)
   }
-  clearReadyTimer()
-  if (mixcloudKey.value !== key) return
+  if (!isCurrentMix(mixId)) return
 
   widget = created
   created.events.progress.on(onWidgetProgress)
@@ -252,8 +264,8 @@ watch(
     playWhenLoaded = playerStore.isPlaying && hasUserActivation()
 
     // First use of a Mixcloud-hosted mix is what pulls the widget script down.
-    const key = mixcloudKey.value
-    if (key) void setupWidget(key)
+    const mix = playerStore.currentMix
+    if (mix?.mixcloudKey) void setupWidget(mix.id, mix.mixcloudKey)
   },
 )
 
@@ -337,9 +349,16 @@ function onEnded() {
       Exactly one backend is mounted at a time. The Mixcloud widget is an iframe whose
       interior cannot be styled from here, so it is hidden and driven by the controls below.
     -->
+    <!--
+      Keyed on the mix id, not on the cloudcast key: two rows can carry the same key —
+      nothing stops two users importing the same public cloudcast — and a shared key would
+      leave Vue patching the existing iframe rather than replacing it, so the switch would
+      depend on reassigning `src` re-navigating the frame. The id is unique, so every mix
+      change hands `setupWidget` a fresh, blank element, which is what it expects.
+    -->
     <iframe
       v-if="mixcloudKey"
-      :key="mixcloudKey"
+      :key="playerStore.currentMix.id"
       ref="mixcloudFrame"
       title="Lecteur Mixcloud"
       aria-hidden="true"
