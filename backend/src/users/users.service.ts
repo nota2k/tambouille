@@ -13,9 +13,8 @@ const userSummarySelect = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-<<<<<<< HEAD
   async search(dto: SearchUsersDto) {
     const limit = dto.limit ?? 5;
     const q = dto.q.trim();
@@ -33,7 +32,8 @@ export class UsersService {
     });
 
     return { items: users };
-=======
+  }
+
   // Google-created accounts start with username === null until signup is
   // completed. Read and checked before any write below, so a null-username
   // account is refused up front instead of after the mutation has already
@@ -44,7 +44,6 @@ export class UsersService {
       throw new ConflictException('Choose a username before updating your profile');
     }
     return user.username;
->>>>>>> d23e2ad (fix(users): refuse profile updates until a username is chosen)
   }
 
   async getPublicProfile(username: string, currentUserId?: string) {
@@ -87,15 +86,7 @@ export class UsersService {
       where: { id: userId },
       data: dto,
     });
-<<<<<<< HEAD
-<<<<<<< HEAD
-    return this.getPublicProfile(user.username!);
-=======
-    return this.getPublicProfile(this.requireUsername(user));
->>>>>>> d23e2ad (fix(users): refuse profile updates until a username is chosen)
-=======
     return this.getPublicProfile(username);
->>>>>>> e609da8 (fix(users): check username before writing, not after)
   }
 
   async updateAvatar(userId: string, avatarUrl: string) {
@@ -104,15 +95,7 @@ export class UsersService {
       where: { id: userId },
       data: { avatarUrl },
     });
-<<<<<<< HEAD
-<<<<<<< HEAD
-    return this.getPublicProfile(user.username!);
-=======
-    return this.getPublicProfile(this.requireUsername(user));
->>>>>>> d23e2ad (fix(users): refuse profile updates until a username is chosen)
-=======
     return this.getPublicProfile(username);
->>>>>>> e609da8 (fix(users): check username before writing, not after)
   }
 
   async updateCover(userId: string, coverUrl: string) {
@@ -121,15 +104,7 @@ export class UsersService {
       where: { id: userId },
       data: { coverUrl },
     });
-<<<<<<< HEAD
-<<<<<<< HEAD
-    return this.getPublicProfile(user.username!);
-=======
-    return this.getPublicProfile(this.requireUsername(user));
->>>>>>> d23e2ad (fix(users): refuse profile updates until a username is chosen)
-=======
     return this.getPublicProfile(username);
->>>>>>> e609da8 (fix(users): check username before writing, not after)
   }
 
   async follow(currentUserId: string, targetUsername: string) {
