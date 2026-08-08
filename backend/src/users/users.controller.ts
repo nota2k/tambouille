@@ -22,7 +22,7 @@ import { PaginationDto } from './dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
-import { diskStorageFor, fileFilterFor, IMAGE_MIME_TYPES } from '../common/upload.utils';
+import { r2StorageFor, fileFilterFor, IMAGE_MIME_TYPES, type UploadedFile as R2File } from '../common/upload.utils';
 
 @Controller('users')
 export class UsersController {
@@ -76,31 +76,31 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('avatar', {
-      storage: diskStorageFor('avatars'),
+      storage: r2StorageFor('avatars'),
       fileFilter: fileFilterFor(IMAGE_MIME_TYPES),
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
-  uploadAvatar(@CurrentUserId() userId: string, @UploadedFile() file?: Express.Multer.File) {
+  uploadAvatar(@CurrentUserId() userId: string, @UploadedFile() file?: R2File) {
     if (!file) {
       throw new BadRequestException('avatar file is required');
     }
-    return this.usersService.updateAvatar(userId, `/uploads/avatars/${file.filename}`);
+    return this.usersService.updateAvatar(userId, file.key);
   }
 
   @Post('me/cover')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('cover', {
-      storage: diskStorageFor('banners'),
+      storage: r2StorageFor('banners'),
       fileFilter: fileFilterFor(IMAGE_MIME_TYPES),
       limits: { fileSize: 8 * 1024 * 1024 },
     }),
   )
-  uploadCover(@CurrentUserId() userId: string, @UploadedFile() file?: Express.Multer.File) {
+  uploadCover(@CurrentUserId() userId: string, @UploadedFile() file?: R2File) {
     if (!file) {
       throw new BadRequestException('cover file is required');
     }
-    return this.usersService.updateCover(userId, `/uploads/banners/${file.filename}`);
+    return this.usersService.updateCover(userId, file.key);
   }
 }

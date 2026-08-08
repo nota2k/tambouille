@@ -4,7 +4,3 @@ dist
 .env
 
 /generated/prisma
-
-# Uploaded user content (audio, covers, avatars)
-/uploads/*
-!/uploads/**/.gitkeep

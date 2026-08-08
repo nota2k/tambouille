@@ -279,9 +279,11 @@ import {
   fileFilterByField,
   fileFilterFor,
   IMAGE_MIME_TYPES,
-  UploadedFile,
+  UploadedFile as R2File,
 } from '../common/upload.utils';
 ```
+
+(Imported under the alias `R2File` — `mixes.controller.ts` already imports `UploadedFile` as the parameter decorator from `@nestjs/common`, so the type from `upload.utils.ts` needs a different local name to avoid a duplicate-identifier compile error. The decorator usage below, `@UploadedFile()`, is unaffected — only the *type annotation* after each such parameter uses `R2File`.)
 
 Change the local type:
 
@@ -296,8 +298,8 @@ to:
 
 ```typescript
 type UploadedFilesShape = {
-  audio?: UploadedFile[];
-  cover?: UploadedFile[];
+  audio?: R2File[];
+  cover?: R2File[];
 };
 ```
 
@@ -392,14 +394,14 @@ becomes:
     @Param('id') id: string,
     @CurrentUserId() userId: string,
     @Body() dto: UpdateMixDto,
-    @UploadedFile() file?: UploadedFile,
+    @UploadedFile() file?: R2File,
   ) {
     const coverUrl = file ? file.key : undefined;
     return this.mixesService.update(id, userId, dto, coverUrl);
   }
 ```
 
-(Note the `@UploadedFile()`-decorated parameter's *type annotation* changes from `Express.Multer.File` to `UploadedFile` — the `@UploadedFile()` decorator name itself, imported from `@nestjs/common`, is unrelated and unchanged.)
+(Note the `@UploadedFile()`-decorated parameter's *type annotation* changes from `Express.Multer.File` to `R2File` — the `@UploadedFile()` decorator name itself, imported from `@nestjs/common`, is unrelated and unchanged. `R2File` is the alias this plan gives `upload.utils.ts`'s `UploadedFile` type on import, precisely to avoid colliding with that decorator's own name.)
 
 - [ ] **Step 2: Update `users.controller.ts`**
 
@@ -412,8 +414,10 @@ import { diskStorageFor, fileFilterFor, IMAGE_MIME_TYPES } from '../common/uploa
 to:
 
 ```typescript
-import { r2StorageFor, fileFilterFor, IMAGE_MIME_TYPES, UploadedFile } from '../common/upload.utils';
+import { r2StorageFor, fileFilterFor, IMAGE_MIME_TYPES, UploadedFile as R2File } from '../common/upload.utils';
 ```
+
+(Aliased to `R2File` for the same reason as in `mixes.controller.ts`: this file already imports `UploadedFile` as the `@nestjs/common` parameter decorator, so the type from `upload.utils.ts` needs a different local name.)
 
 In `uploadAvatar()`:
 
@@ -443,7 +447,7 @@ becomes:
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
-  uploadAvatar(@CurrentUserId() userId: string, @UploadedFile() file?: UploadedFile) {
+  uploadAvatar(@CurrentUserId() userId: string, @UploadedFile() file?: R2File) {
     if (!file) {
       throw new BadRequestException('avatar file is required');
     }
@@ -479,7 +483,7 @@ becomes:
       limits: { fileSize: 8 * 1024 * 1024 },
     }),
   )
-  uploadCover(@CurrentUserId() userId: string, @UploadedFile() file?: UploadedFile) {
+  uploadCover(@CurrentUserId() userId: string, @UploadedFile() file?: R2File) {
     if (!file) {
       throw new BadRequestException('cover file is required');
     }
