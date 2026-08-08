@@ -1,5 +1,13 @@
 import { BadGatewayException, BadRequestException, NotFoundException } from '@nestjs/common';
-import { MixcloudService, parseSections, pickPictureUrl, toCloudcastImport, toCloudcastSummary } from './mixcloud.service';
+import {
+  MixcloudService,
+  parseSections,
+  pickPictureUrl,
+  readArtist,
+  toCloudcastImport,
+  toCloudcastSummary,
+  withArtistTag,
+} from './mixcloud.service';
 
 /**
  * `fetch` is mocked throughout: these cover the relay's own rules — the two
@@ -223,6 +231,70 @@ describe('MixcloudService', () => {
         'House',
         'Disco',
       ]);
+    });
+  });
+
+  /**
+   * Un mix importé appartient au compte Tambouille qui l'importe, pas à celui qui l'a
+   * publié sur Mixcloud. Sans ce report, la fiche perd toute trace de son auteur réel.
+   */
+  describe("l'artiste Mixcloud", () => {
+    const user = {
+      key: '/Notamusic/',
+      url: 'https://www.mixcloud.com/Notamusic/',
+      name: 'Nota',
+      username: 'Notamusic',
+    };
+
+    it('sépare le nom affiché de l’identifiant, qui diffèrent presque toujours', () => {
+      expect(readArtist(user)).toEqual({
+        name: 'Nota',
+        username: 'Notamusic',
+        profileUrl: 'https://www.mixcloud.com/Notamusic/',
+      });
+    });
+
+    it('retombe sur l’identifiant quand le compte n’a pas de nom affiché', () => {
+      expect(readArtist({ username: 'Notamusic' })?.name).toBe('Notamusic');
+    });
+
+    it('ignore une URL de profil qui ne pointe pas vers Mixcloud', () => {
+      // Elle vient d'une réponse distante et devient un lien cliquable dans le formulaire.
+      expect(readArtist({ ...user, url: 'https://ailleurs.example/Notamusic/' })?.profileUrl).toBeUndefined();
+    });
+
+    it('ne fabrique pas d’artiste quand Mixcloud n’en donne aucun', () => {
+      expect(readArtist(undefined)).toBeUndefined();
+      expect(readArtist({})).toBeUndefined();
+    });
+
+    it('ajoute le nom en tête des tags', () => {
+      expect(toCloudcastImport(cloudcastFixture({ user })).tags).toEqual(['Nota', 'Italo disco', 'New wave']);
+    });
+
+    it('garde le nom quand le mix porte déjà 10 tags', () => {
+      // C'est la raison d'être de la mise en tête : `MixesService.parseTags` tronque à 10,
+      // donc un nom ajouté en dernier serait le premier perdu.
+      const tags = Array.from({ length: 10 }, (_, i) => ({ name: `tag${i}` }));
+
+      const result = toCloudcastImport(cloudcastFixture({ user, tags })).tags;
+
+      expect(result[0]).toBe('Nota');
+      expect(result.slice(0, 10)).toContain('Nota');
+    });
+
+    it('ne duplique pas un nom déjà présent parmi les tags, quelle que soit la casse', () => {
+      const result = toCloudcastImport(cloudcastFixture({ user, tags: [{ name: 'nota' }, { name: 'Disco' }] })).tags;
+
+      expect(result).toEqual(['Nota', 'Disco']);
+    });
+
+    it('laisse les tags intacts quand il n’y a pas d’artiste', () => {
+      expect(withArtistTag(['Disco'], undefined)).toEqual(['Disco']);
+    });
+
+    it('accompagne aussi les mix listés, pas seulement celui qu’on importe', () => {
+      expect(toCloudcastSummary(cloudcastFixture({ user })).artist?.name).toBe('Nota');
     });
   });
 

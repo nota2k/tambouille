@@ -32,6 +32,7 @@ function toggleTag(tag: string) {
 
 // Curated sections (shown when not searching)
 const latestMixes = ref<Mix[]>([])
+const topMixes = ref<Mix[]>([])
 const followingTopMixes = ref<Mix[]>([])
 const recentlyPlayedMixes = ref<Mix[]>([])
 
@@ -46,15 +47,19 @@ let searchTimeout: ReturnType<typeof setTimeout> | undefined
 async function loadSections() {
   loading.value = true
   try {
-    const requests: [Promise<{ data: MixListResponse }>, Promise<{ data: MixListResponse }>?, Promise<{ data: MixListResponse }>?] = [
+    // Les deux premières sections sont publiques ; les deux suivantes n'ont de sens que connecté.
+    const [latest, top, followingTop, recentlyPlayed] = await Promise.all([
       apiClient.get<MixListResponse>('/mixes', { params: { limit: 10 } }),
-    ]
-    if (authStore.isAuthenticated) {
-      requests.push(apiClient.get<MixListResponse>('/mixes/feed/following', { params: { limit: 10 } }))
-      requests.push(apiClient.get<MixListResponse>('/mixes/me/recent', { params: { limit: 10 } }))
-    }
-    const [latest, followingTop, recentlyPlayed] = await Promise.all(requests)
+      apiClient.get<MixListResponse>('/mixes', { params: { sort: 'plays', limit: 10 } }),
+      authStore.isAuthenticated
+        ? apiClient.get<MixListResponse>('/mixes/feed/following', { params: { limit: 10 } })
+        : Promise.resolve(null),
+      authStore.isAuthenticated
+        ? apiClient.get<MixListResponse>('/mixes/me/recent', { params: { limit: 10 } })
+        : Promise.resolve(null),
+    ])
     latestMixes.value = latest.data.items
+    topMixes.value = top.data.items
     followingTopMixes.value = followingTop?.data.items ?? []
     recentlyPlayedMixes.value = recentlyPlayed?.data.items ?? []
   } finally {
@@ -179,7 +184,7 @@ onMounted(loadSections)
 
     <template v-else-if="isSearching">
       <section v-if="userResults.length > 0" class="mb-8">
-        <h2 class="mb-4 text-lg font-semibold">Utilisateurs</h2>
+        <h2 class="cat-title mb-4 text-lg font-semibold">Utilisateurs</h2>
         <div class="flex flex-wrap gap-4">
           <RouterLink
             v-for="user in userResults"
@@ -234,7 +239,7 @@ onMounted(loadSections)
 
     <template v-else>
       <section class="flex flex-col justify-center mb-10 bg-tambouille-action py-16 px-12 md:px-8 sm:px-6 min-h-[50vh] h-full">
-        <h2 class="mb-12 border-b-2 pb-6 border-tambouille-text-dark text-2xl text-tambouille-text-black leading-none">Derniers uploads</h2>
+        <h2 class="cat-title mb-12 border-b-2 pb-6 border-tambouille-text-dark text-2xl text-tambouille-text-black leading-none">Derniers uploads</h2>
         <div class="">
         <div v-if="latestMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Aucun mix trouvé. Sois le premier à en uploader un !
@@ -245,8 +250,21 @@ onMounted(loadSections)
       </div>
       </section>
 
+      <section class="mb-10">
+        <h2 class="cat-title mb-4 text-xl font-semibold color-tambouille-text-black">Tops</h2>
+        <div v-if="topMixes.length === 0" class="py-8 text-center text-tambouille-muted">
+          Aucun mix écouté pour l'instant.
+        </div>
+        <ol v-else class="space-y-3">
+          <li v-for="(mix, index) in topMixes" :key="mix.id" class="flex items-center gap-4">
+            <span class="w-6 shrink-0 text-right text-lg font-bold text-tambouille-muted">{{ index + 1 }}</span>
+            <MixListItem :mix="mix" class="min-w-0 flex-1" />
+          </li>
+        </ol>
+      </section>
+
       <section v-if="authStore.isAuthenticated" class="mb-10">
-        <h2 class="mb-4 text-xl font-semibold color-tambouille-text-black">Les plus écoutés de vos abonnements</h2>
+        <h2 class="cat-title mb-4 text-xl font-semibold color-tambouille-text-black">Les plus écoutés de vos abonnements</h2>
         <div v-if="followingTopMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Suivez d'autres utilisateurs pour voir leurs mixs les plus populaires ici.
         </div>
@@ -256,7 +274,7 @@ onMounted(loadSections)
       </section>
 
       <section v-if="authStore.isAuthenticated">
-        <h2 class="mb-4 text-xl font-semibold color-tambouille-text-black">Vos derniers mixs écoutés</h2>
+        <h2 class="cat-title mb-4 text-xl font-semibold color-tambouille-text-black">Vos derniers mixs écoutés</h2>
         <div v-if="recentlyPlayedMixes.length === 0" class="py-8 text-center text-tambouille-muted">
           Les mixs que vous écoutez apparaîtront ici.
         </div>

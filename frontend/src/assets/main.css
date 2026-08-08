@@ -106,3 +106,40 @@ h1, h2, h3, h4, h5, h6 {
 .page-grid > .full-bleed {
   grid-column: full;
 }
+
+.cat-title {
+  position: relative;
+  display: inline;
+}
+
+.cat-title::before{
+  content: '';
+  display: block;
+  background-color: #5cff8c;
+  width: 80%;
+  height: 130%;
+  rotate: -8deg;
+  position: absolute;
+  left: 3%;
+  z-index: -1;
+  border-radius: 20px;
+}
+
+.cat-title::after{
+  content: '';
+  border-radius: 20px;
+  display: block;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgb(220 207 207) 50%, rgba(255, 255, 255, 1) 100%);
+  mix-blend-mode: luminosity;
+  width: 80%;
+  height: 132%;
+  rotate: -8deg;
+  position: absolute;
+  left: 3%;
+  top: -7px;
+  z-index: -1;
+}
+
+.cat-title ~ *{
+  margin-top:4em;
+}

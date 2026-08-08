@@ -6,7 +6,7 @@ import { formatTime } from '@/utils/time'
 import { buildTracklist, type TrackRow } from '@/utils/tracklist'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
-import type { Mix, MixcloudCloudcastImport, MixcloudCloudcastSummary } from '@/types'
+import type { Mix, MixcloudArtist, MixcloudCloudcastImport, MixcloudCloudcastSummary } from '@/types'
 
 const router = useRouter()
 
@@ -35,6 +35,10 @@ const coverSourceUrl = ref<string | null>(null)
 // validated and fetched. A hand-filled form leaves it null and is never
 // offered the hosting choice — there would be nothing to point at.
 const importedMixcloudKey = ref<string | null>(null)
+// Le compte Mixcloud d'origine. Il n'a pas de colonne en base : le mix appartiendra au
+// compte Tambouille qui l'importe, et c'est le tag ajouté automatiquement qui garde la
+// trace de l'auteur. Cette référence sert à l'afficher pendant l'import.
+const importedArtist = ref<MixcloudArtist | null>(null)
 // false = host the audio on Tambouille, exactly as before. Reversible until
 // the form is submitted.
 const keepAudioOnMixcloud = ref(false)
@@ -79,6 +83,7 @@ async function importMixcloudMix(mix: MixcloudCloudcastSummary) {
         ? data.tracklist.map((entry) => ({ timecode: formatTime(entry.timecodeSec), artist: entry.artist, title: entry.title }))
         : [{ timecode: '', artist: '', title: '' }]
     coverSourceUrl.value = data.coverSourceUrl ?? null
+    importedArtist.value = data.artist ?? null
     importedMixcloudKey.value = mix.key
   } catch (err: any) {
     mixcloudError.value = err.response?.data?.message ?? "Impossible d'importer ce mix"
@@ -219,6 +224,9 @@ async function onSubmit() {
             <div v-else class="h-12 w-12 shrink-0 rounded bg-tambouille-surface-hover" />
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">{{ mix.name }}</p>
+              <p v-if="mix.artist" class="truncate text-xs font-medium text-tambouille-muted">
+                par {{ mix.artist.name }}
+              </p>
               <p class="truncate text-xs text-tambouille-muted">
                 <span v-if="mix.tags.length > 0">{{ mix.tags.join(', ') }}</span>
                 <span v-if="mix.tags.length > 0 && mix.audioLengthSec"> · </span>
@@ -232,6 +240,28 @@ async function onSubmit() {
     </div>
 
     <form class="space-y-5" @submit.prevent="onSubmit">
+      <!-- Le mix sera publié sous le compte Tambouille qui l'importe : afficher ici de
+           qui il vient évite de confondre l'auteur d'origine et l'importateur. -->
+      <div
+        v-if="importedArtist"
+        class="rounded-lg border border-tambouille-border bg-tambouille-surface px-4 py-3 text-sm"
+      >
+        <span class="text-tambouille-muted">Mix publié sur Mixcloud par</span>
+        <a
+          v-if="importedArtist.profileUrl"
+          :href="importedArtist.profileUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="ml-1 font-semibold hover:underline"
+        >
+          {{ importedArtist.name }}
+        </a>
+        <span v-else class="ml-1 font-semibold">{{ importedArtist.name }}</span>
+        <span v-if="importedArtist.username" class="ml-1 text-tambouille-muted">
+          (@{{ importedArtist.username }})
+        </span>
+      </div>
+
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Titre</label>
         <input
@@ -261,6 +291,11 @@ async function onSubmit() {
           placeholder="house, deep-house, live"
           class="w-full rounded-lg border border-tambouille-border bg-tambouille-surface px-3 py-2 outline-none focus:border-tambouille-accent"
         />
+        <!-- Sans cette ligne, le nom apparaîtrait dans le champ sans que rien n'explique
+             d'où il vient. Le champ reste éditable : c'est une proposition, pas un verrou. -->
+        <p v-if="importedArtist" class="mt-1.5 text-xs text-tambouille-muted">
+          « {{ importedArtist.name }} » a été ajouté d'après le compte Mixcloud d'origine.
+        </p>
       </div>
 
       <!-- Offered only after an import: a hand-filled form has no Mixcloud key

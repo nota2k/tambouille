@@ -32,6 +32,13 @@ export const KEY_PATTERN = /^\/[A-Za-z0-9_-]+\/(?:[A-Za-z0-9_.-]|%[89A-Fa-f][0-9
 /** Largest first: the upload form wants the best cover Mixcloud offers. */
 const PICTURE_PREFERENCE = ['1024wx1024h', '768wx768h', '640wx640h', 'extra_large', '320wx320h', 'large', 'medium', 'small'];
 
+/** Le compte Mixcloud qui a publié le mix — distinct du compte Tambouille qui l'importe. */
+export interface CloudcastArtist {
+  name: string;
+  username: string;
+  profileUrl?: string;
+}
+
 export interface CloudcastSummary {
   key: string;
   name: string;
@@ -39,6 +46,7 @@ export interface CloudcastSummary {
   pictureUrl?: string;
   audioLengthSec?: number;
   createdAt?: string;
+  artist?: CloudcastArtist;
 }
 
 export interface TracklistEntry {
@@ -53,6 +61,7 @@ export interface CloudcastImport {
   tags: string[];
   coverSourceUrl?: string;
   tracklist: TracklistEntry[];
+  artist?: CloudcastArtist;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -76,6 +85,48 @@ export function parseTags(tags: unknown): string[] {
   if (!Array.isArray(tags)) return [];
   const names = tags.map(readName).filter((name): name is string => Boolean(name));
   return Array.from(new Set(names));
+}
+
+/**
+ * Lit le compte Mixcloud d'un cloudcast. `name` est le nom affiché (« Nota ») et
+ * `username` l'identifiant d'URL (« Notamusic ») ; ils diffèrent presque toujours.
+ *
+ * `profileUrl` n'est retenue que si elle pointe bien vers mixcloud.com : elle vient
+ * d'une réponse distante et le formulaire d'import en fait un lien cliquable, donc une
+ * valeur inattendue deviendrait un lien sortant qu'aucune page de Tambouille n'a voulu.
+ */
+export function readArtist(user: unknown): CloudcastArtist | undefined {
+  if (!isRecord(user)) return undefined;
+
+  const name = readName(user.name);
+  const username = typeof user.username === 'string' ? user.username.trim() : '';
+  if (!name && !username) return undefined;
+
+  const url = typeof user.url === 'string' ? user.url : '';
+  return {
+    // Un compte sans nom affiché reste identifiable par son identifiant.
+    name: name ?? username,
+    username,
+    profileUrl: url.startsWith('https://www.mixcloud.com/') ? url : undefined,
+  };
+}
+
+/**
+ * Place le nom de l'artiste **en tête** des tags, jamais à la suite.
+ *
+ * `MixesService.parseTags` tronque à 10 tags à la création : ajouté en dernier, le nom
+ * de l'artiste serait le premier perdu sur un mix qui porte déjà 10 tags — précisément
+ * les mix les mieux renseignés.
+ *
+ * La déduplication ignore la casse parce que l'enregistrement l'ignore aussi : les tags
+ * sont passés en minuscules, donc « Nota » et « nota » sont un seul tag une fois en base.
+ * Sans ça, le formulaire afficherait un doublon qui disparaîtrait à l'envoi, sans que
+ * rien n'explique lequel des deux a été retenu.
+ */
+export function withArtistTag(tags: string[], artistName?: string): string[] {
+  if (!artistName) return tags;
+  const rest = tags.filter((tag) => tag.toLowerCase() !== artistName.toLowerCase());
+  return [artistName, ...rest];
 }
 
 export function pickPictureUrl(pictures: unknown): string | undefined {
@@ -138,17 +189,23 @@ export function toCloudcastSummary(raw: unknown): CloudcastSummary {
     pictureUrl: pickPictureUrl(cloudcast.pictures),
     audioLengthSec: typeof cloudcast.audio_length === 'number' ? cloudcast.audio_length : undefined,
     createdAt: typeof cloudcast.created_time === 'string' ? cloudcast.created_time : undefined,
+    artist: readArtist(cloudcast.user),
   };
 }
 
 export function toCloudcastImport(raw: unknown): CloudcastImport {
   const cloudcast = isRecord(raw) ? raw : {};
+  const artist = readArtist(cloudcast.user);
+
   return {
     title: typeof cloudcast.name === 'string' ? cloudcast.name : '',
     description: typeof cloudcast.description === 'string' ? cloudcast.description : '',
-    tags: parseTags(cloudcast.tags),
+    // Le nom de l'artiste rejoint les tags : le mix appartiendra au compte Tambouille
+    // qui l'importe, donc sans ça plus rien dans la fiche ne dit de qui il est.
+    tags: withArtistTag(parseTags(cloudcast.tags), artist?.name),
     coverSourceUrl: pickPictureUrl(cloudcast.pictures),
     tracklist: parseSections(cloudcast.sections),
+    artist,
   };
 }
 

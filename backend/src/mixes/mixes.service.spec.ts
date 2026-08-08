@@ -266,11 +266,26 @@ describe('MixesService', () => {
   describe('listSuggestions', () => {
     const SOURCE = 'source-mix';
 
+    /**
+     * `mix.findMany` sert à deux choses ici : chercher des mixs à ajouter (`select`) et
+     * relire ceux retenus (`include`). Le mock les distingue par leur forme, jamais par
+     * leur rang d'appel : le nombre de paliers de repli interrogés dépend de ce que les
+     * précédents ont trouvé, donc un enchaînement de `mockResolvedValueOnce` se décale
+     * dès qu'on touche à la cascade — et casse des tests qui n'ont rien à voir.
+     */
+    function mockFill(...roundsInOrder: string[][]) {
+      const rounds = [...roundsInOrder];
+      prisma.mix.findMany.mockImplementation((args: any) => {
+        if (args?.select) return Promise.resolve((rounds.shift() ?? []).map((id) => ({ id })));
+        return Promise.resolve((args.where.id.in as string[]).map((id) => mixRow({ id })));
+      });
+    }
+
     beforeEach(() => {
       prisma.mix.findUnique.mockResolvedValue({ id: SOURCE, tags: ['italo disco'] });
       prisma.playHistory.findMany.mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }]);
       prisma.playHistory.groupBy.mockResolvedValue([]);
-      prisma.mix.findMany.mockResolvedValue([]);
+      mockFill();
     });
 
     it('rend les mixs dans l’ordre du classement, pas dans celui de la base', async () => {
@@ -279,12 +294,13 @@ describe('MixesService', () => {
         { mixId: 'middle', _count: { userId: 4 } },
         { mixId: 'worst', _count: { userId: 1 } },
       ]);
-      // Prisma renvoie ce que l'index lui donne : ici, l'ordre inverse du classement.
-      prisma.mix.findMany.mockResolvedValue([
-        mixRow({ id: 'worst' }),
-        mixRow({ id: 'best' }),
-        mixRow({ id: 'middle' }),
-      ]);
+      // Prisma renvoie ce que l'index lui donne, jamais l'ordre du `in` : on le prend
+      // volontairement à rebours du classement.
+      prisma.mix.findMany.mockImplementation((args: any) =>
+        args?.select
+          ? Promise.resolve([])
+          : Promise.resolve([mixRow({ id: 'worst' }), mixRow({ id: 'best' }), mixRow({ id: 'middle' })]),
+      );
 
       const result = await service.listSuggestions(SOURCE, 3);
 
@@ -315,9 +331,7 @@ describe('MixesService', () => {
 
     it('complète par les tags seulement quand le signal ne remplit pas la liste', async () => {
       prisma.playHistory.groupBy.mockResolvedValue([{ mixId: 'ranked', _count: { userId: 2 } }]);
-      prisma.mix.findMany
-        .mockResolvedValueOnce([{ id: 'tagged' }])
-        .mockResolvedValueOnce([mixRow({ id: 'ranked' }), mixRow({ id: 'tagged' })]);
+      mockFill(['tagged', 'tagged2']);
 
       const result = await service.listSuggestions(SOURCE, 3);
 
@@ -325,7 +339,56 @@ describe('MixesService', () => {
       expect(fillerArgs.take).toBe(2);
       expect(fillerArgs.where.tags).toEqual({ hasSome: ['italo disco'] });
       // Le remplissage vient après le classement, il ne s'y intercale pas.
-      expect(result.items.map((item) => item.id)).toEqual(['ranked', 'tagged']);
+      expect(result.items.map((item) => item.id)).toEqual(['ranked', 'tagged', 'tagged2']);
+    });
+
+    /**
+     * Le bug qui a fait disparaître la section : connecté, l'utilisateur le plus actif
+     * voyait le bandeau vide. Aucun co-auditeur, et tout ce qui partageait les tags était
+     * déjà dans son historique, donc exclu. Les deux paliers suivants existent pour ça.
+     */
+    describe('quand le signal et les tags ne suffisent pas', () => {
+      it('complète par les mixs récents, tous tags confondus', async () => {
+        mockFill([], ['recent1', 'recent2', 'recent3']);
+
+        const result = await service.listSuggestions(SOURCE, 3);
+
+        const [, secondFill] = prisma.mix.findMany.mock.calls;
+        // Deuxième palier : plus aucune contrainte de tag, mais toujours les exclusions.
+        expect(secondFill[0].where.tags).toBeUndefined();
+        expect(result.items.map((item) => item.id)).toEqual(['recent1', 'recent2', 'recent3']);
+      });
+
+      it('accepte en dernier recours ce que le visiteur a déjà écouté', async () => {
+        prisma.playHistory.findMany
+          .mockResolvedValueOnce([{ mixId: 'heard1' }, { mixId: 'heard2' }])
+          .mockResolvedValueOnce([]);
+        // Les deux premiers paliers ne trouvent rien : tout est dans l'historique.
+        mockFill([], [], ['heard1', 'heard2']);
+
+        const result = await service.listSuggestions(SOURCE, 3, USER_ID);
+
+        const dernier = prisma.mix.findMany.mock.calls[2][0];
+        // Le mix affiché reste exclu — se proposer lui-même n'aurait aucun sens…
+        expect(dernier.where.id.notIn).toContain(SOURCE);
+        // …mais l'historique, lui, redevient éligible.
+        expect(dernier.where.id.notIn).not.toContain('heard1');
+        expect(result.items.map((item) => item.id)).toEqual(['heard1', 'heard2']);
+      });
+
+      it('n’interroge aucun palier de repli quand le classement a déjà rempli la liste', async () => {
+        prisma.playHistory.groupBy.mockResolvedValue([
+          { mixId: 'a', _count: { userId: 3 } },
+          { mixId: 'b', _count: { userId: 2 } },
+          { mixId: 'c', _count: { userId: 1 } },
+        ]);
+
+        await service.listSuggestions(SOURCE, 3);
+
+        // Seule la relecture finale doit toucher la base, aucune recherche de remplissage.
+        const recherches = prisma.mix.findMany.mock.calls.filter(([args]: any) => args?.select);
+        expect(recherches).toHaveLength(0);
+      });
     });
 
     it('ne cherche aucun co-auditeur quand personne n’a écouté le mix', async () => {

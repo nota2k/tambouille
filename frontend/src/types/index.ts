@@ -128,6 +128,13 @@ export interface AuthResponse {
   user: AuthUser
 }
 
+/** Le compte Mixcloud qui a publié le mix — distinct du compte Tambouille qui l'importe. */
+export interface MixcloudArtist {
+  name: string
+  username: string
+  profileUrl?: string
+}
+
 export interface MixcloudCloudcastSummary {
   key: string
   name: string
@@ -135,6 +142,7 @@ export interface MixcloudCloudcastSummary {
   pictureUrl?: string
   audioLengthSec?: number
   createdAt?: string
+  artist?: MixcloudArtist
 }
 
 export interface MixcloudTracklistEntry {
@@ -149,4 +157,5 @@ export interface MixcloudCloudcastImport {
   tags: string[]
   coverSourceUrl?: string
   tracklist: MixcloudTracklistEntry[]
+  artist?: MixcloudArtist
 }

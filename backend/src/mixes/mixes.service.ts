@@ -312,17 +312,39 @@ export class MixesService {
     const orderedIds = ranked.map((row) => row.mixId);
     orderedIds.forEach((mixId) => excludedIds.add(mixId));
 
-    if (orderedIds.length < limit) {
-      const fillers = await this.prisma.mix.findMany({
-        where: {
-          id: { notIn: Array.from(excludedIds) },
-          ...(mix.tags.length ? { tags: { hasSome: mix.tags } } : {}),
-        },
+    /**
+     * Complète la liste avec les mixs les plus récents répondant à `where`, sans jamais
+     * reprendre un identifiant déjà retenu. Ne fait rien si le compte est atteint : chaque
+     * palier ne comble que ce qui manque, et n'interroge la base que s'il reste des places.
+     */
+    const fill = async (where: Record<string, unknown>, skip: Set<string>) => {
+      if (orderedIds.length >= limit) return;
+      const rows = await this.prisma.mix.findMany({
+        where: { ...where, id: { notIn: Array.from(skip) } },
         select: { id: true },
         orderBy: { createdAt: 'desc' },
         take: limit - orderedIds.length,
       });
-      fillers.forEach((filler) => orderedIds.push(filler.id));
+      for (const row of rows) {
+        orderedIds.push(row.id);
+        excludedIds.add(row.id);
+      }
+    };
+
+    // Paliers de repli, du plus proche du mix au plus générique. Ils existent parce que le
+    // signal collaboratif est nul tant que peu de gens ont écouté : sans eux, la section
+    // disparaît précisément chez l'utilisateur le plus actif, dont l'historique vide les
+    // candidats un à un. Aucun ne se mélange au classement, ils viennent après.
+    if (mix.tags.length) {
+      await fill({ tags: { hasSome: mix.tags } }, excludedIds);
+    }
+    await fill({}, excludedIds);
+
+    // Dernier recours : réécouter est normal en musique, et une carte déjà entendue vaut
+    // mieux qu'une section vide. Seul le mix affiché reste exclu — se proposer lui-même
+    // n'aurait aucun sens.
+    if (orderedIds.length < limit) {
+      await fill({}, new Set<string>([id, ...orderedIds]));
     }
 
     if (orderedIds.length === 0) {
