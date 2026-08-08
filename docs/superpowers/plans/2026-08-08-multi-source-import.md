@@ -15,7 +15,7 @@
 - Backend tests live beside their source as `*.spec.ts` (`jest.rootDir` is `src`). Run one with `npm test -- <path-relative-to-src>`.
 - No integration test may call Archive.org, Mixcloud or a live feed. Network shapes are frozen as fixtures.
 - `sourceType` is a plain string, never a Prisma enum. Known values: `'mixcloud'`, `'remote'`.
-- Every server-side fetch of a user-supplied URL goes through `safeFetch`. No bare `fetch` on a user-supplied URL anywhere.
+- Every server-side fetch of a **whole URL the user supplied** goes through `safeFetch`. `MixcloudService.getJson` stays on bare `fetch` and is not in breach: it builds its URL from a hardcoded host plus a regex-fenced segment, so no part of the destination is user-chosen. Anything that fetches a URL a user pasted uses `safeFetch`.
 - A blocked address returns the same user-facing message whatever the reason, so the form cannot be used to probe the internal network.
 - The audio is never fetched, proxied or copied by the server.
 - Prisma migrations in this repo are hand-written SQL in `prisma/migrations/<UTC-timestamp>_<name>/migration.sql`. Follow that; do not let `prisma migrate dev` author the SQL.
@@ -261,7 +261,7 @@ In `registerPlay` (around `:382`), replace `select: { mixcloudKey: true }` with 
 
 - [ ] **Step 6: Replace the DTO fields**
 
-In both `create-mix.dto.ts` and `update-mix.dto.ts`, replace the `mixcloudKey` field with:
+In both `create-mix.dto.ts` and `update-mix.dto.ts`, replace the `mixcloudKey` field with the `sourceType` and `sourceRef` fields below. The third field, `durationSec`, goes in **`create-mix.dto.ts` only** — a duration is a property of the source, not something an edit form should retype.
 
 ```ts
   /**
@@ -305,7 +305,7 @@ In both `create-mix.dto.ts` and `update-mix.dto.ts`, replace the `mixcloudKey` f
   durationSec?: number;
 ```
 
-Add to the imports: `import { IsIn, IsInt, Max, Min, Validate } from 'class-validator';`, `import { Type } from 'class-transformer';` and `import { SourceRefConstraint } from './source-ref.constraint';`. `UpdateMixDto` takes `sourceType` and `sourceRef` only — a duration is a property of the source, not something an edit form should retype.
+Add to `create-mix.dto.ts`'s imports: `import { IsIn, IsInt, Max, Min, Validate } from 'class-validator';`, `import { Type } from 'class-transformer';` and `import { SourceRefConstraint } from './source-ref.constraint';`. `update-mix.dto.ts` needs only `IsIn` and `Validate` added, plus the same `SourceRefConstraint` import.
 
 - [ ] **Step 7: Write the `sourceRef` validator**
 
