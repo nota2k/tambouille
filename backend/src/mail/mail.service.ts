@@ -7,11 +7,11 @@ import { createTransport, type Transporter } from 'nodemailer';
  *
  *   ConfigService ──> createTransport   [lazy: connects to nothing]
  *                          │
- *                     send() ──> sendMail ──> ok    : true
- *                                         └─> échec : log (adresse masquée), false
+ *                     send() ──> sendMail ──> ok      : true
+ *                                         └─> failure : log (address masked), false
  *
- * Nothing here throws once construction succeeds, so the startup verify() added
- * in the next task is the only place a bad configuration becomes visible.
+ * Nothing here throws once construction succeeds, so the startup verify() is
+ * the only place a bad configuration becomes visible.
  */
 @Injectable()
 export class MailService {
@@ -28,16 +28,43 @@ export class MailService {
     }
     this.from = from;
 
+    const host = config.get<string>('SMTP_HOST');
+    if (!host) {
+      // nodemailer silently falls back to "localhost" when host is falsy
+      // (smtp-connection/index.js), which is invisible in dev and only
+      // bites in production.
+      throw new Error('SMTP_HOST is required');
+    }
+
+    const rawPort = config.get<string>('SMTP_PORT');
+    const port = Number(rawPort);
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+      // nodemailer does `Number(port) || (secure ? 465 : 587)`, so NaN or a
+      // missing port silently becomes 587 instead of erroring — and since
+      // many relays really do listen on 587, that can produce a *working*
+      // connection to the wrong port with no error anywhere.
+      throw new Error(`SMTP_PORT must be a port number, got "${rawPort}"`);
+    }
+
+    const rawSecure = config.get<string>('SMTP_SECURE');
+    if (rawSecure !== 'true' && rawSecure !== 'false') {
+      // Keep the boolean strict rather than accepting a dialect of
+      // truthy-ish strings: silently reading "True" as false is the bug,
+      // not the narrowness of the accepted spelling.
+      throw new Error(
+        `SMTP_SECURE must be "true" or "false", got "${rawSecure}"`,
+      );
+    }
+    const secure = rawSecure === 'true';
+
     const user = config.get<string>('SMTP_USER');
     const pass = config.get<string>('SMTP_PASS');
 
     this.transporter = createTransport({
-      host: config.get<string>('SMTP_HOST'),
-      // Env values are strings: Number() for the port, and an explicit
-      // comparison for secure because the string "false" is truthy.
-      port: Number(config.get<string>('SMTP_PORT')),
-      secure: config.get<string>('SMTP_SECURE') === 'true',
-      ...(user ? { auth: { user, pass } } : {}),
+      host,
+      port,
+      secure,
+      ...(user ? { auth: { user, pass: pass ?? '' } } : {}),
       // nodemailer's defaults (2min / 30s / 10min) would let a hung relay hold
       // an awaited HTTP request open for minutes.
       connectionTimeout: 5000,

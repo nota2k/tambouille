@@ -74,6 +74,11 @@ describe('MailService construction', () => {
     expect(options.port).toBe(1025);
   });
 
+  it('passes SMTP_HOST through untouched', () => {
+    const { options } = buildService({ SMTP_HOST: 'localhost' });
+    expect(options.host).toBe('localhost');
+  });
+
   it('bounds the transport timeouts', () => {
     const { options } = buildService();
     expect(options.connectionTimeout).toBe(5000);
@@ -83,5 +88,27 @@ describe('MailService construction', () => {
 
   it('throws when MAIL_FROM is missing', () => {
     expect(() => buildService({ MAIL_FROM: '' })).toThrow(/MAIL_FROM/);
+  });
+
+  it('throws when MAIL_FROM is entirely absent from the environment', () => {
+    expect(() =>
+      buildService({ MAIL_FROM: undefined as unknown as string }),
+    ).toThrow(/MAIL_FROM/);
+  });
+
+  it('throws when SMTP_PORT is not numeric', () => {
+    expect(() => buildService({ SMTP_PORT: 'abc' })).toThrow(/SMTP_PORT/);
+  });
+
+  it('throws when SMTP_PORT is empty', () => {
+    expect(() => buildService({ SMTP_PORT: '' })).toThrow(/SMTP_PORT/);
+  });
+
+  it('throws when SMTP_HOST is empty', () => {
+    expect(() => buildService({ SMTP_HOST: '' })).toThrow(/SMTP_HOST/);
+  });
+
+  it('throws when SMTP_SECURE is neither "true" nor "false"', () => {
+    expect(() => buildService({ SMTP_SECURE: 'True' })).toThrow(/SMTP_SECURE/);
   });
 });
