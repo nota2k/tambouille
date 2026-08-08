@@ -52,6 +52,23 @@ export const useAuthStore = defineStore('auth', {
       this.user = data
     },
 
+    /**
+     * The two reset calls touch no state on purpose: neither opens a session.
+     * They live here because this is where the app's auth calls live, and
+     * because a reset ends by signing in normally through `login`.
+     *
+     * This one resolves the same way whatever the address, and the backend
+     * answers 204 whether or not it has an account — so a caller cannot use
+     * the outcome to find out who is registered, and neither can this store.
+     */
+    async requestPasswordReset(email: string) {
+      await apiClient.post('/auth/password/forgot', { email })
+    },
+
+    async resetPassword(payload: { token: string; password: string }) {
+      await apiClient.post('/auth/password/reset', payload)
+    },
+
     async fetchCurrentUser() {
       if (!this.accessToken) return
       const { data } = await apiClient.get<AuthUser>('/auth/me')

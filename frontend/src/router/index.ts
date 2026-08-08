@@ -44,6 +44,21 @@ const router = createRouter({
       meta: { guestOnly: true },
     },
     {
+      path: '/mot-de-passe-oublie',
+      name: 'forgot-password',
+      component: () => import('@/views/ForgotPasswordView.vue'),
+      meta: { guestOnly: true },
+    },
+    {
+      // Deliberately not `guestOnly`, unlike every other screen in the sign-in
+      // flow: this path is what the emailed link points at, and a link has to
+      // work when it is opened. Bouncing a signed-in browser to discover would
+      // strand someone who still needs to set a new password.
+      path: '/reinitialiser-mot-de-passe',
+      name: 'reset-password',
+      component: () => import('@/views/ResetPasswordView.vue'),
+    },
+    {
       path: '/upload',
       name: 'upload',
       component: () => import('@/views/UploadView.vue'),
