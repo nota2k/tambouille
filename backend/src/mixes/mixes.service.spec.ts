@@ -180,6 +180,54 @@ describe('MixesService', () => {
     });
   });
 
+  describe('tracklist — a half-filled row is stored, not refused', () => {
+    /**
+     * A source publishes what it publishes: "Intro" credited to nobody, or a
+     * name with no track beside it. Refusing the request over one such row
+     * lost the whole mix, so an absent name is stored as the empty string.
+     */
+    it('accepts an entry with no artist, and one with no title', async () => {
+      await service.create(
+        USER_ID,
+        {
+          title: 'A mix',
+          tracklist: JSON.stringify([
+            { artist: '', title: 'Jingle Ouïedire', timecodeSec: 0 },
+            { artist: 'Los Chichos', title: '', timecodeSec: 40 },
+          ]),
+        },
+        { audioUrl: AUDIO_KEY },
+      );
+
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tracklist: {
+              create: [
+                { artist: '', title: 'Jingle Ouïedire', timecodeSec: 0 },
+                { artist: 'Los Chichos', title: '', timecodeSec: 40 },
+              ],
+            },
+          }),
+        }),
+      );
+    });
+
+    it('still refuses an entry whose shape is wrong', async () => {
+      await expect(
+        service.create(
+          USER_ID,
+          {
+            title: 'A mix',
+            tracklist: JSON.stringify([{ artist: 'X', title: 'Y' }]),
+          },
+          { audioUrl: AUDIO_KEY },
+        ),
+      ).rejects.toThrow('Invalid tracklist entry at index 0');
+      expect(prisma.mix.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('update — exactly one audio source', () => {
     it('refuses to add a remote source to a mix that already has audio', async () => {
       prisma.mix.findUnique.mockResolvedValue({
