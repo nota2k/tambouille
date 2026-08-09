@@ -150,6 +150,38 @@ describe('parseEmissionPage', () => {
     });
   });
 
+  it('files a single-label row as the title, with no artist', () => {
+    const parsed = parseEmissionPage(`<html><head>
+      <meta property="og:title" content="Ouïedire Ailleurs - Émission #001 : T, par A" />
+      </head><body>
+      <audio><source src="https://x.test/a.mp3" type="audio/mp3" /></audio>
+      <ol class="mejs-smartplaylist-playlist">
+        <li><a class="mejs-smartplaylist-time">00:00:00</a><span> Jingle Ouïedire</span></li>
+        <li><a class="mejs-smartplaylist-time">00:00:40</a><span>Los Chichos</span> - Se fue mi amor</li>
+      </ol></body></html>`);
+    expect(parsed.tracklist[0]).toEqual({
+      timecodeSec: 0,
+      artist: '',
+      title: 'Jingle Ouïedire',
+    });
+    expect(parsed.tracklist[1]).toEqual({
+      timecodeSec: 40,
+      artist: 'Los Chichos',
+      title: 'Se fue mi amor',
+    });
+  });
+
+  it('drops a row that carries a timecode and nothing else', () => {
+    const parsed = parseEmissionPage(`<html><head>
+      <meta property="og:title" content="Ouïedire Ailleurs - Émission #001 : T, par A" />
+      </head><body>
+      <audio><source src="https://x.test/a.mp3" type="audio/mp3" /></audio>
+      <ol class="mejs-smartplaylist-playlist">
+        <li><a class="mejs-smartplaylist-time">00:00:00</a><span></span></li>
+      </ol></body></html>`);
+    expect(parsed.tracklist).toEqual([]);
+  });
+
   it('decodes the entities the page escapes', () => {
     const parsed = parseEmissionPage(`<html><head>
       <meta property="og:title" content="Ouïedire Ailleurs - Émission #001 : T, par A" />
