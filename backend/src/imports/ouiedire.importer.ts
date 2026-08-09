@@ -120,23 +120,33 @@ export function parseEmissionPage(html: string): OuiedireEmission {
       const timecode = cells.match(
         /<a[^>]*mejs-smartplaylist-time[^>]*>([\s\S]*?)<\/a>/i,
       );
-      const artist = cells.match(/<span[^>]*>([\s\S]*?)<\/span>/i);
-      if (!timecode || !artist) continue;
+      const span = cells.match(/<span[^>]*>([\s\S]*?)<\/span>/i);
+      if (!timecode || !span) continue;
 
       const timecodeSec = parseTimecode(stripHtml(timecode[1]!));
       if (timecodeSec === null) continue;
 
-      // Whatever trails the artist span is the track title, minus the dash the
-      // page puts between them. `-` is not a reliable separator inside the
-      // title itself, so only the leading one is removed.
+      // The row reads "<span>artiste</span> - titre". Whatever trails the span
+      // is the track title, minus the dash the page puts between them. `-` is
+      // not a reliable separator inside the title itself, so only the leading
+      // one is removed.
       const trailing = cells.slice(cells.indexOf('</span>') + '</span>'.length);
-      const trackTitle = stripHtml(trailing).replace(/^\s*[-–—]\s*/, '').trim();
+      const trailingText = stripHtml(trailing)
+        .replace(/^\s*[-–—]\s*/, '')
+        .trim();
+      const spanText = stripHtml(span[1]!);
 
-      tracklist.push({
-        timecodeSec,
-        artist: stripHtml(artist[1]!),
-        title: trackTitle,
-      });
+      if (!spanText && !trailingText) continue;
+
+      // Some rows carry a single label and no dash — "Intro", "Jingle
+      // Ouïedire". That label names the track, not who made it, so it belongs
+      // in the title; the artist stays empty rather than borrowing the title's
+      // words.
+      tracklist.push(
+        trailingText
+          ? { timecodeSec, artist: spanText, title: trailingText }
+          : { timecodeSec, artist: '', title: spanText },
+      );
     }
   }
 

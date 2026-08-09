@@ -287,11 +287,25 @@ watch(
                 >
                   {{ formatTime(entry.timecodeSec) }}
                 </span>
+                <!-- Un des deux noms peut manquer — un jingle, une intro. Le
+                     tiret cadratin ne sépare que ce qu'il y a des deux côtés,
+                     au lieu de rester suspendu dans le vide. -->
                 <span class="min-w-0 text-[15px] text-tambouille-text">
-                  <span :class="{ 'font-bold': entry.id === currentTrackId }">{{
-                    entry.artist
-                  }}</span>
-                  <span class="text-tambouille-muted"> — {{ entry.title }}</span>
+                  <template v-if="entry.artist && entry.title">
+                    <span :class="{ 'font-bold': entry.id === currentTrackId }">{{
+                      entry.artist
+                    }}</span>
+                    <span class="text-tambouille-muted"> — {{ entry.title }}</span>
+                  </template>
+                  <span
+                    v-else
+                    :class="
+                      entry.artist || entry.title
+                        ? { 'font-bold': entry.id === currentTrackId }
+                        : 'text-tambouille-muted'
+                    "
+                    >{{ entry.title || entry.artist || 'Sans titre' }}</span
+                  >
                 </span>
               </button>
             </li>

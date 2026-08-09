@@ -57,11 +57,10 @@ function parseTracklist(tracklist?: string): TracklistEntryInput[] {
     const artist = (entry as any).artist.trim().slice(0, 200);
     const title = (entry as any).title.trim().slice(0, 200);
     const timecodeSec = Math.max(0, Math.round((entry as any).timecodeSec));
-    if (!artist || !title) {
-      throw new BadRequestException(
-        `Invalid tracklist entry at index ${index}`,
-      );
-    }
+    // Neither name is required. Imported tracklists carry rows a source left
+    // half-filled — "Intro" with nobody to credit — and rejecting the request
+    // over one of them lost the entire mix. An absent name is stored as the
+    // empty string; the shape of the entry is what is checked above.
     return { artist, title, timecodeSec };
   });
 

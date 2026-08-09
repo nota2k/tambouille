@@ -258,19 +258,32 @@ h1, h2, h3, h4, h5, h6,
   padding: 1.375rem;
 }
 
-/* Champ de formulaire : carré, filet noir, pas de fond. */
-.tb-field {
-  width: 100%;
-  border: 1px solid #000;
-  background: #fff;
-  padding: 0.7rem 0.85rem;
-  font-family: Rambla, system-ui, sans-serif;
-  font-size: 0.9375rem;
-  color: #000;
-  outline: none;
+/*
+ * Champ de formulaire : carré, filet noir, pas de fond.
+ *
+ * Dans `@layer components`, et pas en dehors : une règle sans couche l'emporte
+ * toujours sur une règle layée, quelle que soit sa position dans le fichier.
+ * Hors couche, `.tb-field { width: 100% }` écrasait donc le `w-20` / `flex-1`
+ * des utilitaires Tailwind (rangés, eux, dans `@layer utilities`) — les trois
+ * colonnes de la tracklist se retrouvaient chacune à 100 % de large. Layée, la
+ * règle redevient un défaut : pleine largeur si rien ne le contredit, et
+ * n'importe quel utilitaire de largeur ou de taille de texte reprend la main.
+ */
+@layer components {
+  .tb-field {
+    width: 100%;
+    border: 1px solid #000;
+    background: #fff;
+    padding: 0.7rem 0.85rem;
+    font-family: Rambla, system-ui, sans-serif;
+    font-size: 0.9375rem;
+    color: #000;
+    outline: none;
+  }
+
+  .tb-field::placeholder { color: var(--color-tambouille-faint); }
+  .tb-field:focus { border-color: var(--color-tambouille-accent); }
 }
-.tb-field::placeholder { color: var(--color-tambouille-faint); }
-.tb-field:focus { border-color: var(--color-tambouille-accent); }
 
 /*
  * `.cat-title` surlignait les titres de section en vert. Le vert quitte la

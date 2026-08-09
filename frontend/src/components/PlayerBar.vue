@@ -537,10 +537,16 @@ function onEnded() {
           >
             {{ playerStore.currentMix.user.displayName }}
           </RouterLink>
-          <template v-if="currentTrack">
+          <!-- Un morceau sans aucun des deux noms n'a rien à annoncer : la
+               barre garde le titre du mix, sans point médian orphelin. -->
+          <template v-if="currentTrack && (currentTrack.artist || currentTrack.title)">
             <span>·</span>
             <span class="truncate text-white">
-              {{ currentTrack.artist }} – {{ currentTrack.title }}
+              {{
+                currentTrack.artist && currentTrack.title
+                  ? `${currentTrack.artist} – ${currentTrack.title}`
+                  : currentTrack.title || currentTrack.artist
+              }}
             </span>
           </template>
         </div>
