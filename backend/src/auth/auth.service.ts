@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { GoogleTokenVerifier } from './google-token-verifier';
+import { OidcTokenVerifier } from './oidc-token-verifier';
 
 // Exported so `PasswordResetService` hashes at the same cost as registration
 // and `setPassword`. A reset that landed a cheaper hash would quietly weaken
@@ -48,6 +49,29 @@ const GOOGLE_ACCOUNT_ALREADY_USED =
 const ACCOUNT_ALREADY_LINKED =
   'This account is already linked to a Google account.';
 
+// The membership-card equivalents of the four messages above, and they carry the
+// same properties for the same reasons. This one in particular is used both when
+// the address already has an account and when it does not, so that an
+// unauthenticated caller cannot tell the two apart by the wording and use this
+// flow to discover which addresses are registered here.
+const UNVERIFIED_KEYCLOAK_EMAIL =
+  'This email address is not verified on the club realm. Verify it there, then sign in again.';
+
+// Only reachable with a token the realm has verified for that address, so
+// naming the situation costs nothing the caller could not already establish.
+// Points at the linking flow rather than dead-ending, for the same reason its
+// Google counterpart does.
+const EMAIL_ALREADY_REGISTERED_FOR_CARD =
+  'An account already uses this email address — sign in as usual, then link your membership card from your profile.';
+
+// Read only by the owner of the session being used, so these two can name the
+// real reason without telling a stranger which cards or accounts exist.
+const KEYCLOAK_ACCOUNT_ALREADY_USED =
+  'This membership card is already linked to another Tambouille account.';
+
+const ACCOUNT_ALREADY_LINKED_TO_CARD =
+  'This account is already linked to a membership card.';
+
 // Prisma's unique-constraint violation. Not importing Prisma's own error
 // class here to keep this check working against the plain mock objects the
 // test suite throws, as well as the real `PrismaClientKnownRequestError`.
@@ -65,6 +89,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly googleVerifier: GoogleTokenVerifier,
+    private readonly oidcVerifier: OidcTokenVerifier,
   ) {}
 
   private toPublicUser(user: {
@@ -77,6 +102,7 @@ export class AuthService {
     createdAt: Date;
     password: string | null;
     googleId: string | null;
+    keycloakId: string | null;
   }) {
     return {
       id: user.id,
@@ -92,6 +118,11 @@ export class AuthService {
       // `loginWithGoogle`; publishing it would hand anyone reading a profile
       // response the value they need to be looked up as this account.
       hasGoogle: user.googleId !== null,
+      // Same rule, same reason: `keycloakId` is the realm's `sub`, and the only
+      // key `loginWithKeycloak` finds this account by. Publishing it would hand
+      // anyone reading a profile response the value they need to be looked up
+      // as this account.
+      hasKeycloak: user.keycloakId !== null,
     };
   }
 
@@ -295,6 +326,162 @@ export class AuthService {
       // attached by a concurrent request. There is no unlinking, so there is
       // nothing to offer here but the refusal.
       throw new ConflictException(ACCOUNT_ALREADY_LINKED);
+    }
+
+    const updated = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    return this.toPublicUser(updated);
+  }
+
+  /**
+   * Sign-in by the club's membership card. Structurally identical to
+   * `loginWithGoogle`, and deliberately *not* factored together with it (see
+   * design decision 6 of the change `add-keycloak-oidc-login`): the guards here
+   * happen to match today, but Google's exist against a threat specific to
+   * Google — anyone holding an unverified Workspace domain can mint tokens for
+   * every address on it — and nothing says the two policies move together. Two
+   * short functions read; one parameterised over two issuers has to be decoded.
+   */
+  async loginWithKeycloak(idToken: string) {
+    const identity = await this.oidcVerifier.verify(idToken);
+
+    // The only sign-in path for an existing row, and it turns on the subject
+    // alone: the caller has proven they hold the identity this account is keyed
+    // by. How the subject got onto the row — this flow created the account, or
+    // its owner attached the card from their profile — is deliberately not
+    // knowable here and must not be inferred. `keycloakId != null` says nothing
+    // about `password`, `username`, or `googleId`.
+    const linked = await this.prisma.user.findFirst({
+      where: { keycloakId: identity.subject },
+    });
+    if (linked) {
+      return this.session(linked);
+    }
+
+    // Case-insensitive, like its Google counterpart and for the same reason:
+    // addresses are stored verbatim, so `Nelly@Example.com` is the same mailbox
+    // as `nelly@example.com` but not the same string. Since a match means
+    // "refuse", matching more broadly is the safe direction — an exact match
+    // would miss the case variant and fall through to the create branch,
+    // making a second account on a mailbox that already has one.
+    const sameEmail = await this.prisma.user.findFirst({
+      where: { email: { equals: identity.email, mode: 'insensitive' } },
+    });
+    if (sameEmail) {
+      // No automatic linking branch, ever. Linking is only safe when both sides
+      // of the match are proven, and only one is: the realm vouches for the
+      // caller's side, while ours rests on an address `register` never verified.
+      // Attaching on a match would hand the real owner a session on whichever
+      // row claimed the address first — a row its owner still has the password
+      // to. `linkKeycloak` supplies the missing proof from the other direction,
+      // so this refusal redirects rather than dead-ends.
+      //
+      // Alternatives weighed and rejected — including the one case where both
+      // sides could be proven — are in design decision 4 of the change
+      // `add-keycloak-oidc-login`, with the provenance table that settles it.
+      // Nothing in that analysis needs to be built; do not rebuild it here.
+      //
+      // Both branches throw. `emailVerified` chooses the wording only, and when
+      // it is false the wording matches the create branch's below, so that the
+      // two cases stay indistinguishable to a caller minting unverified tokens.
+      if (!identity.emailVerified) {
+        throw new ConflictException(UNVERIFIED_KEYCLOAK_EMAIL);
+      }
+      throw new ConflictException(EMAIL_ALREADY_REGISTERED_FOR_CARD);
+    }
+
+    // Never create an account on an address the realm has not verified. The
+    // realm allows open registration, so without this guard anyone could sign
+    // up there as victim@corp.com and have that token create a real Tambouille
+    // account on someone else's address — which they then complete with a
+    // username and a password using the session this very call returns.
+    //
+    // This is the whole reason account creation is in scope at all. If the
+    // realm's "Verify email" setting is ever turned off, every member's token
+    // carries `email_verified: false`, this guard refuses every creation, and
+    // that is the correct outcome rather than a regression to work around.
+    if (!identity.emailVerified) {
+      throw new ConflictException(UNVERIFIED_KEYCLOAK_EMAIL);
+    }
+
+    const created = await this.prisma.user.create({
+      data: {
+        keycloakId: identity.subject,
+        email: identity.email,
+        displayName: identity.displayName,
+        // The realm supplies a `preferred_username`, deliberately unused: taking
+        // it would need a collision branch against our unique constraint and
+        // would make the two creation paths diverge, to save one onboarding
+        // step. The account completes exactly as a Google-created one does.
+        username: null,
+        password: null,
+      },
+    });
+    return this.session(created);
+  }
+
+  /**
+   * Attaches a membership card to the account the caller is already signed in
+   * as. The safe counterpart to `loginWithKeycloak`'s refusal: there the only
+   * evidence on our side is an address nobody verified, so a match proves
+   * nothing; here the caller arrives with a valid session for this exact
+   * account, which is direct proof they hold it.
+   */
+  async linkKeycloak(userId: string, idToken: string) {
+    const identity = await this.oidcVerifier.verify(idToken);
+
+    // Deliberately NOT checked, unlike `linkGoogle`: whether the realm verified
+    // the address. That check exists there to avoid attaching an identity whose
+    // issuer will not vouch for the address it carries — but this operation
+    // consumes no address at all. It binds a subject to an account, the session
+    // proving the account and the token proving the subject; the address is read
+    // from neither side. Requiring it would refuse legitimate links while adding
+    // nothing. Do not "tighten" this into a verification check.
+    //
+    // Nor is the card's address compared to the account's: plenty of members
+    // hold their club identity on one address and their account on another, and
+    // that mismatch is precisely the case this flow has to serve.
+
+    // The critical check. `keycloakId` is the sole key `loginWithKeycloak` looks
+    // an account up by, so two rows carrying the same one would mean whichever
+    // `findFirst` returned first captured every card sign-in for both — the
+    // second account's owner silently landing in the first account. This is a
+    // pre-check for a clean message only: it is check-then-act, and the unique
+    // index on `keycloakId` (caught as P2002 below) is what holds under
+    // concurrency.
+    const takenBySomeoneElse = await this.prisma.user.findFirst({
+      where: { keycloakId: identity.subject },
+    });
+    if (takenBySomeoneElse && takenBySomeoneElse.id !== userId) {
+      throw new ConflictException(KEYCLOAK_ACCOUNT_ALREADY_USED);
+    }
+
+    let result: { count: number };
+    try {
+      // Conditional on purpose, exactly as `setUsername`, `setPassword` and
+      // `linkGoogle` are: the write only lands if the account still has no card,
+      // so two concurrent links cannot both succeed and the second cannot
+      // silently re-point an already-linked account at a different subject.
+      result = await this.prisma.user.updateMany({
+        where: { id: userId, keycloakId: null },
+        data: { keycloakId: identity.subject },
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        // Another account claimed this subject between the check above and this
+        // write. The index caught what the pre-check could not.
+        throw new ConflictException(KEYCLOAK_ACCOUNT_ALREADY_USED);
+      }
+      throw error;
+    }
+
+    if (result.count === 0) {
+      // The row no longer matched `keycloakId: null`: this account already has a
+      // card — the caller's own, if they linked twice, or one attached by a
+      // concurrent request. There is no unlinking, so there is nothing to offer
+      // here but the refusal.
+      throw new ConflictException(ACCOUNT_ALREADY_LINKED_TO_CARD);
     }
 
     const updated = await this.prisma.user.findUniqueOrThrow({

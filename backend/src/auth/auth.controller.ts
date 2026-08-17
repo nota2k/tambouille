@@ -13,6 +13,7 @@ import { PasswordResetService } from './password-reset.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
+import { OidcLoginDto } from './dto/oidc-login.dto';
 import { SetUsernameDto } from './dto/set-username.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -51,6 +52,22 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   linkGoogle(@CurrentUserId() userId: string, @Body() dto: GoogleLoginDto) {
     return this.authService.linkGoogle(userId, dto.idToken);
+  }
+
+  @Post('oidc')
+  @HttpCode(HttpStatus.OK)
+  oidc(@Body() dto: OidcLoginDto) {
+    return this.authService.loginWithKeycloak(dto.idToken);
+  }
+
+  // Guarded, unlike `POST oidc` above, for the same reason `google/link` is:
+  // the session is what proves the caller owns the account the membership card
+  // gets attached to.
+  @Post('oidc/link')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  linkOidc(@CurrentUserId() userId: string, @Body() dto: OidcLoginDto) {
+    return this.authService.linkKeycloak(userId, dto.idToken);
   }
 
   @Get('me')
