@@ -103,7 +103,15 @@ fi
 DB_URL=$(grep -E '^DATABASE_URL=' "$BACKEND/.env" | head -1 | cut -d= -f2- | tr -d "\"'")
 [ -n "$DB_URL" ] || { echo "ERREUR : DATABASE_URL introuvable dans .env" >&2; exit 1; }
 
-appliquees=$(psql "$DB_URL" -tAc \
+# `?schema=public` est un paramètre de Prisma, pas de libpq : psql le refuse avec
+# « invalid URI query parameter ». On retire donc la chaîne de requête, et on
+# rétablit le schéma par PGOPTIONS — sans quoi une base employant autre chose que
+# `public` verrait la table introuvable et le déploiement s'arrêterait à tort.
+DB_BASE=${DB_URL%%\?*}
+SCHEMA=$(echo "$DB_URL" | sed -n 's/.*[?&]schema=\([^&]*\).*/\1/p')
+export PGOPTIONS="--search_path=${SCHEMA:-public}"
+
+appliquees=$(psql "$DB_BASE" -tAc \
   "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL" 2>/dev/null | sort)
 if [ -z "$appliquees" ]; then
   echo "ERREUR : impossible de lire _prisma_migrations — on ne redémarre pas à l'aveugle" >&2
