@@ -284,29 +284,40 @@ jobs:
       # Exercer l'accès avant d'en dépendre. Cette étape échoue en quelques
       # secondes là où le transfert, lui, pendait — c'est ce qui est arrivé au
       # premier essai, avant qu'on sache le port 22 filtré.
-      # SONDE TEMPORAIRE — la voie cPanel Git est-elle seulement atteignable ?
+      # SONDE TEMPORAIRE — la voie cPanel Git est-elle exploitable ?
       #
-      # Ses deux déclencheurs documentés sont : pousser vers le dépôt hébergé par
-      # cPanel (port 22, dont on sait qu'il est filtré depuis un runner), ou
-      # cliquer dans l'interface. Reste l'UAPI, sur 2083. Si elle est filtrée
-      # aussi, cette voie n'offre aucune automatisation.
-      - name: Sonde — ports cPanel depuis le runner
+      # Le port 2083 répond depuis un runner, mesuré. Reste à établir que l'UAPI
+      # existe sur cPanel 134, que le jeton est accepté, et que le dépôt géré est
+      # enregistré. Cet appel est en LECTURE SEULE : il liste, il n'écrit rien.
+      #
+      # Le jeton passe par l'environnement, jamais par interpolation dans le
+      # script — un secret interpolé est du code, pas une donnée. Cette leçon a
+      # coûté trois échecs hier.
+      - name: Sonde — UAPI cPanel depuis le runner
         continue-on-error: true
         env:
-          H: ${{ secrets.O2SWITCH_FTP_HOST }}
+          CP_USER: ${{ secrets.O2SWITCH_CPANEL_USER }}
+          CP_TOKEN: ${{ secrets.O2SWITCH_CPANEL_TOKEN }}
+          CP_HOST: ${{ secrets.O2SWITCH_FTP_HOST }}
         run: |
           set -uo pipefail
-          probe() {
-            if timeout 8 bash -c "cat < /dev/null > /dev/tcp/$H/$1" 2>/dev/null; then
-              echo "  port $1 ($2) : OUVERT"
-            else
-              [ $? = 124 ] && echo "  port $1 ($2) : EXPIRÉ — pare-feu" || echo "  port $1 ($2) : refusé"
-            fi
-          }
-          probe 2083 "cPanel HTTPS / UAPI"
-          probe 2087 "WHM HTTPS"
-          probe 22   "SSH — témoin, doit être filtré"
-          probe 21   "FTP — témoin, doit être ouvert"
+          echo "── VersionControl::retrieve (lecture seule) ──"
+          code=$(curl -sS -o /tmp/uapi.json -w '%{http_code}' --max-time 25 \
+            -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
+            "https://$CP_HOST:2083/execute/VersionControl/retrieve" || echo "000")
+          echo "  HTTP $code"
+          python3 - <<'EOPY'
+          import json
+          try:
+              d = json.load(open('/tmp/uapi.json'))
+          except Exception as e:
+              print("  réponse illisible :", e)
+              print("  début brut :", open('/tmp/uapi.json').read()[:200])
+              raise SystemExit(0)
+          print("  status :", d.get('status'), " erreurs :", d.get('errors'))
+          for r in (d.get('data') or []):
+              print(f"    dépôt : {r.get('name')!r}  chemin : {r.get('repository_root')!r}  branche : {(r.get('branch') or {})}")
+          EOPY
 
       - name: Vérifier l'accès FTPS
         run: |
