@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -41,13 +45,18 @@ const UNVERIFIED_GOOGLE_EMAIL_FOR_LINK =
 const GOOGLE_ACCOUNT_ALREADY_USED =
   'This Google account is already linked to another Tambouille account.';
 
-const ACCOUNT_ALREADY_LINKED = 'This account is already linked to a Google account.';
+const ACCOUNT_ALREADY_LINKED =
+  'This account is already linked to a Google account.';
 
 // Prisma's unique-constraint violation. Not importing Prisma's own error
 // class here to keep this check working against the plain mock objects the
 // test suite throws, as well as the real `PrismaClientKnownRequestError`.
 function isUniqueConstraintError(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'P2002';
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'P2002'
+  );
 }
 
 @Injectable()
@@ -58,7 +67,17 @@ export class AuthService {
     private readonly googleVerifier: GoogleTokenVerifier,
   ) {}
 
-  private toPublicUser(user: { id: string; email: string; username: string | null; displayName: string; bio: string | null; avatarUrl: string | null; createdAt: Date; password: string | null; googleId: string | null }) {
+  private toPublicUser(user: {
+    id: string;
+    email: string;
+    username: string | null;
+    displayName: string;
+    bio: string | null;
+    avatarUrl: string | null;
+    createdAt: Date;
+    password: string | null;
+    googleId: string | null;
+  }) {
     return {
       id: user.id,
       email: user.email,
@@ -278,12 +297,16 @@ export class AuthService {
       throw new ConflictException(ACCOUNT_ALREADY_LINKED);
     }
 
-    const updated = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const updated = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
     return this.toPublicUser(updated);
   }
 
   async setUsername(userId: string, username: string) {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
     // One-shot: this endpoint exists to complete a pending account, not to
     // rename an established one, which would break every link to its profile.
     //
@@ -321,12 +344,16 @@ export class AuthService {
       throw new ConflictException('Username already set');
     }
 
-    const updated = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const updated = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
     return this.toPublicUser(updated);
   }
 
   async setPassword(userId: string, password: string) {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
     // Pre-check only, for a clean error message in the common case: it is
     // check-then-act and cannot be trusted for correctness under concurrency,
     // since two requests could both read `password === null` before either
@@ -350,12 +377,16 @@ export class AuthService {
       throw new ConflictException('Password already set');
     }
 
-    const updated = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const updated = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
     return this.toPublicUser(updated);
   }
 
   async me(userId: string) {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
     return this.toPublicUser(user);
   }
 }

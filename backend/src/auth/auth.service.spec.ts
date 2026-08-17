@@ -36,7 +36,9 @@ describe('AuthService', () => {
     verifier = createVerifierMock();
     service = new AuthService(
       prisma as unknown as PrismaService,
-      { signAsync: jest.fn().mockResolvedValue('signed-token') } as unknown as JwtService,
+      {
+        signAsync: jest.fn().mockResolvedValue('signed-token'),
+      } as unknown as JwtService,
       verifier as unknown as GoogleTokenVerifier,
     );
   });
@@ -52,7 +54,10 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.login({ emailOrUsername: 'nelly@example.com', password: 'whatever' }),
+        service.login({
+          emailOrUsername: 'nelly@example.com',
+          password: 'whatever',
+        }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
@@ -68,8 +73,12 @@ describe('AuthService', () => {
     it('signs in an account already linked to this Google identity', async () => {
       verifier.verify.mockResolvedValue(IDENTITY);
       prisma.user.findFirst.mockResolvedValue({
-        id: 'u1', email: IDENTITY.email, username: 'nelly',
-        password: null, displayName: 'Nelly', googleId: IDENTITY.googleId,
+        id: 'u1',
+        email: IDENTITY.email,
+        username: 'nelly',
+        password: null,
+        displayName: 'Nelly',
+        googleId: IDENTITY.googleId,
       });
 
       const result = await service.loginWithGoogle('token');
@@ -90,12 +99,19 @@ describe('AuthService', () => {
       expect(IDENTITY.emailVerified).toBe(true);
       prisma.user.findFirst
         .mockResolvedValueOnce(null) // no match on googleId
-        .mockResolvedValueOnce({     // match on email, no Google identity yet
-          id: 'u2', email: IDENTITY.email, username: 'nelly',
-          password: 'hash', displayName: 'Nelly', googleId: null,
+        .mockResolvedValueOnce({
+          // match on email, no Google identity yet
+          id: 'u2',
+          email: IDENTITY.email,
+          username: 'nelly',
+          password: 'hash',
+          displayName: 'Nelly',
+          googleId: null,
         });
 
-      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       // The decisive assertions: nothing is written. No `googleId` lands on
       // the existing row, and no duplicate account is made either.
       expect(prisma.user.update).not.toHaveBeenCalled();
@@ -105,25 +121,35 @@ describe('AuthService', () => {
     it('tells the refused user to sign in with their password', async () => {
       verifier.verify.mockResolvedValue(IDENTITY);
       prisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
-        id: 'u2', email: IDENTITY.email, username: 'nelly',
-        password: 'hash', displayName: 'Nelly', googleId: null,
+        id: 'u2',
+        email: IDENTITY.email,
+        username: 'nelly',
+        password: 'hash',
+        displayName: 'Nelly',
+        googleId: null,
       });
 
-      const error = await service.loginWithGoogle('token').catch((e: Error) => e);
+      const error = await service
+        .loginWithGoogle('token')
+        .catch((e: Error) => e);
 
       expect((error as Error).message).toMatch(/sign in with your password/i);
     });
 
     it('refuses an existing account when Google has not verified the address', async () => {
       verifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
-      prisma.user.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          id: 'u3', email: IDENTITY.email, username: 'nelly',
-          password: 'hash', displayName: 'Nelly', googleId: null,
-        });
+      prisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        id: 'u3',
+        email: IDENTITY.email,
+        username: 'nelly',
+        password: 'hash',
+        displayName: 'Nelly',
+        googleId: null,
+      });
 
-      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(prisma.user.update).not.toHaveBeenCalled();
       expect(prisma.user.create).not.toHaveBeenCalled();
     });
@@ -136,7 +162,9 @@ describe('AuthService', () => {
       verifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
       prisma.user.findFirst.mockResolvedValue(null); // nothing matches at all
 
-      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(prisma.user.create).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
@@ -147,28 +175,45 @@ describe('AuthService', () => {
       verifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
 
       prisma.user.findFirst.mockResolvedValue(null);
-      const unregistered = await service.loginWithGoogle('token').catch((e: Error) => e);
+      const unregistered = await service
+        .loginWithGoogle('token')
+        .catch((e: Error) => e);
 
       prisma.user.findFirst.mockReset();
       prisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
-        id: 'u5', email: IDENTITY.email, username: 'nelly',
-        password: 'hash', displayName: 'Nelly', googleId: null,
+        id: 'u5',
+        email: IDENTITY.email,
+        username: 'nelly',
+        password: 'hash',
+        displayName: 'Nelly',
+        googleId: null,
       });
-      const registered = await service.loginWithGoogle('token').catch((e: Error) => e);
+      const registered = await service
+        .loginWithGoogle('token')
+        .catch((e: Error) => e);
 
-      expect((unregistered as Error).message).toBe((registered as Error).message);
+      expect((unregistered as Error).message).toBe(
+        (registered as Error).message,
+      );
     });
 
     it('refuses an existing account already owned by a different Google identity', async () => {
       verifier.verify.mockResolvedValue(IDENTITY);
       prisma.user.findFirst
         .mockResolvedValueOnce(null) // no match on this googleId
-        .mockResolvedValueOnce({     // match on email, but owned by another sub
-          id: 'u6', email: IDENTITY.email, username: 'someone-else',
-          password: 'hash', displayName: 'Nelly', googleId: 'google-sub-other',
+        .mockResolvedValueOnce({
+          // match on email, but owned by another sub
+          id: 'u6',
+          email: IDENTITY.email,
+          username: 'someone-else',
+          password: 'hash',
+          displayName: 'Nelly',
+          googleId: 'google-sub-other',
         });
 
-      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       // No session is issued on a row we do not own, and its `googleId` is
       // not re-pointed at the caller.
       expect(prisma.user.update).not.toHaveBeenCalled();
@@ -181,11 +226,17 @@ describe('AuthService', () => {
       // and an exact match would let the variant through into a second account.
       verifier.verify.mockResolvedValue(IDENTITY);
       prisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
-        id: 'u7', email: 'Nelly@Example.com', username: 'nelly',
-        password: 'hash', displayName: 'Nelly', googleId: null,
+        id: 'u7',
+        email: 'Nelly@Example.com',
+        username: 'nelly',
+        password: 'hash',
+        displayName: 'Nelly',
+        googleId: null,
       });
 
-      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.loginWithGoogle('token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
 
       expect(prisma.user.findFirst).toHaveBeenNthCalledWith(2, {
         where: { email: { equals: IDENTITY.email, mode: 'insensitive' } },
@@ -282,10 +333,14 @@ describe('AuthService', () => {
     it('refuses an address Google has not verified, without writing', async () => {
       verifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
 
-      const error = await service.linkGoogle('u1', 'token').catch((e: Error) => e);
+      const error = await service
+        .linkGoogle('u1', 'token')
+        .catch((e: Error) => e);
 
       expect(error).toBeInstanceOf(ConflictException);
-      expect((error as Error).message).toMatch(/has not verified this email address/i);
+      expect((error as Error).message).toMatch(
+        /has not verified this email address/i,
+      );
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
@@ -296,8 +351,12 @@ describe('AuthService', () => {
     it('refuses when another account already holds this Google identity', async () => {
       verifier.verify.mockResolvedValue(IDENTITY);
       prisma.user.findFirst.mockResolvedValue({
-        id: 'u2', email: 'someone@example.com', username: 'someone',
-        password: 'hash', displayName: 'Someone', googleId: IDENTITY.googleId,
+        id: 'u2',
+        email: 'someone@example.com',
+        username: 'someone',
+        password: 'hash',
+        displayName: 'Someone',
+        googleId: IDENTITY.googleId,
       });
       // The write and the re-read are mocked to succeed on purpose. Without
       // them, dropping the guard would make this test fail on a TypeError from
@@ -306,10 +365,13 @@ describe('AuthService', () => {
       // same `sub`, and only the assertions below catch it.
       prisma.user.updateMany.mockResolvedValue({ count: 1 });
       prisma.user.findUniqueOrThrow.mockResolvedValue({
-        ...UNLINKED, googleId: IDENTITY.googleId,
+        ...UNLINKED,
+        googleId: IDENTITY.googleId,
       });
 
-      const error = await service.linkGoogle('u1', 'token').catch((e: Error) => e);
+      const error = await service
+        .linkGoogle('u1', 'token')
+        .catch((e: Error) => e);
 
       expect(error).toBeInstanceOf(ConflictException);
       // Specifically "someone else holds it", not "you already linked".
@@ -329,14 +391,19 @@ describe('AuthService', () => {
       // carries a *different* `sub`: the state the refusal exists to protect.
       prisma.user.updateMany.mockResolvedValue({ count: 0 });
       prisma.user.findUniqueOrThrow.mockResolvedValue({
-        ...UNLINKED, googleId: 'google-sub-attached-by-someone-earlier',
+        ...UNLINKED,
+        googleId: 'google-sub-attached-by-someone-earlier',
       });
 
-      const error = await service.linkGoogle('u1', 'token').catch((e: Error) => e);
+      const error = await service
+        .linkGoogle('u1', 'token')
+        .catch((e: Error) => e);
 
       expect(error).toBeInstanceOf(ConflictException);
       // Specifically "this account already has one", not "someone else holds it".
-      expect((error as Error).message).toMatch(/this account is already linked/i);
+      expect((error as Error).message).toMatch(
+        /this account is already linked/i,
+      );
       // The write is conditional on the account still being unlinked; that
       // where-clause is the whole reason `count` can come back 0, so pin it.
       expect(prisma.user.updateMany).toHaveBeenCalledWith({
@@ -358,7 +425,9 @@ describe('AuthService', () => {
       prisma.user.findFirst.mockResolvedValue(null);
       prisma.user.updateMany.mockRejectedValue({ code: 'P2002' });
 
-      const error = await service.linkGoogle('u1', 'token').catch((e: Error) => e);
+      const error = await service
+        .linkGoogle('u1', 'token')
+        .catch((e: Error) => e);
 
       expect(error).toBeInstanceOf(ConflictException);
       // The index fired because another account holds this sub, so this must
@@ -372,8 +441,13 @@ describe('AuthService', () => {
       prisma.user.findUniqueOrThrow
         .mockResolvedValueOnce({ id: 'u1', username: null })
         .mockResolvedValueOnce({
-          id: 'u1', email: 'n@e.com', username: 'nelly',
-          password: null, displayName: 'Nelly', bio: null, avatarUrl: null,
+          id: 'u1',
+          email: 'n@e.com',
+          username: 'nelly',
+          password: null,
+          displayName: 'Nelly',
+          bio: null,
+          avatarUrl: null,
           createdAt: new Date(),
         });
       prisma.user.findFirst.mockResolvedValue(null);
@@ -389,35 +463,55 @@ describe('AuthService', () => {
     });
 
     it('refuses to overwrite a username that is already set', async () => {
-      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: 'nelly' });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: 'u1',
+        username: 'nelly',
+      });
 
-      await expect(service.setUsername('u1', 'autre')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.setUsername('u1', 'autre')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
     it('refuses a username already taken by someone else', async () => {
-      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: 'u1',
+        username: null,
+      });
       prisma.user.findFirst.mockResolvedValue({ id: 'u2', username: 'nelly' });
 
-      await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
     it('refuses when the claim loses a race to another update', async () => {
-      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: 'u1',
+        username: null,
+      });
       prisma.user.findFirst.mockResolvedValue(null);
       prisma.user.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
     });
 
     it('refuses when the unique constraint fires on the write', async () => {
-      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: 'u1',
+        username: null,
+      });
       prisma.user.findFirst.mockResolvedValue(null);
       prisma.user.updateMany.mockRejectedValue({ code: 'P2002' });
 
-      await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
     });
   });
 
@@ -426,8 +520,13 @@ describe('AuthService', () => {
       prisma.user.findUniqueOrThrow
         .mockResolvedValueOnce({ id: 'u1', password: null })
         .mockResolvedValueOnce({
-          id: 'u1', email: 'n@e.com', username: 'nelly',
-          password: 'hashed', displayName: 'Nelly', bio: null, avatarUrl: null,
+          id: 'u1',
+          email: 'n@e.com',
+          username: 'nelly',
+          password: 'hashed',
+          displayName: 'Nelly',
+          bio: null,
+          avatarUrl: null,
           createdAt: new Date(),
         });
       prisma.user.updateMany.mockResolvedValue({ count: 1 });
@@ -444,21 +543,27 @@ describe('AuthService', () => {
     });
 
     it('refuses when a password is already set', async () => {
-      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', password: 'existing-hash' });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: 'u1',
+        password: 'existing-hash',
+      });
 
-      await expect(service.setPassword('u1', 'motdepasse123')).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.setPassword('u1', 'motdepasse123'),
+      ).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
     it('refuses when the write loses a race to another update', async () => {
-      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', password: null });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: 'u1',
+        password: null,
+      });
       prisma.user.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.setPassword('u1', 'motdepasse123')).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.setPassword('u1', 'motdepasse123'),
+      ).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
     });
   });
