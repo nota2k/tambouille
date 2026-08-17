@@ -151,6 +151,26 @@ déploiements de **tous** les dépôts du compte. Un filtre qu'on n'a pas vu
 filtrer ne filtre pas — celui-ci m'a fait prendre le déploiement d'un autre
 projet pour le nôtre.
 
+### Le déploiement tire lui-même, parce que l'API ne le fait pas
+
+**`VersionControl::update` ne tire rien.** Il répond `status 1` et se contente de
+mettre à jour les métadonnées de cPanel — mesuré dans les deux formes, avec et
+sans paramètre `branch`. Le bouton « Update from Remote » de l'interface fait
+autre chose, sans équivalent exposé par l'API.
+
+Conséquence observée avant d'être comprise : cPanel a redéployé pendant deux
+heures le commit sur lequel son clone avait été laissé, exécutant une version du
+script antérieure à sa propre correction. Le symptôme — un `npx prisma` qu'on
+avait pourtant retiré — désignait un fichier qui n'existait plus dans le dépôt.
+
+`.cpanel.yml` tire donc lui-même, en première tâche. La seconde s'exécute sur
+l'arbre fraîchement obtenu, donc **le script lancé est toujours le dernier
+publié**. C'est ce qui permet à ce fichier de ne plus jamais changer : toute la
+logique vit dans le script.
+
+Le seul coût est un amorçage manuel — un `git pull` sur le serveur pour que ce
+`.cpanel.yml`-ci arrive. Une fois posé, le mécanisme se suffit.
+
 ### Le déploiement détecte les migrations, il ne les applique pas
 
 **Prisma 7 ne tient pas dans la mémoire des processus cPanel.** Mesuré au premier
