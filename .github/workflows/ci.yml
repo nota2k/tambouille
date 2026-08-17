@@ -259,14 +259,28 @@ jobs:
           call VersionControl/update \
             --data-urlencode "repository_root=$REPO_ROOT" \
             --data-urlencode "branch=deploy" > update.json
-          python3 -c "import json;d=json.load(open('update.json'));print('  update  status',d['status'],d.get('errors') or '')"
+          # L'ÉCHEC EST FATAL. Une première version se contentait d'afficher le
+          # statut : `update` a échoué en silence, et le déploiement est parti
+          # sur la branche que cPanel avait extraite au lieu de `deploy`. Un
+          # appel dont on lit le statut sans le vérifier ne vérifie rien.
+          python3 - <<'EOPY'
+          import json, sys
+          d = json.load(open('update.json'))
+          if d.get('status') != 1:
+              print('::error::update a échoué —', d.get('errors'))
+              sys.exit(1)
+          print('  update  ok, branche', (d.get('data') or {}).get('branch'))
+          EOPY
           call VersionControlDeployment/create \
             --data-urlencode "repository_root=$REPO_ROOT" > create.json
-          python3 - <<'EOPY'
-          import json
+          python3 - <<'EOPY' >> "$GITHUB_ENV"
+          import json, sys
           d = json.load(open('create.json'))
-          assert d['status'] == 1, d.get('errors')
-          print('  déploiement', d['data']['deploy_id'], 'mis en file')
+          if d.get('status') != 1:
+              print('::error::create a échoué —', d.get('errors'), file=sys.stderr)
+              sys.exit(1)
+          print('DEPLOY_ID=%s' % d['data']['deploy_id'])
+          print('  déploiement %s mis en file' % d['data']['deploy_id'], file=sys.stderr)
           EOPY
 
       # ── Attendre un résultat TERMINAL ────────────────────────────────────
@@ -288,17 +302,25 @@ jobs:
               --get "https://$CP_HOST:2083/execute/VersionControlDeployment/retrieve" \
               --data-urlencode "repository_root=$REPO_ROOT" > etat.json || true
             python3 - <<'EOPY' && exit 0
-          import json, sys
+          import json, os, sys
+          # On ne lit QUE le déploiement qu'on a déclenché. Sans ce
+          # rattachement, la boucle prend le premier résultat terminal venu —
+          # elle a déjà rapporté l'échec d'une sonde vieille de plusieurs
+          # heures comme s'il était le sien. C'est la propriété que la version
+          # précédente tenait en faisant circuler le SHA dans les deux sens.
+          cible = str(os.environ['DEPLOY_ID'])
           try:
               d = json.load(open('etat.json'))
           except Exception:
               sys.exit(1)
           for dep in (d.get('data') or []):
+              if str(dep.get('deploy_id')) != cible:
+                  continue
               ts = dep.get('timestamps') or {}
               if 'successful' in ts:
-                  print('  déploiement réussi'); raise SystemExit(0)
+                  print('  déploiement', cible, 'réussi'); raise SystemExit(0)
               if 'failed' in ts:
-                  print('::error::le serveur signale un échec —', dep.get('log_path'))
+                  print('::error::déploiement %s en échec — %s' % (cible, dep.get('log_path')))
                   raise SystemExit(2)
           sys.exit(1)
           EOPY
