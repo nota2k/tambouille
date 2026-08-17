@@ -7,6 +7,7 @@ import { PasswordResetService } from './password-reset.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleTokenVerifier } from './google-token-verifier';
+import { OidcTokenVerifier } from './oidc-token-verifier';
 import { MailModule } from '../mail/mail.module';
 
 @Module({
@@ -25,7 +26,13 @@ import { MailModule } from '../mail/mail.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordResetService, JwtStrategy, GoogleTokenVerifier],
+  providers: [
+    AuthService,
+    PasswordResetService,
+    JwtStrategy,
+    GoogleTokenVerifier,
+    OidcTokenVerifier,
+  ],
   exports: [JwtModule],
 })
 export class AuthModule {}
