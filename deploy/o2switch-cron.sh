@@ -39,11 +39,31 @@ LOCK="$HOME/.o2switch-deploy.lock"
 [ -f "$PENDING" ] || exit 0
 
 SHA=$(head -c 100 "$PENDING" | tr -d '[:space:]')
+REPORTED=0
+
+# Toute mort inattendue doit quand même produire un résultat. Sans ce filet, un
+# arrêt imprévu — et il y en a eu un dès le premier essai — laisse le pipeline
+# attendre quinze minutes puis échouer sans savoir pourquoi, et le témoin en
+# place fait retenter le cron toutes les cinq minutes indéfiniment.
+on_exit() {
+  local code=$?
+  [ "$REPORTED" = "1" ] && return
+  mkdir -p "$APP/deploy"
+  {
+    echo "sha=$SHA"
+    echo "status=failed"
+    echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "detail=arrêt inattendu du script (code $code)"
+  } > "$RESULT"
+  rm -f "$PENDING"
+}
+trap on_exit EXIT
 
 # Le résultat porte le SHA demandé : sans lui, le pipeline pourrait lire le
 # résultat d'un déploiement antérieur et le prendre pour le sien.
 report() {
   local status=$1 detail=${2:-}
+  REPORTED=1
   mkdir -p "$APP/deploy"
   {
     echo "sha=$SHA"
@@ -72,8 +92,16 @@ flock -n 9 || exit 0
 # projet et n'est pas celui que Passenger exécute. Sans cette activation, tout ce
 # qui suit s'exécuterait contre le mauvais runtime — en silence, la plupart du
 # temps.
+#
+# `set +u` le temps de le sourcer : ce script ne nous appartient pas et
+# référence des variables non définies. Sous `set -u`, cela ne fait pas
+# qu'échouer — cela TUE le shell sur-le-champ, avant même que le `||` ci-dessous
+# ne puisse s'exécuter. Constaté au premier essai : aucun résultat n'était
+# écrit, et le témoin restait en place.
 # shellcheck source=/dev/null
-source "$NODEVENV" || report failed "activation du nodevenv impossible"
+set +u
+source "$NODEVENV" || { set -u; report failed "activation du nodevenv impossible"; }
+set -u
 node -v | grep -q '^v22\.' || report failed "node $(node -v) au lieu de 22.x"
 
 cd "$BACKEND" || report failed "$BACKEND introuvable"
