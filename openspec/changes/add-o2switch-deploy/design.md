@@ -151,23 +151,36 @@ déploiements de **tous** les dépôts du compte. Un filtre qu'on n'a pas vu
 filtrer ne filtre pas — celui-ci m'a fait prendre le déploiement d'un autre
 projet pour le nôtre.
 
-### Les migrations tournent dans les tâches de `.cpanel.yml`
+### Le déploiement détecte les migrations, il ne les applique pas
 
-`npx --yes prisma@7 migrate deploy`, exécuté par cPanel au déploiement.
+**Prisma 7 ne tient pas dans la mémoire des processus cPanel.** Mesuré au premier
+déploiement réel : `npx prisma@7 migrate deploy` échoue sur
+`RangeError: WebAssembly.Instance(): Cannot allocate Wasm memory`. La CLI
+instancie un module WebAssembly au démarrage — avant même de savoir s'il y a du
+travail — et CloudLinux applique aux processus lancés par cPanel une limite plus
+stricte qu'à une session SSH, où la même commande passe.
 
-La base n'écoute que sur `localhost` : elle n'est atteignable que depuis le
-serveur lui-même, quel que soit le transport choisi pour les fichiers. Ce point
-n'a bougé à aucun des trois virages — c'est lui qui a rendu inévitable, à chaque
-fois, un mécanisme d'exécution côté serveur.
+Le déploiement compare donc les répertoires de `prisma/migrations/` à ce que la
+table `_prisma_migrations` déclare avoir appliqué, avec `psql`. Aucun Prisma, pas
+de WebAssembly, quelques millisecondes.
 
-L'analyse des quatre modalités inscrite dans `TODOS.md` raisonnait sur une base
-joignable depuis l'extérieur ; la reconnaissance a montré que cette prémisse
-était fausse, et sa conclusion se trouve juste par accident. Cette entrée a été
-corrigée depuis (commit `2b27fcd`).
+- **Rien à migrer** — le cas courant : le déploiement continue et redémarre.
+- **Des migrations en attente** : il **s'arrête** en les nommant et en donnant la
+  commande à lancer en SSH. Il ne redémarre pas, donc l'ancien code continue de
+  servir sur l'ancien schéma, ce qui est cohérent.
+- **Table illisible** : il s'arrête aussi. On ne redémarre pas à l'aveugle.
 
-`prisma` est une devDependency et le serveur n'installe que ses dépendances
-d'exécution — d'où `npx --yes`, qui télécharge la CLI le temps de la commande.
-Vingt à quarante secondes, sur les seuls déploiements comportant une migration.
+C'est l'option « le pipeline détecte et s'arrête », esquissée puis écartée quand
+on croyait pouvoir tout automatiser. La contrainte l'a rendue nécessaire, et elle
+a le mérite de ne pas faire semblant : une migration reste un geste conscient,
+deux fois par mois, et le déploiement refuse de mentir sur ce qu'il n'a pas fait.
+
+*Écarté* : appliquer les migrations en SQL brut depuis le script. Cela
+réimplémenterait la comptabilité de `_prisma_migrations`, pour un gain qui ne
+concerne que deux déploiements par mois.
+
+*Écarté* : rétrograder la CLI à une version antérieure à WebAssembly. Prisma 5 ne
+comprend ni `prisma.config.ts` ni le générateur `prisma-client` de la version 7.
 
 ### L'installation des dépendances reste sur le serveur, et n'efface jamais
 
