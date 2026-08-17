@@ -1,0 +1,175 @@
+## Why
+
+La production a servi pendant neuf jours du code daté du 9 août pendant que
+`main` avançait de 5 commits. La connexion par carte de membre a été
+développée, testée, fusionnée et archivée sans jamais atteindre un utilisateur.
+Personne ne s'en est aperçu, parce que rien ne le signale : le déploiement est
+une suite de gestes manuels qu'on peut simplement ne pas faire.
+
+Une reconnaissance en lecture seule sur le serveur (17 août) a établi l'état
+réel, et il est plus intéressant que prévu :
+
+- `~/tambouille` est sur `main` au commit `e614b23`, construit sur place le
+  9 août à 02:07 et 02:08. Le serveur **compile les deux paquets lui-même**, sur
+  un mutualisé où le CPU est bridé.
+- `frontend/dist` est versionné **et** reconstruit sur le serveur. Chaque
+  construction efface les fichiers suivis et en écrit de non suivis : le
+  `git status` de la production porte en permanence une cinquantaine de lignes
+  de faux positifs. Ce n'est pas dangereux, c'est illisible — au point qu'il a
+  fallu une sonde supplémentaire pour établir que personne n'avait édité de code
+  à la main en production.
+- `backend/uploads` pèse **222 Mo** et n'est pas dans git.
+- La base écoute sur `localhost:5432`.
+- Le `nodevenv` fournit node 22.23.2, mais le `PATH` fournit 24.11.1 — qui ne
+  satisfait pas le `engines` du frontend (`^22.18.0 || >=24.12.0`).
+- `KEYCLOAK_ISSUER` et `KEYCLOAK_CLIENT_ID` sont absentes de `backend/.env`.
+
+Le rattrapage manuel qui a suivi, le 17 août, a fourni la motivation la plus
+solide de ce chantier — en échouant trois fois avant d'aboutir :
+
+1. `npm run build` échoue, `nest: command not found`. Les devDependencies
+   avaient disparu du serveur, alors qu'elles étaient présentes le 9 août.
+2. Le contournement par `tsc` échoue à son tour : `@types/express` manque aussi.
+3. `npm install` refuse de s'exécuter — le `npm ci` de la procédure avait
+   supprimé le lien symbolique `node_modules` que CloudLinux exige et l'avait
+   remplacé par un répertoire réel, vidant au passage le virtualenv.
+
+Aucune de ces trois défaillances n'est prévisible depuis le dépôt, et toutes
+tiennent à ce que **la construction et l'installation se font sur le serveur**.
+Un pipeline qui construit ailleurs et n'installe que ce qui doit l'être les
+supprime toutes les trois. Le déploiement a fini par aboutir, et par un chemin
+qu'il faut noter : c'est le `frontend/dist` **versionné**, arrivé par
+`git pull`, qui a fourni l'interface — la construction du frontend sur le
+serveur ayant échoué elle aussi, faute de `npm-run-all2`.
+
+**Enfin, la mesure qui dicte la forme de tout le dispositif.** Le premier essai
+du pipeline s'est bloqué à la connexion. Sondé depuis un runner :
+
+```
+port 21  (FTP)             OUVERT
+port 22  (SSH)             EXPIRÉ — paquets jetés
+port 990 (FTPS implicite)  EXPIRÉ
+port 443 (témoin)          OUVERT
+```
+
+Le pare-feu du mutualisé ne laisse passer que des adresses déclarées, et sa
+liste blanche compte **cinq emplacements** — quand les plages de sortie des
+runners GitHub se comptent en milliers de blocs CIDR et changent. Ce n'est pas
+une adresse à trouver, c'est une impossibilité de structure : **SSH depuis un
+CI est définitivement fermé sur cet hébergement.**
+
+**SSH depuis un CI est donc définitivement fermé sur cet hébergement.** Une
+première réponse a été bâtie sur FTPS et un cron du serveur, et elle a
+fonctionné : le pipeline a livré, est revenu en arrière, a redémarré Passenger.
+Elle payait toutefois une taxe — le FTP n'ayant pas de listage récursif, la
+comparaison coûtait 141 secondes sur 248 pour quelques centaines de kilooctets —
+et demandait un mécanisme entier hors du dépôt.
+
+Une seconde mesure a rouvert le sujet :
+
+```
+port 2083 (API cPanel)     OUVERT
+port 2087 (WHM)            EXPIRÉ
+```
+
+L'API de cPanel est joignable depuis un runner, accepte un jeton, et — vérifié
+plutôt que supposé — un déploiement qu'elle déclenche exécute réellement les
+tâches de `.cpanel.yml` sur le serveur. Cela supprime d'un coup le transport, le
+protocole de demande et de résultat, et le cron.
+
+Ces trois transports successifs ne sont pas de l'indécision : chacun est tombé
+sur une mesure, et aucune n'était devinable depuis le dépôt.
+
+## What Changes
+
+- Une tâche `deploy` ajoutée à `.github/workflows/ci.yml`, en `needs` sur les
+  trois tâches de vérification. Déployer devient impossible sans que les tests,
+  les constructions et le formatage soient verts — une propriété structurelle,
+  pas une intention.
+- Les artefacts sont construits **sur le runner**, commités sur une branche
+  `deploy` dédiée, et récupérés par le serveur via le **déploiement git de
+  cPanel**, déclenché par son API. Le serveur ne compile plus de code
+  applicatif ; il tire, recopie, installe ses dépendances d'exécution quand elles
+  changent, migre et redémarre.
+- L'installation des dépendances reste sur le serveur, et ne peut pas en partir :
+  `bcrypt` est un module natif, un `node_modules` construit sur Ubuntu ne
+  s'exécuterait pas sous CloudLinux. Elle doit en revanche préserver la structure
+  que l'hébergeur impose — un `node_modules` qui doit être un lien symbolique
+  vers le virtualenv, et qu'un `npm ci` détruit.
+- Ce que le serveur fait à réception est décrit par **`.cpanel.yml`**, versionné :
+  recopier des répertoires nommés un par un vers `~/tambouille`, installer les
+  dépendances d'exécution si le verrou a changé, migrer, redémarrer. Jamais de
+  joker pour désigner ce qu'on remplace, et jamais rien qui vise `backend/`
+  lui-même — `.env`, `node_modules`, `tmp/` et les 222 Mo d'`uploads` y vivent.
+- **Le déclenchement n'est pas une preuve d'exécution.** L'API répond « mis en
+  file » ; le pipeline interroge donc l'état du déploiement jusqu'à un résultat
+  terminal, en filtrant par dépôt, et échoue si rien n'arrive.
+- Toute commande npm est précédée de l'activation du `nodevenv`, sur le serveur
+  comme dans les scripts de déploiement.
+- **Déclencheur en deux temps** : `workflow_dispatch` seul d'abord, bascule sur
+  `push` vers `main` en dernière tâche, une fois deux ou trois déploiements
+  observés.
+- **Bascule complète** : `~/tambouille` cesse d'être un clone git,
+  `frontend/dist` quitte le dépôt, la branche `o2switch-db` est supprimée.
+  L'ordre de ces trois gestes est contraint et traité dans `design.md`.
+
+## Capabilities
+
+### New Capabilities
+
+- `deployment`: ce qui doit être vrai pour qu'une version atteigne la
+  production — ce qui l'autorise, ce que le transfert n'a pas le droit
+  d'effacer, dans quel ordre le schéma et le code changent, et comment on sait
+  que le résultat fonctionne.
+
+### Modified Capabilities
+
+Aucune. La tâche `deploy` cohabite dans `ci.yml` sans toucher aux exigences de
+`continuous-integration` : elle ne s'exécute jamais sur une `pull_request`, donc
+la propriété « les vérifications bloquantes ne réclament aucun secret » — et
+avec elle la possibilité de vérifier une proposition venue d'un fork — reste
+vraie telle qu'elle est écrite.
+
+## Impact
+
+**Ajouté** : une tâche `deploy` dans `.github/workflows/ci.yml`, et `.cpanel.yml`
+à la racine du dépôt. Deux secrets : l'utilisateur cPanel et un jeton d'API nommé
+`github-deploy`.
+
+**Modifié** : `frontend/.gitignore`, dont le commentaire justifie aujourd'hui le
+versionnement de `dist/` par une affirmation devenue fausse.
+
+**Retiré du suivi git** : `frontend/dist/`.
+
+**Retiré** : `deploy/o2switch-cron.sh`, le compte FTP et ses trois secrets. Le
+passage à cPanel supprime trois mécanismes d'un coup — le transport, le
+protocole témoin/résultat, et le cron.
+
+**Hors du dépôt** : un dépôt cPanel cloné dans `~/repositories/tambouille`,
+distinct de `~/tambouille` qui reste la cible servie ; un jeton d'API. Puis, plus
+tard, la suppression du `.git` de `~/tambouille` et celle de la branche
+`o2switch-db`.
+
+**Ce qu'on abandonne en chemin**, et qui doit être dit : avec le cron, le script
+exécuté vivait hors de portée de l'identifiant de déploiement — celui-ci pouvait
+déposer des fichiers, jamais choisir ce qui s'exécute. `.cpanel.yml` étant dans
+le dépôt, cette propriété disparaît. L'exigence correspondante a été retirée de
+la spécification plutôt que maquillée. Et le jeton, en `full_access`, dépasse ce
+que le compte FTP cantonné permettait.
+
+## Non-Goals
+
+- **Le déploiement de rattrapage lui-même.** Les 5 commits, la migration
+  `keycloak_login` et les deux variables manquantes sont un **prérequis**, fait
+  à la main en SSH avant que ce chantier commence. Automatiser par-dessus un
+  écart de neuf jours reviendrait à déboguer un pipeline neuf et une mise en
+  production inhabituelle en même temps ; le pipeline doit transcrire un geste
+  déjà compris.
+- **Les 222 Mo de `backend/uploads`.** Leur nature est inconnue — héritage
+  d'avant R2, sauvegarde, ou fichiers encore servis. Ce changement ne les
+  déplace pas et ne les interroge pas ; il garantit seulement qu'il ne peut pas
+  les effacer.
+- **Répertoires de release et bascule par lien symbolique.** `PassengerAppRoot`
+  est un chemin absolu ; le retour arrière reste un redéploiement sur une
+  référence connue-bonne.
+- **Un environnement de préproduction.** Toujours un seul environnement.

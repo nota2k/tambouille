@@ -1,0 +1,319 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  # Le déploiement ne part que sur commande, le temps qu'on lui fasse confiance.
+  # Le passage à `push` sur `main` est la dernière tâche du chantier, pas la
+  # première — voir openspec/changes/add-o2switch-deploy/tasks.md, groupe 6.
+  #
+  # `ref` est aussi le retour arrière : redéployer une version connue-bonne en
+  # la désignant, sans révoquer de commit ni réécrire l'historique.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Référence à déployer (défaut : la branche courante)"
+        required: false
+        type: string
+
+# Une nouvelle poussée sur une proposition de fusion annule l'exécution en cours
+# pour cette même référence : seul le dernier état compte. Les exécutions sur
+# `main` ne sont jamais annulées — chacune correspond à un commit distinct de
+# l'historique, et en perdre une laisserait un trou.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Aucune tâche de vérification ne lit de secret, et c'est délibéré : elles
+# restent ainsi exécutables telles quelles sur une proposition venue d'un fork.
+# La tâche `deploy`, elle, en lit — mais elle ne s'exécute jamais sur une
+# `pull_request`, donc la propriété est préservée telle qu'elle est spécifiée.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node 22 : la seule version qui satisfasse à la fois le `engines` du
+      # frontend et la production, qui tourne sur le node 22 du nodevenv
+      # o2switch. Vérifier sur une version que le serveur n'exécute pas
+      # reviendrait à vérifier autre chose que ce qui est déployé.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # `npm ci` et non `npm install` : il échoue si le verrou et le manifeste
+      # divergent, ce qui est précisément le signal recherché.
+      #
+      # Le client Prisma n'est plus généré à l'installation mais par les hooks
+      # `prebuild` / `pretest` du paquet. `npm install` s'exécute dans le
+      # virtualenv CloudLinux du serveur, où `prisma/schema.prisma` n'existe pas,
+      # et le `postinstall` y faisait échouer l'installation entière.
+      - run: npm ci
+        working-directory: backend
+
+      - run: npm run format:check
+        working-directory: backend
+
+      # Aucune variable d'environnement, aucun service. Vérifié : la suite passe
+      # intégralement dans un environnement entièrement vierge et sans base
+      # joignable. (Le nombre de tests n'est pas cité ici : il change, et un
+      # commentaire qui vieillit mal vaut moins que pas de commentaire.)
+      - run: npm test
+        working-directory: backend
+
+      - run: npm run build
+        working-directory: backend
+
+      # Non bloquant. Le dépôt compte 659 problèmes eslint côté backend, dont
+      # environ 294 ne sont pas auto-corrigeables : les rendre bloquants
+      # reviendrait à exiger une remise à plat de cette taille avant toute
+      # fusion. Le rapport reste lisible dans les journaux, et son nettoyage
+      # est une entrée distincte de TODOS.md.
+      - name: eslint (rapport, non bloquant)
+        run: npm run lint:check
+        working-directory: backend
+        continue-on-error: true
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run format:check
+        working-directory: frontend
+
+      # `build` enchaîne `vue-tsc --build` et `vite build` par `run-p`, donc le
+      # contrôle de typage est couvert sans étape séparée.
+      - run: npm run build
+        working-directory: frontend
+
+      - name: eslint et oxlint (rapport, non bloquant)
+        run: npm run lint:check
+        working-directory: frontend
+        continue-on-error: true
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+
+    # `mail-boot.e2e-spec.ts` épingle une garantie qu'aucun test unitaire ne
+    # couvre : aucun défaut de configuration SMTP n'empêche l'API de démarrer.
+    # Elle exige un PostgreSQL joignable, parce que `PrismaService.onModuleInit`
+    # appelle `$connect()`.
+    #
+    # Un service déclaré ici, créé et détruit avec la tâche, n'est pas une
+    # dépendance extérieure : il ne tient à aucun secret ni à aucune machine
+    # tierce, et il est reproductible d'une exécution à l'autre.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tambouille
+          POSTGRES_PASSWORD: tambouille
+          POSTGRES_DB: tambouille
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tambouille"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+        working-directory: backend
+
+      # AUCUNE étape de migration, et ce n'est pas un oubli : vérifié contre une
+      # base vide et non migrée, la suite passe. `onModuleInit` se contente d'un
+      # `$connect()`, sans requête. Ajouter `prisma migrate deploy` ici ferait
+      # dépendre la vérification d'un état de schéma dont elle n'a pas besoin.
+      - run: npm run test:e2e
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://tambouille:tambouille@localhost:5432/tambouille?schema=public
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Déploiement vers o2switch, par le déploiement git de cPanel.
+  #
+  # `needs` sur les trois vérifications : déployer sans qu'elles soient vertes
+  # est impossible, et c'est une propriété du graphe des tâches. La condition
+  # `workflow_dispatch` garantit qu'aucune `pull_request` ne l'atteint, donc les
+  # secrets ne sont jamais exposés à du code venu d'un fork.
+  #
+  # POURQUOI PAS SSH : le port 22 est filtré depuis un runner, et la liste
+  # blanche du mutualisé compte cinq emplacements quand les runners GitHub
+  # sortent de milliers de blocs CIDR. Mesuré le 17 août 2026.
+  # POURQUOI PAS FTP : il a fonctionné, mais sans listage récursif la seule
+  # comparaison coûtait 141 s sur 248, et demandait un cron hors du dépôt.
+  # Le port 2083 répond, et un déploiement déclenché par l'API exécute
+  # réellement `.cpanel.yml`. Mesuré aussi.
+  # ─────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: deploy
+    needs: [backend, frontend, e2e]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Deux déploiements ne se chevauchent jamais, et aucun n'est annulé en cours
+    # de route : interrompre celui-ci laisserait le serveur mi-ancien mi-neuf.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    # Élargi pour cette tâche SEULE : elle pousse la branche `deploy`. Les trois
+    # tâches de vérification restent en lecture seule, ce que leur spécification
+    # exige.
+    permissions:
+      contents: write
+
+    env:
+      CP_HOST: ${{ secrets.O2SWITCH_CPANEL_HOST }}
+      REPO_ROOT: /home/bane2718/repositories/tambouille
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          # L'historique complet : la branche `deploy` est construite par
+          # plomberie git, qui a besoin de savoir d'où elle vient.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Construire le backend
+        working-directory: backend
+        run: npm ci && npm run build
+
+      - name: Construire le frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      # ── La branche `deploy` ──────────────────────────────────────────────
+      #
+      # cPanel déploie le CONTENU du dépôt, pas des artefacts produits ailleurs.
+      # Les constructions sont donc commitées sur une branche dédiée, jamais sur
+      # `main`.
+      #
+      # Le commit est fabriqué par `commit-tree` plutôt que par une gymnastique
+      # de checkout : l'arbre est celui de l'index (sources + artefacts), le
+      # parent est la pointe précédente de `deploy`. L'historique reste donc
+      # linéaire et la poussée reste en avance rapide — ce qui compte, car
+      # cPanel met à jour par un `git pull` qu'une réécriture ferait échouer.
+      - name: Publier les artefacts sur la branche deploy
+        id: publier
+        run: |
+          set -euo pipefail
+          git add -f backend/dist backend/generated frontend/dist
+          git add -A
+          TREE=$(git write-tree)
+          PARENT=$(git rev-parse --verify --quiet origin/deploy || true)
+          COMMIT=$(git -c user.name='github-actions' -c user.email='github-actions@users.noreply.github.com' \
+            commit-tree "$TREE" ${PARENT:+-p "$PARENT"} \
+            -m "deploy: ${GITHUB_SHA:0:7}" -m "Artefacts construits depuis $GITHUB_SHA.")
+          git push origin "$COMMIT:refs/heads/deploy"
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "publié : ${COMMIT:0:7} (parent ${PARENT:-aucun})"
+
+      # ── Déclenchement ────────────────────────────────────────────────────
+      - name: Déclencher le déploiement cPanel
+        id: declencher
+        env:
+          CP_USER: ${{ secrets.O2SWITCH_CPANEL_USER }}
+          CP_TOKEN: ${{ secrets.O2SWITCH_CPANEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          call() {
+            local ep="$1"; shift
+            curl -sS --fail-with-body --max-time 60 \
+              -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
+              --get "https://$CP_HOST:2083/execute/$ep" "$@"
+          }
+          call VersionControl/update \
+            --data-urlencode "repository_root=$REPO_ROOT" \
+            --data-urlencode "branch=deploy" > update.json
+          python3 -c "import json;d=json.load(open('update.json'));print('  update  status',d['status'],d.get('errors') or '')"
+          call VersionControlDeployment/create \
+            --data-urlencode "repository_root=$REPO_ROOT" > create.json
+          python3 - <<'EOPY'
+          import json
+          d = json.load(open('create.json'))
+          assert d['status'] == 1, d.get('errors')
+          print('  déploiement', d['data']['deploy_id'], 'mis en file')
+          EOPY
+
+      # ── Attendre un résultat TERMINAL ────────────────────────────────────
+      #
+      # `create` répond « mis en file », jamais « exécuté ». Un pipeline qui s'en
+      # contenterait annoncerait des déploiements qui n'ont pas eu lieu.
+      #
+      # `repository_root` est OBLIGATOIRE ici : sans lui, l'appel renvoie les
+      # déploiements de TOUS les dépôts du compte, et on lit le résultat d'un
+      # autre projet en croyant lire le sien. C'est arrivé.
+      - name: Attendre le résultat du serveur
+        env:
+          CP_USER: ${{ secrets.O2SWITCH_CPANEL_USER }}
+          CP_TOKEN: ${{ secrets.O2SWITCH_CPANEL_TOKEN }}
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 40); do
+            curl -sS --max-time 30 -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
+              --get "https://$CP_HOST:2083/execute/VersionControlDeployment/retrieve" \
+              --data-urlencode "repository_root=$REPO_ROOT" > etat.json || true
+            python3 - <<'EOPY' && exit 0
+          import json, sys
+          try:
+              d = json.load(open('etat.json'))
+          except Exception:
+              sys.exit(1)
+          for dep in (d.get('data') or []):
+              ts = dep.get('timestamps') or {}
+              if 'successful' in ts:
+                  print('  déploiement réussi'); raise SystemExit(0)
+              if 'failed' in ts:
+                  print('::error::le serveur signale un échec —', dep.get('log_path'))
+                  raise SystemExit(2)
+          sys.exit(1)
+          EOPY
+            code=$?
+            [ $code = 2 ] && exit 1
+            sleep 15
+          done
+          echo "::error::aucun résultat terminal après 10 minutes"
+          exit 1
+
+      # Constater plutôt que supposer : un redémarrage réussi n'exclut pas que
+      # les deux moitiés du site soient désaccordées. C'est arrivé le 17 août.
+      - name: Vérifier que le site répond
+        run: |
+          set -euo pipefail
+          sleep 5
+          curl -fsS -o /dev/null -w 'API  %{http_code}\n' https://api.tambouille.pantagruweb.club/api/mixes
+          curl -fsS -o /dev/null -w 'site %{http_code}\n' https://tambouille.pantagruweb.club/

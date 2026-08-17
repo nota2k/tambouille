@@ -1,0 +1,18 @@
+---
+# Ce que cPanel exécute après avoir tiré la branche déployée.
+#
+# Une seule ligne, délibérément. Toute la logique vit dans le script appelé, où
+# elle peut être lue, commentée et exercée — les règles qu'elle applique ont été
+# payées par une production cassée, et elles doivent se trouver sous les yeux de
+# qui modifie la commande.
+#
+# Ce fichier détermine ce qui s'exécute sur le serveur, et il vit dans le dépôt :
+# qui peut y pousser peut donc y faire exécuter n'importe quoi. C'est le niveau
+# de confiance qu'on accorde déjà au code applicatif, mais il est dit plutôt que
+# tu — voir openspec/changes/add-o2switch-deploy/design.md, « Deux concessions ».
+#
+# `set -e` n'existe pas ici : c'est le code de sortie de chaque tâche que cPanel
+# regarde, et le script s'arrête de lui-même à la première erreur.
+deployment:
+  tasks:
+    - '/bin/bash deploy/o2switch-deploy.sh'

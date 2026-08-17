@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tambouille-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tambouille
+      POSTGRES_PASSWORD: tambouille
+      POSTGRES_DB: tambouille
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mailpit:
+    image: axllent/mailpit:v1.30.7
+    container_name: tambouille-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI
+
+volumes:
+  postgres_data:

@@ -1,0 +1,229 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client"
+  output        = "../generated/prisma"
+  moduleFormat  = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  // Null until an account created by an identity provider picks one. Postgres
+  // allows several NULLs under a unique constraint, so pending accounts can
+  // coexist.
+  username    String?  @unique
+  // Null for accounts that only sign in through an identity provider.
+  password    String?
+  // Google's stable subject claim. Stored rather than matching on email, so a
+  // user who later changes their Google address still resolves to this account.
+  googleId    String?  @unique
+  // The same claim from the club's Keycloak realm, kept in its own column
+  // rather than sharing one with `googleId`: a single column would need a
+  // second one naming the issuer, and every lookup would have to match both or
+  // risk resolving an account by another provider's subject. Unique for the
+  // reason `googleId` is — two rows carrying one subject would mean whichever
+  // the query returned first captured every sign-in for both. The index is
+  // what holds under concurrency; the check preceding the write only buys a
+  // clean message.
+  keycloakId  String?  @unique
+  displayName String
+  bio         String?
+  avatarUrl   String?
+  coverUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  mixes       Mix[]
+  favorites   Favorite[]
+  playHistory PlayHistory[]
+  playlists   Playlist[]
+  comments    Comment[]
+
+  // Rows where this user is the one doing the following.
+  following  Follow[] @relation("Following")
+  // Rows where this user is being followed (their followers).
+  followedBy Follow[] @relation("Followers")
+
+  passwordResetTokens PasswordResetToken[]
+
+  @@map("users")
+}
+
+/// A bearer credential: whoever holds the clear token can take the account, so
+/// it is treated like a password. Only the SHA-256 hash is stored — the
+/// database is one more copy of every live token, and a readable one is a
+/// working key. SHA-256 rather than bcrypt is deliberate: the input is already
+/// 256 bits from `crypto.randomBytes`, so there is nothing to brute-force, and
+/// the lookup has to stay a single indexed read.
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model Mix {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  // Exactly one audio source: either `audioUrl` alone, or `sourceType` and
+  // `sourceRef` together. Prisma cannot express that, so `MixesService`
+  // enforces it on create and update.
+  /// R2 object key. Null when the audio lives elsewhere.
+  audioUrl     String?
+  /// 'mixcloud' | 'remote'. Null when the audio is on R2. A plain string, not
+  /// an enum: adding a source must not need a migration.
+  sourceType   String?
+  /// Interpreted according to `sourceType`: a cloudcast key
+  /// ("/Notamusic/antimythes/") or a directly playable audio URL.
+  sourceRef    String?
+  coverUrl     String?
+  durationSec  Int?
+  playsCount   Int      @default(0)
+  tags         String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tracklist     TracklistEntry[]
+  favorites     Favorite[]
+  playHistory   PlayHistory[]
+  playlistItems PlaylistItem[]
+  comments      Comment[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("mixes")
+}
+
+model Playlist {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items PlaylistItem[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id       String   @id @default(uuid())
+  // Insertion order. Gaps are expected after removals; reads always sort by this.
+  position Int
+  addedAt  DateTime @default(now())
+
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  mixId String
+  mix   Mix    @relation(fields: [mixId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, mixId])
+  @@index([playlistId, position])
+  @@map("playlist_items")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mixId String
+  mix   Mix    @relation(fields: [mixId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mixId])
+  @@index([mixId])
+  @@map("favorites")
+}
+
+model Follow {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  followerId String
+  follower   User   @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+
+  followingId String
+  following   User   @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@index([followerId])
+  @@map("follows")
+}
+
+model PlayHistory {
+  id       String   @id @default(uuid())
+  playedAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mixId String
+  mix   Mix    @relation(fields: [mixId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mixId])
+  @@index([userId])
+  // Les suggestions partent de "qui d'autre a écouté ce mix", donc d'un filtre
+  // sur mixId seul. L'unique ci-dessus a userId en tête de clé et ne peut pas
+  // le servir : sans cet index, chaque page de mix scanne toute la table.
+  @@index([mixId])
+  @@map("play_history")
+}
+
+model Comment {
+  id          String   @id @default(uuid())
+  body        String
+  timecodeSec Int?
+  createdAt   DateTime @default(now())
+
+  mixId String
+  mix   Mix    @relation(fields: [mixId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("Replies")
+
+  @@index([mixId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model TracklistEntry {
+  id          String @id @default(uuid())
+  artist      String
+  title       String
+  timecodeSec Int
+
+  mixId String
+  mix   Mix    @relation(fields: [mixId], references: [id], onDelete: Cascade)
+
+  @@index([mixId])
+  @@map("tracklist_entries")
+}

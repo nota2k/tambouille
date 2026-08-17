@@ -1,0 +1,1 @@
+{"version":3,"file":"set-username.dto.js","sourceRoot":"","sources":["../../../../src/auth/dto/set-username.dto.ts"],"names":[],"mappings":";;;;;;;;;;;;AAAA,qDAA0E;AAE1E,MAAa,cAAc;IAQzB,QAAQ,CAAU;CACnB;AATD,wCASC;AADC;IAPC,IAAA,0BAAQ,GAAE;IACV,IAAA,2BAAS,EAAC,CAAC,CAAC;IACZ,IAAA,2BAAS,EAAC,EAAE,CAAC;IACb,IAAA,yBAAO,EAAC,mBAAmB,EAAE;QAC5B,OAAO,EACL,0EAA0E;KAC7E,CAAC;;gDACgB"}

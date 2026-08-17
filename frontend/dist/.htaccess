@@ -1,0 +1,20 @@
+# Routage de l'application monopage, pour Apache/LiteSpeed.
+#
+# Ce fichier vit dans public/ et non dans dist/ : Vite vide entièrement dist/ à
+# chaque build, et cette règle y a déjà été perdue trois fois. Tout ce que
+# contient public/ est recopié verbatim dans dist/ à la construction, donc la
+# règle est régénérée automatiquement et versionnée avec les sources.
+#
+# Sans elle, une URL comme /mixes/<id> renvoie un 404 Apache : aucun fichier ne
+# porte ce nom sur le disque, et Vue Router ne reçoit jamais la main.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  # Un fichier manquant sous /assets/ doit rester un 404. Lui servir index.html
+  # renverrait du HTML sous une extension .js ou .css, et l'erreur observée dans
+  # le navigateur porterait alors sur le type MIME plutôt que sur le fichier absent.
+  RewriteCond %{REQUEST_URI} !^/assets/
+  RewriteRule . /index.html [L]
+</IfModule>

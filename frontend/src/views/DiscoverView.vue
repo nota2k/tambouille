@@ -1,0 +1,449 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { apiClient } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+import { usePlayerStore } from '@/stores/player'
+import { mediaUrl } from '@/utils/media'
+import { formatDate } from '@/utils/date'
+import { formatDuration } from '@/utils/time'
+import MixListItem from '@/components/MixListItem.vue'
+import TagsOverlay from '@/components/TagsOverlay.vue'
+import type { Mix, MixListResponse, AuthorSummary } from '@/types'
+
+const authStore = useAuthStore()
+const playerStore = usePlayerStore()
+const route = useRoute()
+
+const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const sortBy = ref<'recent' | 'plays'>('recent')
+const loading = ref(false)
+const showTagsOverlay = ref(false)
+const selectedTags = ref<string[]>([])
+const isSearching = computed(
+  () =>
+    search.value.trim().length > 0 || selectedTags.value.length > 0 || sortBy.value !== 'recent',
+)
+
+function toggleTag(tag: string) {
+  const idx = selectedTags.value.indexOf(tag)
+  if (idx >= 0) {
+    selectedTags.value.splice(idx, 1)
+  } else {
+    selectedTags.value.push(tag)
+  }
+  page.value = 1
+  loadSearchResults()
+}
+
+// Curated sections (shown when not searching)
+const latestMixes = ref<Mix[]>([])
+const topMixes = ref<Mix[]>([])
+const followingTopMixes = ref<Mix[]>([])
+const recentlyPlayedMixes = ref<Mix[]>([])
+
+// Flat search results (shown while searching)
+const searchResults = ref<Mix[]>([])
+const userResults = ref<AuthorSummary[]>([])
+const page = ref(1)
+const totalPages = ref(1)
+
+let searchTimeout: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * Le mix mis en avant, et la liste qui suit sans lui : la maquette ouvre sur un
+ * seul mix en grand puis enchaîne, plutôt que de répéter le même mix deux fois
+ * comme le faisaient « Derniers uploads » et « Tops ».
+ */
+const featuredMix = computed(() => latestMixes.value[0] ?? null)
+const restOfLatest = computed(() => latestMixes.value.slice(1))
+const featuredDuration = computed(() => formatDuration(featuredMix.value?.durationSec))
+
+/** Tous les mix chargés, pour en tirer les tags et les cuisinier⋅ère⋅s de la colonne. */
+const knownMixes = computed(() => [...latestMixes.value, ...topMixes.value])
+
+/** Les tags les plus portés par les mix affichés — pas un classement, une porte d'entrée. */
+const trendingTags = computed(() => {
+  const counts = new Map<string, number>()
+  for (const mix of knownMixes.value) {
+    for (const tag of mix.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([tag]) => tag)
+})
+
+const cooks = computed(() => {
+  const seen = new Map<string, AuthorSummary>()
+  for (const mix of knownMixes.value) {
+    if (!seen.has(mix.user.id)) seen.set(mix.user.id, mix.user)
+  }
+  return [...seen.values()].slice(0, 4)
+})
+
+/** « Sers-moi quelque chose » : au pif dans ce qui est déjà chargé, sans aller-retour serveur. */
+function playRandomMix() {
+  const pool = knownMixes.value
+  if (!pool.length) return
+  const pick = pool[Math.floor(Math.random() * pool.length)]
+  if (pick) playerStore.play(pick)
+}
+
+async function loadSections() {
+  loading.value = true
+  try {
+    // Les deux premières sections sont publiques ; les deux suivantes n'ont de sens que connecté.
+    const [latest, top, followingTop, recentlyPlayed] = await Promise.all([
+      apiClient.get<MixListResponse>('/mixes', { params: { limit: 10 } }),
+      apiClient.get<MixListResponse>('/mixes', { params: { sort: 'plays', limit: 10 } }),
+      authStore.isAuthenticated
+        ? apiClient.get<MixListResponse>('/mixes/feed/following', { params: { limit: 10 } })
+        : Promise.resolve(null),
+      authStore.isAuthenticated
+        ? apiClient.get<MixListResponse>('/mixes/me/recent', { params: { limit: 10 } })
+        : Promise.resolve(null),
+    ])
+    latestMixes.value = latest.data.items
+    topMixes.value = top.data.items
+    followingTopMixes.value = followingTop?.data.items ?? []
+    recentlyPlayedMixes.value = recentlyPlayed?.data.items ?? []
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadSearchResults() {
+  loading.value = true
+  try {
+    const mixesPromise = apiClient.get<MixListResponse>('/mixes', {
+      params: {
+        q: search.value || undefined,
+        tags: selectedTags.value.length ? selectedTags.value.join(',') : undefined,
+        sort: sortBy.value,
+        page: page.value,
+        limit: 20,
+      },
+    })
+
+    const q = search.value.trim()
+    const usersPromise =
+      q.length >= 2
+        ? apiClient.get<{ items: AuthorSummary[] }>('/users/search', { params: { q, limit: 5 } })
+        : Promise.resolve(null)
+
+    const [mixesRes, usersRes] = await Promise.all([mixesPromise, usersPromise])
+    searchResults.value = mixesRes.data.items
+    totalPages.value = mixesRes.data.totalPages
+    userResults.value = usersRes?.data.items ?? []
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(search, () => {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    page.value = 1
+    if (isSearching.value) {
+      loadSearchResults()
+    } else {
+      userResults.value = []
+      loadSections()
+    }
+  }, 300)
+})
+
+watch(
+  () => route.query.q,
+  (q) => {
+    search.value = typeof q === 'string' ? q : ''
+  },
+)
+
+watch(sortBy, () => {
+  page.value = 1
+  loadSearchResults()
+})
+
+watch(page, () => {
+  if (isSearching.value) loadSearchResults()
+})
+
+onMounted(loadSections)
+</script>
+
+<template>
+  <div class="mx-auto max-w-6xl px-4 py-9">
+    <!-- Titre et filtres sur une seule ligne, posés sur le filet noir : c'est la
+         barre qui donne son échelle à toute la page. -->
+    <div
+      class="flex flex-wrap items-end justify-between gap-4 border-b-2 border-tambouille-rule pb-3"
+    >
+      <h1 class="text-tambouille-title-big leading-none">Découvrir</h1>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-tambouille-muted">
+        <button
+          type="button"
+          class="pb-2 transition"
+          :class="
+            sortBy === 'recent'
+              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text'
+              : 'hover:text-tambouille-text'
+          "
+          @click="sortBy = 'recent'"
+        >
+          Récents
+        </button>
+        <button
+          type="button"
+          class="pb-2 transition"
+          :class="
+            sortBy === 'plays'
+              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text'
+              : 'hover:text-tambouille-text'
+          "
+          @click="sortBy = 'plays'"
+        >
+          Plus écoutés
+        </button>
+        <button
+          type="button"
+          class="pb-2 hover:text-tambouille-text"
+          @click="showTagsOverlay = true"
+        >
+          Par tag<span v-if="selectedTags.length" class="text-tambouille-accent">
+            ({{ selectedTags.length }})</span
+          >
+        </button>
+        <button type="button" class="pb-2 hover:text-tambouille-text" @click="playRandomMix">
+          Au hasard
+        </button>
+      </div>
+    </div>
+
+    <div v-if="selectedTags.length" class="mt-4 flex flex-wrap items-center gap-2">
+      <button
+        v-for="tag in selectedTags"
+        :key="tag"
+        class="tb-chip tb-chip-on"
+        @click="toggleTag(tag)"
+      >
+        {{ tag }}
+        <svg viewBox="0 0 24 24" class="h-3 w-3 fill-current">
+          <path
+            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+          />
+        </svg>
+      </button>
+    </div>
+
+    <TagsOverlay
+      v-if="showTagsOverlay"
+      :selected="selectedTags"
+      @toggle="toggleTag"
+      @close="showTagsOverlay = false"
+    />
+
+    <div
+      v-if="loading && !latestMixes.length && !searchResults.length"
+      class="py-16 text-center text-tambouille-muted"
+    >
+      Chargement...
+    </div>
+
+    <template v-else-if="isSearching">
+      <section v-if="userResults.length > 0" class="mt-9">
+        <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
+        <div class="flex flex-wrap gap-6 pt-4">
+          <RouterLink
+            v-for="user in userResults"
+            :key="user.id"
+            :to="{ name: 'profile', params: { username: user.username } }"
+            class="flex items-center gap-3"
+          >
+            <img
+              v-if="user.avatarUrl"
+              :src="mediaUrl(user.avatarUrl)"
+              class="h-11 w-11 object-cover"
+              alt=""
+            />
+            <div
+              v-else
+              class="flex h-11 w-11 items-center justify-center bg-tambouille-accent text-sm font-bold text-white"
+            >
+              {{ user.displayName?.[0]?.toUpperCase() }}
+            </div>
+            <span class="min-w-0">
+              <span class="block truncate font-display text-[15px] font-bold">{{
+                user.displayName
+              }}</span>
+              <span class="block truncate text-[13px] text-tambouille-muted"
+                >@{{ user.username }}</span
+              >
+            </span>
+          </RouterLink>
+        </div>
+      </section>
+
+      <div
+        v-if="searchResults.length === 0 && userResults.length === 0"
+        class="py-16 text-center text-tambouille-muted"
+      >
+        Aucun résultat trouvé.
+      </div>
+
+      <div v-if="searchResults.length > 0" class="mt-9">
+        <p class="tb-eyebrow">{{ searchResults.length }} mix</p>
+        <MixListItem v-for="mix in searchResults" :key="mix.id" :mix="mix" />
+      </div>
+
+      <div v-if="totalPages > 1" class="mt-8 flex items-center justify-center gap-4">
+        <button class="tb-btn-outline tb-btn-sm" :disabled="page <= 1" @click="page--">
+          Précédent
+        </button>
+        <span class="text-sm text-tambouille-muted">Page {{ page }} / {{ totalPages }}</span>
+        <button class="tb-btn-outline tb-btn-sm" :disabled="page >= totalPages" @click="page++">
+          Suivant
+        </button>
+      </div>
+    </template>
+
+    <template v-else>
+      <!-- Colonne principale + colonne de découverte : le hasard, les tags et les
+           cuisinier⋅ère⋅s remplacent le bloc coloré et le faux classement. -->
+      <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_320px]">
+        <div class="min-w-0">
+          <template v-if="featuredMix">
+            <p class="tb-eyebrow">À la une</p>
+            <div class="flex flex-col gap-6 border-b border-black/15 py-7 sm:flex-row">
+              <RouterLink
+                :to="{ name: 'mix-detail', params: { id: featuredMix.id } }"
+                class="aspect-square w-full max-w-[220px] shrink-0 overflow-hidden bg-tambouille-surface-hover"
+              >
+                <img
+                  v-if="featuredMix.coverUrl"
+                  :src="mediaUrl(featuredMix.coverUrl)"
+                  class="h-full w-full object-cover"
+                  alt=""
+                />
+              </RouterLink>
+
+              <div class="flex min-w-0 flex-1 flex-col">
+                <RouterLink :to="{ name: 'mix-detail', params: { id: featuredMix.id } }">
+                  <span class="font-display text-2xl font-bold leading-tight sm:text-[32px]">
+                    {{ featuredMix.title }}
+                  </span>
+                </RouterLink>
+
+                <p class="pb-1.5 pt-2.5 text-[15px] text-tambouille-muted">
+                  {{ featuredMix.user.displayName }} · {{ formatDate(featuredMix.createdAt) }}
+                </p>
+
+                <p class="flex flex-wrap items-baseline gap-x-2 pb-4 text-sm">
+                  <b v-if="featuredDuration">{{ featuredDuration }}</b>
+                  <span v-if="featuredDuration" class="text-tambouille-faint">·</span>
+                  <span v-if="featuredMix.tracklist.length"
+                    >{{ featuredMix.tracklist.length }} morceaux</span
+                  >
+                  <span v-if="featuredMix.tracklist.length" class="text-tambouille-faint">·</span>
+                  <span
+                    v-for="tag in featuredMix.tags.slice(0, 3)"
+                    :key="tag"
+                    class="text-tambouille-accent"
+                  >
+                    {{ tag }}
+                  </span>
+                </p>
+
+                <div class="mt-auto flex flex-wrap items-center gap-4">
+                  <button class="tb-btn" @click="playerStore.play(featuredMix)">Écouter</button>
+                  <span v-if="featuredMix.audioUrl" class="text-[13px] text-tambouille-muted">
+                    {{ featuredMix.playsCount }} écoutes
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <section v-if="restOfLatest.length" class="pt-8">
+            <p class="tb-eyebrow">Derniers mix</p>
+            <MixListItem v-for="mix in restOfLatest" :key="mix.id" :mix="mix" />
+          </section>
+
+          <p v-if="!latestMixes.length" class="py-10 text-center text-tambouille-muted">
+            Aucun mix pour l'instant. Sois le premier à en mettre un à la casserole&nbsp;!
+          </p>
+
+          <section v-if="followingTopMixes.length" class="pt-10">
+            <p class="tb-eyebrow">Chez tes abonnements</p>
+            <MixListItem v-for="mix in followingTopMixes" :key="mix.id" :mix="mix" />
+          </section>
+
+          <section v-if="recentlyPlayedMixes.length" class="pt-10">
+            <p class="tb-eyebrow">Repris là où tu t'es arrêté⋅e</p>
+            <MixListItem v-for="mix in recentlyPlayedMixes" :key="mix.id" :mix="mix" />
+          </section>
+        </div>
+
+        <aside class="min-w-0">
+          <div class="tb-panel-dark">
+            <p class="tb-eyebrow-plain border-b border-white pb-2.5 text-neutral-400">Au hasard</p>
+            <p class="mb-4 mt-3.5 text-sm leading-relaxed">
+              Pas d'idée&nbsp;? On te sert un mix au pif. L'arbitraire y est roi.
+            </p>
+            <button class="tb-btn" :disabled="!knownMixes.length" @click="playRandomMix">
+              Sers-moi quelque chose
+            </button>
+          </div>
+
+          <div v-if="trendingTags.length" class="pt-8">
+            <p class="tb-eyebrow">Tags du moment</p>
+            <div class="flex flex-wrap gap-2 pt-3.5">
+              <button
+                v-for="tag in trendingTags"
+                :key="tag"
+                class="tb-chip"
+                @click="toggleTag(tag)"
+              >
+                {{ tag }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="cooks.length" class="pt-8">
+            <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
+            <div class="flex flex-col gap-3.5 pt-3.5">
+              <RouterLink
+                v-for="cook in cooks"
+                :key="cook.id"
+                :to="{ name: 'profile', params: { username: cook.username } }"
+                class="flex items-center gap-3"
+              >
+                <img
+                  v-if="cook.avatarUrl"
+                  :src="mediaUrl(cook.avatarUrl)"
+                  class="h-11 w-11 shrink-0 object-cover"
+                  alt=""
+                />
+                <span
+                  v-else
+                  class="flex h-11 w-11 shrink-0 items-center justify-center bg-tambouille-surface-hover font-display font-bold"
+                >
+                  {{ cook.displayName?.[0]?.toUpperCase() }}
+                </span>
+                <span class="min-w-0">
+                  <span class="block truncate font-display text-[15px] font-bold">{{
+                    cook.displayName
+                  }}</span>
+                  <span class="block truncate text-[12.5px] text-tambouille-muted"
+                    >@{{ cook.username }}</span
+                  >
+                </span>
+              </RouterLink>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </template>
+  </div>
+</template>
