@@ -62,17 +62,20 @@ jobs:
       # `npm ci` et non `npm install` : il échoue si le verrou et le manifeste
       # divergent, ce qui est précisément le signal recherché.
       #
-      # Le `postinstall` du paquet déclenche `prisma generate`. Vérifié : il
-      # fonctionne sans `DATABASE_URL`, donc aucune variable n'est nécessaire ici.
+      # Le client Prisma n'est plus généré à l'installation mais par les hooks
+      # `prebuild` / `pretest` du paquet. `npm install` s'exécute dans le
+      # virtualenv CloudLinux du serveur, où `prisma/schema.prisma` n'existe pas,
+      # et le `postinstall` y faisait échouer l'installation entière.
       - run: npm ci
         working-directory: backend
 
       - run: npm run format:check
         working-directory: backend
 
-      # Aucune variable d'environnement, aucun service. Vérifié avant d'écrire
-      # ce fichier : la suite passe 539/539 dans un environnement entièrement
-      # vierge et sans base joignable.
+      # Aucune variable d'environnement, aucun service. Vérifié : la suite passe
+      # intégralement dans un environnement entièrement vierge et sans base
+      # joignable. (Le nombre de tests n'est pas cité ici : il change, et un
+      # commentaire qui vieillit mal vaut moins que pas de commentaire.)
       - run: npm test
         working-directory: backend
 

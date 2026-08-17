@@ -220,6 +220,15 @@ ajoutées à chaque livraison pour un résultat presque toujours identique.
 c'est précisément le genre de raccourci qui casse en production et nulle part
 ailleurs.
 
+**Le hook `postinstall` du paquet a dû disparaître pour que tout ceci tienne.**
+Il lançait `prisma generate` à chaque installation ; or `npm install` s'exécute
+dans le virtualenv CloudLinux — `node_modules` y étant un lien symbolique — où
+`prisma/schema.prisma` n'existe pas. L'installation échouait donc entièrement
+sur le serveur. Le client est désormais généré par `prebuild`, `pretest` et
+`pretest:e2e` : au moment de construire ou de tester, jamais d'installer. Le
+serveur ne fait ni l'un ni l'autre, et un dépôt fraîchement cloné construit
+toujours du premier coup.
+
 À noter, sans que la cause soit établie : sur ce serveur, `npm` omet les
 dépendances de développement **par défaut**, alors qu'aucun `.npmrc` n'existe et
 que `NODE_ENV` est vide. Le pipeline n'en a pas besoin — il n'installe que
