@@ -145,11 +145,43 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findFirst({
-      where: { OR: [{ email: dto.email }, { username: dto.username }] },
+    // Case-insensitive for the same reason `loginWithGoogle` is: emails are
+    // stored verbatim, so `Nelly@Example.com` and `nelly@example.com` are one
+    // mailbox but two strings, and the `@unique` index only catches the second
+    // kind of sameness. An exact match here let the case variant register, and
+    // every lookup that resolves an identity by address — `loginWithGoogle`,
+    // `PasswordResetService.requestReset` — then did a `findFirst` over two
+    // rows for one mailbox and got one of them arbitrarily.
+    //
+    // ponytail: the pre-check still races (two case variants registering at
+    // once both pass it, and no index catches that pair). Closing it means a
+    // unique index on `lower(email)`, which cannot be added before the
+    // existing duplicates in the database are merged or renamed.
+    const emailTaken = await this.prisma.user.findFirst({
+      where: { email: { equals: dto.email, mode: 'insensitive' } },
+      select: { id: true },
     });
-    if (existing) {
-      throw new ConflictException('Email or username already in use');
+    if (emailTaken) {
+      // Named separately from the username case below. The combined message
+      // this replaced protected nothing: any registration endpoint answers
+      // "is this address taken?" to anyone willing to retry with a fresh
+      // username, so the vagueness cost legitimate users a usable error
+      // without costing an enumerator anything.
+      throw new ConflictException('Email already in use');
+    }
+
+    // Insensitive for the same reason as the address above, and with the same
+    // race left open: `@unique` on `username` only catches an identical string,
+    // so an exact check let `Nelly` register next to `nelly` — two profiles a
+    // reader cannot tell apart, on a column that is also the profile URL.
+    // Lookups by username stay exact (`login`, `getPublicProfile`): once no two
+    // rows differ only in case, an exact lookup is unambiguous.
+    const usernameTaken = await this.prisma.user.findFirst({
+      where: { username: { equals: dto.username, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (usernameTaken) {
+      throw new ConflictException('Username already in use');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
@@ -522,12 +554,20 @@ export class AuthService {
     // at most once" and "no two users share a username" is the conditional
     // `updateMany` (which only touches the row if it is still unclaimed) and
     // the database's unique constraint on `username` (caught below as
-    // Prisma error P2002).
+    // Prisma error P2002) — with one gap the index cannot close: it compares
+    // strings, so two case variants racing each other both get through. Only a
+    // unique index on `lower(username)` closes that, and it cannot be created
+    // before the existing case-duplicates are dealt with.
     if (user.username) {
       throw new ConflictException('Username already set');
     }
 
-    const taken = await this.prisma.user.findFirst({ where: { username } });
+    // Insensitive like `register`'s check, so this flow cannot claim the case
+    // variant of a name that flow refuses. The P2002 fallback below still only
+    // catches an identical string — see the note there.
+    const taken = await this.prisma.user.findFirst({
+      where: { username: { equals: username, mode: 'insensitive' } },
+    });
     if (taken) {
       throw new ConflictException('Username already in use');
     }
