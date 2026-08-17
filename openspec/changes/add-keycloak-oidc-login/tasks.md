@@ -10,8 +10,8 @@ arrête le changement plutôt que de le contourner (voir `design.md` — Migrati
 
 ## 2. Schéma
 
-- [ ] 2.1 Ajouter `keycloakId String? @unique` au modèle `User`, avec le commentaire expliquant pourquoi le sujet est stocké plutôt que l'adresse (une adresse qui change sur le realm doit continuer de résoudre le même compte).
-- [ ] 2.2 Générer et appliquer la migration. Vérifier qu'elle est purement additive : colonne nullable, aucune ligne existante touchée.
+- [x] 2.1 Ajouter `keycloakId String? @unique` au modèle `User`, avec le commentaire expliquant pourquoi le sujet est stocké plutôt que l'adresse (une adresse qui change sur le realm doit continuer de résoudre le même compte).
+- [ ] 2.2 Appliquer la migration `20260817000000_keycloak_login` et vérifier l'absence de dérive. Le fichier est écrit — `ALTER TABLE ... ADD COLUMN` nullable puis `CREATE UNIQUE INDEX "users_keycloakId_key"`, purement additif, réversible par un `DROP COLUMN` — mais il n'a pu être ni appliqué ni confronté au générateur de Prisma : la machine où il a été rédigé n'a pas les dépendances backend installées et sa base de dev est vide. Sur une machine gréée : `npx prisma migrate deploy`, puis `npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code`, qui doit sortir 0 — c'est ce qui confirme que le SQL écrit à la main correspond bien à ce que Prisma attend du schéma.
 
 ## 3. Vérification du jeton
 

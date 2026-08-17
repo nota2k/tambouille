@@ -14,14 +14,24 @@ datasource db {
 model User {
   id          String   @id @default(uuid())
   email       String   @unique
-  // Null until a Google-created account picks one. Postgres allows several
-  // NULLs under a unique constraint, so pending accounts can coexist.
+  // Null until an account created by an identity provider picks one. Postgres
+  // allows several NULLs under a unique constraint, so pending accounts can
+  // coexist.
   username    String?  @unique
-  // Null for accounts that only sign in with Google.
+  // Null for accounts that only sign in through an identity provider.
   password    String?
   // Google's stable subject claim. Stored rather than matching on email, so a
   // user who later changes their Google address still resolves to this account.
   googleId    String?  @unique
+  // The same claim from the club's Keycloak realm, kept in its own column
+  // rather than sharing one with `googleId`: a single column would need a
+  // second one naming the issuer, and every lookup would have to match both or
+  // risk resolving an account by another provider's subject. Unique for the
+  // reason `googleId` is — two rows carrying one subject would mean whichever
+  // the query returned first captured every sign-in for both. The index is
+  // what holds under concurrency; the check preceding the write only buys a
+  // clean message.
+  keycloakId  String?  @unique
   displayName String
   bio         String?
   avatarUrl   String?
