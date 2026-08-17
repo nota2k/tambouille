@@ -105,6 +105,20 @@ GitHub secrets needed: an SSH key dedicated to deployment (added under cPanel �
 **Priority:** P2
 **Depends on:** `add-keycloak-oidc-login` merged (done, `5e9686b`); blocker 3 removed (done, `add-ci-checks` task 1.1)
 
+### Require the CI checks on `main`
+
+**What:** In GitHub's *Settings › Branches*, add a ruleset on `main` with "Require status checks to pass", listing `backend`, `frontend` and `e2e`.
+
+**Why:** The workflow added by `add-ci-checks` runs on every pull request and reports its verdict, but nothing consumes that verdict. A red pull request is still mergeable — which is precisely how PR #4 went in with an empty `statusCheckRollup`. Until this setting exists, the pipeline is an opinion, and the whole point of the change was to have something a reviewer can rely on rather than an opinion.
+
+**Context:** Task 3.4 of `add-ci-checks`, the one task that could not be done from the repository. It is a GitHub UI setting and needs admin rights on `nota2k/tambouille`; deferred on 2026-08-17 because those were not available at the time. Everything it depends on is finished: the three checks were observed green, and each was observed red on a deliberate breakage (a falsified assertion, a type error, a misformatted file), so the names above are known to exist and known to fail when they should.
+
+Delete this entry once the ruleset is in place.
+
+**Effort:** S
+**Priority:** P1
+**Depends on:** PR #5 merged; admin rights on the repository
+
 ### Clear the static-analysis backlog, then make eslint blocking
 
 **What:** Fix what `eslint` reports on both packages, then move `lint:check` out of `continue-on-error` in `.github/workflows/ci.yml`.
