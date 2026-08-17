@@ -146,9 +146,9 @@ déclenchée.
 
 ### rclone installé par `apt-get`, pas par une action tierce
 
-Le workflow portera la clé SSH de production. Y faire entrer une action tierce
-étend la surface d'approvisionnement à un dépôt sur lequel personne ici n'a de
-prise : un tag déplacé lit le secret.
+Le workflow portera les identifiants FTP de production. Y faire entrer une
+action tierce étend la surface d'approvisionnement à un dépôt sur lequel
+personne ici n'a de prise : un tag déplacé lit le secret.
 
 *Écarté* : `AnimMouse/setup-rclone`, qui est commode et gère le versionnement.
 Si on la reprend un jour, ce doit être **épinglée à un SHA de commit**, jamais à
@@ -159,24 +159,33 @@ lu ». Une ligne d'`apt-get` évite entièrement la question.
 
 ### Configuration de rclone par variables d'environnement
 
-`RCLONE_SFTP_*` et un fichier de clé écrit dans le runner, plutôt qu'un fichier
-de configuration encodé en base64 déposé dans un secret. La clé SSH reste ainsi
-**le seul élément sensible** — celui dont on a besoin de toute façon pour les
-migrations et le redémarrage.
+`RCLONE_CONFIG_O2_*` posées dans l'environnement de la tâche, plutôt qu'un
+fichier de configuration encodé en base64 déposé dans un secret. Le mot de passe
+FTP reste ainsi **le seul élément sensible**, et il n'existe qu'à un endroit.
 
-### Migrations par SSH, avec la CLI téléchargée à la demande
+rclone n'accepte pas un mot de passe en clair dans sa configuration : il le veut
+obscurci. L'obscurcissement se fait donc dans la tâche, `rclone obscure` prenant
+le secret en entrée — ce qui évite d'avoir à stocker une valeur transformée que
+personne ne saurait relire ni faire tourner.
 
-`ssh … 'cd ~/tambouille/backend && npx --yes prisma@7 migrate deploy'`.
+### Les migrations tournent dans le script du cron
 
-Ce n'est pas un choix : la base n'écoute que sur `localhost`, il n'existe aucun
-autre chemin. L'analyse des quatre modalités inscrite dans `TODOS.md` en juillet
-raisonnait sur une base joignable depuis l'extérieur ; la reconnaissance a montré
-que cette prémisse était fausse, et la conclusion se trouve juste par accident.
-`TODOS.md` doit être corrigé en même temps que ce chantier.
+`npx --yes prisma@7 migrate deploy`, lancé par le script de `~/bin/` et non par
+le pipeline.
 
-`prisma` est une devDependency et le serveur n'installe plus que ses dépendances
+La base n'écoute que sur `localhost` : elle n'est atteignable que depuis le
+serveur lui-même, quel que soit le transport choisi pour les fichiers. Ce point
+n'a pas bougé avec le passage au FTP — c'est même la raison pour laquelle le
+détour par un cron était inévitable dès qu'SSH est tombé.
+
+L'analyse des quatre modalités inscrite dans `TODOS.md` raisonnait sur une base
+joignable depuis l'extérieur ; la reconnaissance a montré que cette prémisse
+était fausse, et sa conclusion se trouve juste par accident. Cette entrée a été
+corrigée depuis (commit `2b27fcd`).
+
+`prisma` est une devDependency et le serveur n'installe que ses dépendances
 d'exécution — d'où `npx --yes`, qui télécharge la CLI le temps de la commande.
-Vingt à quarante secondes par déploiement comportant une migration.
+Vingt à quarante secondes, sur les seuls déploiements comportant une migration.
 
 ### L'installation des dépendances reste sur le serveur, et n'efface jamais
 
@@ -195,9 +204,14 @@ manuel, et il a fallu rétablir le lien à la main pour en sortir. `npm install`
 complète sans jamais vider — et cela supprime au passage la fenêtre pendant
 laquelle un respawn de Passenger trouverait une application sans dépendances.
 
-**Seulement quand le verrou a changé.** Comparer `package-lock.json` distant et
-local avant de décider. Deux lignes de shell, et une installation évitée sur la
-grande majorité des déploiements.
+**Seulement quand le verrou a changé.** Le script du cron compare le
+`package-lock.json` qu'il vient de recevoir à celui de la dernière installation
+réussie, gardé à côté sous un autre nom. Deux fichiers, une comparaison locale,
+et une installation évitée sur la grande majorité des déploiements.
+
+Le passage au cron simplifie ce point : la comparaison se fait entièrement sur
+le serveur, là où les deux fichiers sont, au lieu d'un aller-retour depuis le
+runner.
 
 *Écarté* : installer à chaque fois. Sur un mutualisé, c'est une à deux minutes
 ajoutées à chaque livraison pour un résultat presque toujours identique.
@@ -264,12 +278,21 @@ où l'automatisme prend la main.
 **La bascule peut faire tomber le site si l'ordre est inversé** → Traité dans
 le plan de migration ci-dessous. C'est le risque le plus concret du chantier.
 
-**Le redémarrage par `touch tmp/restart.txt` n'a jamais été exercé** → Pendant
-le rattrapage du 17 août, la chaîne s'est interrompue avant cette commande, et
-Passenger a rechargé de lui-même — on a donc constaté que le nouveau code
-servait, sans avoir constaté que le geste qui le provoque fonctionne. Le
-pipeline en dépend entièrement. *Atténuation* : une tâche dédiée l'exerce seule,
-avant de l'inscrire dans une séquence où son échec passerait inaperçu.
+**Le redémarrage n'a jamais été exercé, et le mécanisme a encore changé** →
+Pendant le rattrapage du 17 août, la chaîne s'est interrompue avant le `touch`,
+et Passenger a rechargé de lui-même : on a constaté que le nouveau code servait,
+jamais que le geste qui le provoque fonctionne. Depuis, ce geste n'est même plus
+le même — c'est le script du cron qui touche le fichier, et le pipeline ne fait
+que demander. Un mécanisme non éprouvé en a remplacé un autre.
+*Atténuation* : une tâche dédiée l'exerce seul, avant de l'inscrire dans une
+séquence où son échec passerait inaperçu.
+
+**Le cron introduit un second acteur, invisible depuis le pipeline** → Un script
+qui tourne toutes les cinq minutes sur le serveur peut échouer, se bloquer, ou
+ne pas être installé du tout, et rien dans GitHub ne le dirait si le pipeline ne
+lisait pas son résultat. *Atténuation* : c'est précisément l'objet de l'exigence
+« Une opération déléguée est constatée, pas supposée » — et du délai maximal
+au-delà duquel le pipeline échoue plutôt que d'espérer.
 
 ## Migration Plan
 
@@ -280,8 +303,13 @@ tomber le site**.
 0.  PRÉREQUIS, hors périmètre — rattrapage manuel en SSH        ✅ FAIT le 17 août
         │   5 commits, migration keycloak_login, 2 variables dans .env
         ▼
-1.  le pipeline transfère et redémarre       dist encore versionné : doublon inoffensif
-        │                                     filet : le clone sert toujours
+0bis. TROIS GESTES SUR LE SERVEUR, préalables et manuels
+        │   compte FTP dédié, cantonné à ~/tambouille
+        │   script de déploiement déposé dans ~/bin/, hors de sa portée
+        │   entrée cron qui l'appelle toutes les 5 minutes
+        ▼
+1.  le pipeline transfère, demande, attend   dist encore versionné : doublon inoffensif
+        │   le cron migre, installe, redémarre  filet : le clone sert toujours
         ▼
 2.  un déploiement vérifié de bout en bout
         │

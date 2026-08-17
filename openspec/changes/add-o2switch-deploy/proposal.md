@@ -42,6 +42,26 @@ qu'il faut noter : c'est le `frontend/dist` **versionné**, arrivé par
 `git pull`, qui a fourni l'interface — la construction du frontend sur le
 serveur ayant échoué elle aussi, faute de `npm-run-all2`.
 
+**Enfin, la mesure qui dicte la forme de tout le dispositif.** Le premier essai
+du pipeline s'est bloqué à la connexion. Sondé depuis un runner :
+
+```
+port 21  (FTP)             OUVERT
+port 22  (SSH)             EXPIRÉ — paquets jetés
+port 990 (FTPS implicite)  EXPIRÉ
+port 443 (témoin)          OUVERT
+```
+
+Le pare-feu du mutualisé ne laisse passer que des adresses déclarées, et sa
+liste blanche compte **cinq emplacements** — quand les plages de sortie des
+runners GitHub se comptent en milliers de blocs CIDR et changent. Ce n'est pas
+une adresse à trouver, c'est une impossibilité de structure : **SSH depuis un
+CI est définitivement fermé sur cet hébergement.**
+
+Tout ce qui suit — FTPS plutôt que SFTP, un cron plutôt qu'une commande
+distante, un protocole de demande et de résultat plutôt qu'un appel — découle de
+cette seule mesure. Sans elle, ces choix passeraient pour des préférences.
+
 ## What Changes
 
 - Une tâche `deploy` ajoutée à `.github/workflows/ci.yml`, en `needs` sur les
@@ -49,7 +69,7 @@ serveur ayant échoué elle aussi, faute de `npm-run-all2`.
   les constructions et le formatage soient verts — une propriété structurelle,
   pas une intention.
 - Les artefacts sont construits **sur le runner** et transférés par **rclone en
-  SFTP**. Le serveur ne compile plus de code applicatif ; il reçoit, installe ses
+  FTPS**. Le serveur ne compile plus de code applicatif ; il reçoit, installe ses
   dépendances d'exécution quand elles changent, migre et redémarre.
 - L'installation des dépendances reste sur le serveur, et ne peut pas en partir :
   `bcrypt` est un module natif, un `node_modules` construit sur Ubuntu ne
@@ -60,8 +80,13 @@ serveur ayant échoué elle aussi, faute de `npm-run-all2`.
   `prisma/`) et `rclone copy` pour les deux `package*.json` — jamais rien qui
   vise `backend/` lui-même. Plus un `--max-delete` : une garde qui ne dépend pas
   de la justesse des chemins, pour la seule opération irréversible du pipeline.
-- Les migrations et le redémarrage passent par **SSH**, seul chemin possible
-  puisque la base n'écoute que sur `localhost`.
+- Migrations, installation et redémarrage sont **délégués à un cron du
+  serveur**. Le FTP transfère des fichiers et n'exécute rien ; le pipeline dépose
+  une demande portant le SHA, le cron l'exécute, écrit un résultat, et le
+  pipeline attend ce résultat avant de se déclarer réussi.
+- Le script que le cron exécute vit dans `~/bin/`, **hors du périmètre du compte
+  FTP** cantonné à `~/tambouille`. Sans cette séparation, un identifiant censé ne
+  déposer que des fichiers vaudrait exécution de code arbitraire sur le serveur.
 - Toute commande npm est précédée de l'activation du `nodevenv`, sur le serveur
   comme dans les scripts de déploiement.
 - **Déclencheur en deux temps** : `workflow_dispatch` seul d'abord, bascule sur
@@ -90,17 +115,22 @@ vraie telle qu'elle est écrite.
 
 ## Impact
 
-**Ajouté** : une tâche `deploy` dans `.github/workflows/ci.yml`. Quatre secrets
-de dépôt : clé SSH dédiée au déploiement, hôte, utilisateur, empreinte du
-serveur.
+**Ajouté** : une tâche `deploy` dans `.github/workflows/ci.yml`. Trois secrets
+de dépôt : hôte, utilisateur et mot de passe d'un compte FTP dédié.
 
 **Modifié** : `frontend/.gitignore`, dont le commentaire justifie aujourd'hui le
 versionnement de `dist/` par une affirmation devenue fausse.
 
 **Retiré du suivi git** : `frontend/dist/`.
 
-**Hors du dépôt** : suppression du `.git` de `~/tambouille`, ajout des deux
-variables Keycloak dans `backend/.env`, suppression de la branche `o2switch-db`.
+**Hors du dépôt, et sans équivalent versionné** : un compte FTP dédié cantonné
+à `~/tambouille` ; un script de déploiement dans `~/bin/` ; une entrée cron qui
+l'appelle. Puis, plus tard, la suppression du `.git` de `~/tambouille` et celle
+de la branche `o2switch-db`.
+
+Ces trois premiers éléments sont le point faible du dispositif : ils vivent sur
+le serveur, ne sont pas sous gestion de version, et rien ne signalera leur
+disparition sinon un déploiement qui n'aboutit plus.
 
 ## Non-Goals
 
