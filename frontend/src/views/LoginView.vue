@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
+import { clearPendingLink, startKeycloakFlow, takePendingLink } from '@/api/keycloak'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -20,6 +21,28 @@ const googleError = ref('')
 // rather than looking like a random bounce back to the sign-in form.
 const justReset = computed(() => route.query.reinitialise === '1')
 
+// Posé par la vue de rappel quand une connexion par carte a été refusée parce
+// que l'adresse de la carte a déjà un compte ici.
+const linkingCard = computed(() => route.query.rattachement === '1')
+
+onMounted(() => {
+  // Arrivée ordinaire sur cet écran : on efface une intention qui traînerait
+  // d'un parcours abandonné. Sans ça, une connexion sans rapport, plus tard,
+  // repartirait vers le realm sans prévenir.
+  if (!linkingCard.value) clearPendingLink()
+})
+
+/**
+ * Rend `true` quand la connexion doit se prolonger par un rattachement, auquel
+ * cas elle ne navigue nulle part : on repart vers le realm. La session y est
+ * encore ouverte, donc l'aller-retour ne demande rien à l'utilisateur.
+ */
+function resumeCardLink(): boolean {
+  if (!takePendingLink()) return false
+  void startKeycloakFlow('relink')
+  return true
+}
+
 // Unchanged behaviour, just moved out of the button: sign in, then go to
 // discover — the router guard sends a Google-created account without a
 // username on to the selection screen from there.
@@ -27,6 +50,7 @@ async function onGoogleCredential(credential: string) {
   googleError.value = ''
   try {
     await authStore.loginWithGoogle(credential)
+    if (resumeCardLink()) return
     router.push({ name: 'discover' })
   } catch (e: any) {
     googleError.value = e?.response?.data?.message ?? 'La connexion avec Google a échoué. Réessaie.'
@@ -38,6 +62,7 @@ async function onSubmit() {
   loading.value = true
   try {
     await authStore.login({ emailOrUsername: emailOrUsername.value, password: password.value })
+    if (resumeCardLink()) return
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     router.push(redirect)
   } catch (err: any) {
@@ -54,6 +79,12 @@ async function onSubmit() {
 
     <p v-if="justReset" class="mb-4 text-sm text-tambouille-accent">
       Ton mot de passe a été changé. Connecte-toi avec le nouveau.
+    </p>
+
+    <p v-if="linkingCard" class="mb-4 text-sm text-tambouille-accent">
+      Un compte existe déjà avec l'adresse de ta carte de membre. Connecte-toi
+      comme d'habitude : ta carte sera rattachée juste après, sans autre
+      manipulation.
     </p>
 
     <form class="space-y-4" @submit.prevent="onSubmit">

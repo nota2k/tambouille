@@ -25,8 +25,18 @@ const VERIFIER_KEY = 'keycloak.verifier'
 const STATE_KEY = 'keycloak.state'
 const INTENT_KEY = 'keycloak.intent'
 
-/** Ce que l'appelant voulait faire, à retrouver au retour. */
-export type KeycloakIntent = 'signin' | 'link'
+// Survit à la connexion par mot de passe, contrairement aux trois clés
+// ci-dessus qui ne survivent qu'à un aller-retour. C'est l'*intention* de
+// rattacher, et surtout pas un jeton : un `id_token` se périme en quelques
+// minutes et aurait toutes les chances d'expirer pendant la saisie du mot de
+// passe. On en redemande un neuf, ce qui ne coûte rien puisque la session sur
+// le realm est encore ouverte.
+const PENDING_LINK_KEY = 'keycloak.pendingLink'
+
+/** Ce que l'appelant voulait faire, à retrouver au retour.
+ *  `link` part des réglages et y revient ; `relink` est la reprise d'une
+ *  connexion refusée, et ramène là où l'état de la carte est visible. */
+export type KeycloakIntent = 'signin' | 'link' | 'relink'
 
 /** Faux tant que les deux variables ne sont pas renseignées : le bouton se tait
  *  alors au lieu d'envoyer l'utilisateur sur une URL incomplète. */
@@ -49,6 +59,27 @@ function randomToken(byteLength: number): string {
 async function codeChallenge(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
   return base64url(new Uint8Array(digest))
+}
+
+/** Note qu'une carte reste à rattacher une fois la session ouverte. */
+export function markPendingLink(): void {
+  sessionStorage.setItem(PENDING_LINK_KEY, '1')
+}
+
+/**
+ * Lit l'intention **et l'efface** : elle ne vaut que pour la connexion qui suit
+ * immédiatement. Sans cette consommation en un temps, quelqu'un qui renonce ici
+ * verrait sa prochaine connexion, des heures plus tard, partir sans prévenir
+ * vers le realm.
+ */
+export function takePendingLink(): boolean {
+  const pending = sessionStorage.getItem(PENDING_LINK_KEY) === '1'
+  sessionStorage.removeItem(PENDING_LINK_KEY)
+  return pending
+}
+
+export function clearPendingLink(): void {
+  sessionStorage.removeItem(PENDING_LINK_KEY)
 }
 
 /** Efface tout ce qui ne devait durer que le temps de l'aller-retour. */

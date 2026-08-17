@@ -610,6 +610,59 @@ describe('AuthService', () => {
       );
     });
 
+    // Le site s'en sert pour décider si le refus se reprend ou non. Apparier sur
+    // le texte du message ferait dépendre ce choix d'une tournure qu'une
+    // reformulation casserait sans que rien n'échoue visiblement.
+    it('marks a taken address with a code the site can act on', async () => {
+      oidcVerifier.verify.mockResolvedValue(IDENTITY);
+      prisma.user.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(row({ id: 'u2', password: 'hash' }));
+
+      const error = await service
+        .loginWithKeycloak('token')
+        .catch((e: { getResponse(): { code?: string } }) => e);
+
+      expect(
+        (error as { getResponse(): { code?: string } }).getResponse().code,
+      ).toBe('CARD_EMAIL_TAKEN');
+    });
+
+    it('marks an unverified address with a different code', async () => {
+      oidcVerifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      const error = await service
+        .loginWithKeycloak('token')
+        .catch((e: { getResponse(): { code?: string } }) => e);
+
+      expect(
+        (error as { getResponse(): { code?: string } }).getResponse().code,
+      ).toBe('CARD_EMAIL_UNVERIFIED');
+    });
+
+    it('keeps the unverified code identical whether or not the address is registered', async () => {
+      // Le code voyage avec le message, donc il tomberait sous le même reproche
+      // que lui : deux codes différents redonneraient à un appelant non
+      // authentifié le moyen de distinguer les deux cas.
+      oidcVerifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
+
+      prisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(row({ id: 'u3' }));
+      const withAccount = await service
+        .loginWithKeycloak('token')
+        .catch((e: { getResponse(): { code?: string } }) => e);
+
+      prisma.user.findFirst.mockReset();
+      prisma.user.findFirst.mockResolvedValue(null);
+      const withoutAccount = await service
+        .loginWithKeycloak('token')
+        .catch((e: { getResponse(): { code?: string } }) => e);
+
+      expect((withAccount as { getResponse(): { code?: string } }).getResponse().code).toBe(
+        (withoutAccount as { getResponse(): { code?: string } }).getResponse().code,
+      );
+    });
+
     it('creates an account with neither password nor username', async () => {
       oidcVerifier.verify.mockResolvedValue(IDENTITY);
       prisma.user.findFirst.mockResolvedValue(null);

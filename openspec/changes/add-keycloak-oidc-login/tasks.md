@@ -41,9 +41,9 @@ arrête le changement plutôt que de le contourner (voir `design.md` — Migrati
 
 ## 6. Front — reprise après refus
 
-- [ ] 6.1 Distinguer les deux 409 dans la vue de retour : adresse déjà prise (reprise possible) et adresse non vérifiée (rien à reprendre, afficher quoi faire sur le realm).
-- [ ] 6.2 Implémenter la reprise pour le premier cas : mémoriser l'intention de rattachement — **et non le jeton**, qui expire en quelques minutes — inviter à se connecter par le moyen habituel, puis refaire le tour OIDC en silence après ouverture de la session et POSTer le jeton frais sur `/auth/oidc/link`.
-- [ ] 6.3 Vérifier qu'un abandon en cours de route ne laisse ni rattachement ni intention résiduelle : quitter la page de connexion doit ramener à un état propre.
+- [x] 6.1 **Les deux refus portent désormais un code lisible par machine** — `CARD_EMAIL_TAKEN` et `CARD_EMAIL_UNVERIFIED`, à côté du message. Les apparier sur le texte anglais du backend aurait fait dépendre la reprise d'une tournure que la première reformulation casserait, sans que rien n'échoue visiblement. Le code du refus « non vérifié » est identique que l'adresse ait un compte ou non, comme son message et pour la même raison : deux codes distincts redonneraient le moyen de sonder quelles adresses sont inscrites. Distinguer les deux 409 dans la vue de retour : adresse déjà prise (reprise possible) et adresse non vérifiée (rien à reprendre, afficher quoi faire sur le realm).
+- [x] 6.2 **Non exercé de bout en bout** : atteindre la branche `CARD_EMAIL_TAKEN` demande un vrai code d'autorisation et donc une authentification sur le realm ; c'est la tâche 8.2 qui l'établira. Ce qui est vérifié ici : la bannière n'apparaît que sur `/login?rattachement=1`, et l'intention se pose et se consomme correctement. Implémenter la reprise pour le premier cas : mémoriser l'intention de rattachement — **et non le jeton**, qui expire en quelques minutes — inviter à se connecter par le moyen habituel, puis refaire le tour OIDC en silence après ouverture de la session et POSTer le jeton frais sur `/auth/oidc/link`.
+- [x] 6.3 **Vérifié dans le navigateur** : l'intention est consommée en une fois à la lecture, et une arrivée ordinaire sur `/login` efface celle qu'un parcours abandonné aurait laissée — sans quoi une connexion sans rapport, des heures plus tard, repartirait vers le realm sans prévenir. Vérifier qu'un abandon en cours de route ne laisse ni rattachement ni intention résiduelle : quitter la page de connexion doit ramener à un état propre.
 
 ## 7. Configuration et documentation
 

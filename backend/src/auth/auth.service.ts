@@ -72,6 +72,15 @@ const KEYCLOAK_ACCOUNT_ALREADY_USED =
 const ACCOUNT_ALREADY_LINKED_TO_CARD =
   'This account is already linked to a membership card.';
 
+// Codes lisibles par machine, portés à côté du message par les deux refus de
+// `loginWithKeycloak`. Le site doit distinguer les deux : l'un se reprend — se
+// connecter, puis rattacher la carte — et l'autre non, puisque son destinataire
+// n'a le plus souvent aucun compte ici. Apparier sur le texte du message ferait
+// dépendre ce choix d'une tournure anglaise que la première reformulation
+// casserait, sans que rien n'échoue visiblement.
+const CARD_EMAIL_TAKEN = 'CARD_EMAIL_TAKEN';
+const CARD_EMAIL_UNVERIFIED = 'CARD_EMAIL_UNVERIFIED';
+
 // Prisma's unique-constraint violation. Not importing Prisma's own error
 // class here to keep this check working against the plain mock objects the
 // test suite throws, as well as the real `PrismaClientKnownRequestError`.
@@ -386,9 +395,15 @@ export class AuthService {
       // it is false the wording matches the create branch's below, so that the
       // two cases stay indistinguishable to a caller minting unverified tokens.
       if (!identity.emailVerified) {
-        throw new ConflictException(UNVERIFIED_KEYCLOAK_EMAIL);
+        throw new ConflictException({
+          message: UNVERIFIED_KEYCLOAK_EMAIL,
+          code: CARD_EMAIL_UNVERIFIED,
+        });
       }
-      throw new ConflictException(EMAIL_ALREADY_REGISTERED_FOR_CARD);
+      throw new ConflictException({
+        message: EMAIL_ALREADY_REGISTERED_FOR_CARD,
+        code: CARD_EMAIL_TAKEN,
+      });
     }
 
     // Never create an account on an address the realm has not verified. The
@@ -402,7 +417,10 @@ export class AuthService {
     // carries `email_verified: false`, this guard refuses every creation, and
     // that is the correct outcome rather than a regression to work around.
     if (!identity.emailVerified) {
-      throw new ConflictException(UNVERIFIED_KEYCLOAK_EMAIL);
+      throw new ConflictException({
+        message: UNVERIFIED_KEYCLOAK_EMAIL,
+        code: CARD_EMAIL_UNVERIFIED,
+      });
     }
 
     const created = await this.prisma.user.create({
