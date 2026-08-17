@@ -30,7 +30,10 @@ function toggle() {
 
 function skip(deltaSeconds: number) {
   if (!audioEl.value) return
-  audioEl.value.currentTime = Math.max(0, Math.min(duration.value || Infinity, audioEl.value.currentTime + deltaSeconds))
+  audioEl.value.currentTime = Math.max(
+    0,
+    Math.min(duration.value || Infinity, audioEl.value.currentTime + deltaSeconds),
+  )
 }
 
 function onSeek(event: Event) {
@@ -104,7 +107,9 @@ function capture() {
           :value="currentTime"
           @input="onSeek"
         />
-        <div class="mt-0.5 text-xs text-tambouille-muted">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</div>
+        <div class="mt-0.5 text-xs text-tambouille-muted">
+          {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
+        </div>
       </div>
 
       <button

@@ -14,8 +14,13 @@ export async function fetchPlaylist(id: string) {
   return data
 }
 
-export async function fetchUserPlaylists(username: string, params?: { page?: number; limit?: number }) {
-  const { data } = await apiClient.get<PlaylistListResponse>(`/users/${username}/playlists`, { params })
+export async function fetchUserPlaylists(
+  username: string,
+  params?: { page?: number; limit?: number },
+) {
+  const { data } = await apiClient.get<PlaylistListResponse>(`/users/${username}/playlists`, {
+    params,
+  })
   return data
 }
 

@@ -18,7 +18,12 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    async register(payload: { email: string; username: string; password: string; displayName: string }) {
+    async register(payload: {
+      email: string
+      username: string
+      password: string
+      displayName: string
+    }) {
       const { data } = await apiClient.post<AuthResponse>('/auth/register', payload)
       this.setSession(data)
     },

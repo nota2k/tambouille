@@ -629,7 +629,10 @@ describe('AuthService', () => {
     });
 
     it('marks an unverified address with a different code', async () => {
-      oidcVerifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
+      oidcVerifier.verify.mockResolvedValue({
+        ...IDENTITY,
+        emailVerified: false,
+      });
       prisma.user.findFirst.mockResolvedValue(null);
 
       const error = await service
@@ -645,9 +648,14 @@ describe('AuthService', () => {
       // Le code voyage avec le message, donc il tomberait sous le même reproche
       // que lui : deux codes différents redonneraient à un appelant non
       // authentifié le moyen de distinguer les deux cas.
-      oidcVerifier.verify.mockResolvedValue({ ...IDENTITY, emailVerified: false });
+      oidcVerifier.verify.mockResolvedValue({
+        ...IDENTITY,
+        emailVerified: false,
+      });
 
-      prisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(row({ id: 'u3' }));
+      prisma.user.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(row({ id: 'u3' }));
       const withAccount = await service
         .loginWithKeycloak('token')
         .catch((e: { getResponse(): { code?: string } }) => e);
@@ -658,8 +666,12 @@ describe('AuthService', () => {
         .loginWithKeycloak('token')
         .catch((e: { getResponse(): { code?: string } }) => e);
 
-      expect((withAccount as { getResponse(): { code?: string } }).getResponse().code).toBe(
-        (withoutAccount as { getResponse(): { code?: string } }).getResponse().code,
+      expect(
+        (withAccount as { getResponse(): { code?: string } }).getResponse()
+          .code,
+      ).toBe(
+        (withoutAccount as { getResponse(): { code?: string } }).getResponse()
+          .code,
       );
     });
 

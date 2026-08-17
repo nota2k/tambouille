@@ -2,13 +2,17 @@
 import { nextTick, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { createPlaylist, fetchMyPlaylists, toggleMixInPlaylist, addMixToPlaylist } from '@/utils/playlists'
+import {
+  createPlaylist,
+  fetchMyPlaylists,
+  toggleMixInPlaylist,
+  addMixToPlaylist,
+} from '@/utils/playlists'
 import type { PlaylistSummary } from '@/types'
 
-const props = withDefaults(
-  defineProps<{ mixId: string; variant?: 'overlay' | 'pill' }>(),
-  { variant: 'pill' },
-)
+const props = withDefaults(defineProps<{ mixId: string; variant?: 'overlay' | 'pill' }>(), {
+  variant: 'pill',
+})
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -128,7 +132,9 @@ onUnmounted(() => {
       @click="toggleMenu"
     >
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current">
-        <path d="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm13-6v4h-4v2h4v4h2v-4h4v-2h-4v-4h-2z" />
+        <path
+          d="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm13-6v4h-4v2h4v4h2v-4h4v-2h-4v-4h-2z"
+        />
       </svg>
       <span v-if="variant === 'pill'">Ajouter à une playlist</span>
     </button>
@@ -143,7 +149,9 @@ onUnmounted(() => {
 
       <p v-else-if="failed" class="px-4 py-3 text-sm text-tambouille-muted">
         Une erreur est survenue.
-        <button class="text-tambouille-accent hover:underline" @click="loadPlaylists">Réessayer</button>
+        <button class="text-tambouille-accent hover:underline" @click="loadPlaylists">
+          Réessayer
+        </button>
       </p>
 
       <template v-else>

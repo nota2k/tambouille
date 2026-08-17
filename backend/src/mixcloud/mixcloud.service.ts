@@ -1,4 +1,9 @@
-import { BadGatewayException, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 const MIXCLOUD_API_BASE = 'https://api.mixcloud.com';
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -27,10 +32,20 @@ const USERNAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
  * Exported because a Mixcloud-hosted mix stores such a key, and the mix DTOs
  * must accept exactly what this relay accepts — one pattern, not two copies.
  */
-export const KEY_PATTERN = /^\/[A-Za-z0-9_-]+\/(?:[A-Za-z0-9_.-]|%[89A-Fa-f][0-9A-Fa-f])+\/$/;
+export const KEY_PATTERN =
+  /^\/[A-Za-z0-9_-]+\/(?:[A-Za-z0-9_.-]|%[89A-Fa-f][0-9A-Fa-f])+\/$/;
 
 /** Largest first: the upload form wants the best cover Mixcloud offers. */
-const PICTURE_PREFERENCE = ['1024wx1024h', '768wx768h', '640wx640h', 'extra_large', '320wx320h', 'large', 'medium', 'small'];
+const PICTURE_PREFERENCE = [
+  '1024wx1024h',
+  '768wx768h',
+  '640wx640h',
+  'extra_large',
+  '320wx320h',
+  'large',
+  'medium',
+  'small',
+];
 
 /** Le compte Mixcloud qui a publié le mix — distinct du compte Tambouille qui l'importe. */
 export interface CloudcastArtist {
@@ -83,7 +98,9 @@ function readName(value: unknown): string | undefined {
 
 export function parseTags(tags: unknown): string[] {
   if (!Array.isArray(tags)) return [];
-  const names = tags.map(readName).filter((name): name is string => Boolean(name));
+  const names = tags
+    .map(readName)
+    .filter((name): name is string => Boolean(name));
   return Array.from(new Set(names));
 }
 
@@ -99,7 +116,8 @@ export function readArtist(user: unknown): CloudcastArtist | undefined {
   if (!isRecord(user)) return undefined;
 
   const name = readName(user.name);
-  const username = typeof user.username === 'string' ? user.username.trim() : '';
+  const username =
+    typeof user.username === 'string' ? user.username.trim() : '';
   if (!name && !username) return undefined;
 
   const url = typeof user.url === 'string' ? user.url : '';
@@ -125,7 +143,9 @@ export function readArtist(user: unknown): CloudcastArtist | undefined {
  */
 export function withArtistTag(tags: string[], artistName?: string): string[] {
   if (!artistName) return tags;
-  const rest = tags.filter((tag) => tag.toLowerCase() !== artistName.toLowerCase());
+  const rest = tags.filter(
+    (tag) => tag.toLowerCase() !== artistName.toLowerCase(),
+  );
   return [artistName, ...rest];
 }
 
@@ -169,7 +189,11 @@ export function parseSections(sections: unknown): TracklistEntry[] {
     const source: Record<string, unknown> = track ?? section;
 
     const artist = readName(source.artist) ?? readName(source.artist_name);
-    const title = readName(source.name) ?? readName(source.song) ?? readName(source.title) ?? readName(source.song_name);
+    const title =
+      readName(source.name) ??
+      readName(source.song) ??
+      readName(source.title) ??
+      readName(source.song_name);
 
     if (!artist || !title) continue;
 
@@ -187,8 +211,14 @@ export function toCloudcastSummary(raw: unknown): CloudcastSummary {
     name: typeof cloudcast.name === 'string' ? cloudcast.name : '',
     tags: parseTags(cloudcast.tags),
     pictureUrl: pickPictureUrl(cloudcast.pictures),
-    audioLengthSec: typeof cloudcast.audio_length === 'number' ? cloudcast.audio_length : undefined,
-    createdAt: typeof cloudcast.created_time === 'string' ? cloudcast.created_time : undefined,
+    audioLengthSec:
+      typeof cloudcast.audio_length === 'number'
+        ? cloudcast.audio_length
+        : undefined,
+    createdAt:
+      typeof cloudcast.created_time === 'string'
+        ? cloudcast.created_time
+        : undefined,
     artist: readArtist(cloudcast.user),
   };
 }
@@ -199,7 +229,8 @@ export function toCloudcastImport(raw: unknown): CloudcastImport {
 
   return {
     title: typeof cloudcast.name === 'string' ? cloudcast.name : '',
-    description: typeof cloudcast.description === 'string' ? cloudcast.description : '',
+    description:
+      typeof cloudcast.description === 'string' ? cloudcast.description : '',
     // Le nom de l'artiste rejoint les tags : le mix appartiendra au compte Tambouille
     // qui l'importe, donc sans ça plus rien dans la fiche ne dit de qui il est.
     tags: withArtistTag(parseTags(cloudcast.tags), artist?.name),
@@ -221,8 +252,11 @@ export class MixcloudService {
       throw new BadRequestException("Nom d'utilisateur Mixcloud invalide");
     }
 
-    const payload = await this.getJson(`${MIXCLOUD_API_BASE}/${username}/cloudcasts/?limit=50`);
-    const data = isRecord(payload) && Array.isArray(payload.data) ? payload.data : [];
+    const payload = await this.getJson(
+      `${MIXCLOUD_API_BASE}/${username}/cloudcasts/?limit=50`,
+    );
+    const data =
+      isRecord(payload) && Array.isArray(payload.data) ? payload.data : [];
     return data.map(toCloudcastSummary);
   }
 
@@ -275,7 +309,9 @@ export class MixcloudService {
       }
 
       if (response.status === 404) {
-        throw new NotFoundException("Ce compte ou ce mix Mixcloud n'existe pas");
+        throw new NotFoundException(
+          "Ce compte ou ce mix Mixcloud n'existe pas",
+        );
       }
       if (!response.ok) {
         throw new BadGatewayException(`Mixcloud a répondu ${response.status}`);

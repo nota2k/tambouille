@@ -60,18 +60,24 @@ describe('parseOuiedireTitle', () => {
 
   it('handles another series than "Ailleurs"', () => {
     expect(
-      parseOuiedireTitle('Ouïedire Bagage - Émission #003 : Un truc, par Quelquun'),
+      parseOuiedireTitle(
+        'Ouïedire Bagage - Émission #003 : Un truc, par Quelquun',
+      ),
     ).toEqual({ title: 'Un truc', author: 'Quelquun' });
   });
 
   it('splits on the LAST ", par" so a title may contain one', () => {
     expect(
-      parseOuiedireTitle('Ouïedire Ailleurs - Émission #001 : Chanson, par amour, par Nota'),
+      parseOuiedireTitle(
+        'Ouïedire Ailleurs - Émission #001 : Chanson, par amour, par Nota',
+      ),
     ).toEqual({ title: 'Chanson, par amour', author: 'Nota' });
   });
 
   it('keeps the whole string as the title when there is no author', () => {
-    expect(parseOuiedireTitle('Ouïedire Ailleurs - Émission #001 : Sans auteur')).toEqual({
+    expect(
+      parseOuiedireTitle('Ouïedire Ailleurs - Émission #001 : Sans auteur'),
+    ).toEqual({
       title: 'Sans auteur',
       author: undefined,
     });
@@ -205,7 +211,9 @@ describe('parseEmissionPage', () => {
 
   it('throws when the page carries no audio at all', () => {
     expect(() =>
-      parseEmissionPage('<html><head><title>x</title></head><body>rien</body></html>'),
+      parseEmissionPage(
+        '<html><head><title>x</title></head><body>rien</body></html>',
+      ),
     ).toThrow();
   });
 

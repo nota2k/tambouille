@@ -50,7 +50,12 @@ describe('GoogleTokenVerifier', () => {
 
   it('checks the token against the configured client id as audience', async () => {
     mockVerifyIdToken.mockResolvedValue(
-      ticketWith({ sub: 'google-sub-1', email: 'nelly@example.com', email_verified: true, name: 'Nelly' }),
+      ticketWith({
+        sub: 'google-sub-1',
+        email: 'nelly@example.com',
+        email_verified: true,
+        name: 'Nelly',
+      }),
     );
 
     await createConfiguredVerifier().verify('an-id-token');
@@ -67,7 +72,12 @@ describe('GoogleTokenVerifier', () => {
 
   it('maps a valid payload onto the identity the application needs', async () => {
     mockVerifyIdToken.mockResolvedValue(
-      ticketWith({ sub: 'google-sub-1', email: 'nelly@example.com', email_verified: true, name: 'Nelly' }),
+      ticketWith({
+        sub: 'google-sub-1',
+        email: 'nelly@example.com',
+        email_verified: true,
+        name: 'Nelly',
+      }),
     );
 
     await expect(createConfiguredVerifier().verify('token')).resolves.toEqual({
@@ -95,27 +105,41 @@ describe('GoogleTokenVerifier', () => {
     // googleId reaches `findFirst({ where: { googleId: undefined } })`, which
     // Prisma treats as *no filter at all* — it returns the first row in
     // `users` and hands the caller a session as an arbitrary user.
-    mockVerifyIdToken.mockResolvedValue(ticketWith({ email: 'nelly@example.com', email_verified: true }));
+    mockVerifyIdToken.mockResolvedValue(
+      ticketWith({ email: 'nelly@example.com', email_verified: true }),
+    );
 
-    await expect(createConfiguredVerifier().verify('token')).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      createConfiguredVerifier().verify('token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('rejects a payload with no email', async () => {
-    mockVerifyIdToken.mockResolvedValue(ticketWith({ sub: 'google-sub-1', email_verified: true }));
+    mockVerifyIdToken.mockResolvedValue(
+      ticketWith({ sub: 'google-sub-1', email_verified: true }),
+    );
 
-    await expect(createConfiguredVerifier().verify('token')).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      createConfiguredVerifier().verify('token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('rejects an empty payload', async () => {
     mockVerifyIdToken.mockResolvedValue(ticketWith(undefined));
 
-    await expect(createConfiguredVerifier().verify('token')).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      createConfiguredVerifier().verify('token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('turns a signature, issuer, expiry or audience failure into UnauthorizedException', async () => {
-    mockVerifyIdToken.mockRejectedValue(new Error('Wrong recipient, payload audience != requiredAudience'));
+    mockVerifyIdToken.mockRejectedValue(
+      new Error('Wrong recipient, payload audience != requiredAudience'),
+    );
 
-    await expect(createConfiguredVerifier().verify('token')).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      createConfiguredVerifier().verify('token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('reports a missing GOOGLE_CLIENT_ID as a server fault, not a bad token', async () => {

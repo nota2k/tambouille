@@ -50,9 +50,7 @@ onMounted(async () => {
     }
 
     error.value =
-      data?.message ??
-      (e as Error).message ??
-      'La connexion avec la carte de membre a échoué.'
+      data?.message ?? (e as Error).message ?? 'La connexion avec la carte de membre a échoué.'
   }
 })
 </script>

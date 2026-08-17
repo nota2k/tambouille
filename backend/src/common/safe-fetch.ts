@@ -1,5 +1,14 @@
-import { BadGatewayException, BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
-import { lookup as dnsLookup, type LookupAddress, type LookupOptions } from 'node:dns';
+import {
+  BadGatewayException,
+  BadRequestException,
+  HttpException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  lookup as dnsLookup,
+  type LookupAddress,
+  type LookupOptions,
+} from 'node:dns';
 import { isIP } from 'node:net';
 import { Agent, fetch as undiciFetch, type Dispatcher } from 'undici';
 
@@ -26,7 +35,8 @@ import { Agent, fetch as undiciFetch, type Dispatcher } from 'undici';
  * *after* the network is involved gets the single generic message instead — see
  * the catch in `safeFetch`.
  */
-export const BLOCKED_ADDRESS_MESSAGE = "Cette adresse n'est pas accessible depuis Tambouille";
+export const BLOCKED_ADDRESS_MESSAGE =
+  "Cette adresse n'est pas accessible depuis Tambouille";
 
 const MAX_REDIRECTS = 3;
 
@@ -46,14 +56,18 @@ const BLOCKED_V4: ReadonlyArray<readonly [string, number]> = [
 ];
 
 function ipv4ToInt(ip: string): number {
-  return ip.split('.').reduce((acc, part) => ((acc << 8) >>> 0) + Number(part), 0) >>> 0;
+  return (
+    ip
+      .split('.')
+      .reduce((acc, part) => ((acc << 8) >>> 0) + Number(part), 0) >>> 0
+  );
 }
 
 function isBlockedV4(ip: string): boolean {
   const value = ipv4ToInt(ip);
   return BLOCKED_V4.some(([base, bits]) => {
     const mask = (0xffffffff << (32 - bits)) >>> 0;
-    return ((value & mask) >>> 0) === ((ipv4ToInt(base) & mask) >>> 0);
+    return (value & mask) >>> 0 === (ipv4ToInt(base) & mask) >>> 0;
   });
 }
 
@@ -74,10 +88,13 @@ function isBlockedV4(ip: string): boolean {
 function parseIPv6(ip: string): number[] | null {
   const withoutZone = ip.split('%')[0]!;
   const doubleColon = withoutZone.indexOf('::');
-  if (doubleColon !== -1 && withoutZone.indexOf('::', doubleColon + 1) !== -1) return null;
+  if (doubleColon !== -1 && withoutZone.indexOf('::', doubleColon + 1) !== -1)
+    return null;
 
   const [headText, tailText] =
-    doubleColon === -1 ? [withoutZone, ''] : [withoutZone.slice(0, doubleColon), withoutZone.slice(doubleColon + 2)];
+    doubleColon === -1
+      ? [withoutZone, '']
+      : [withoutZone.slice(0, doubleColon), withoutZone.slice(doubleColon + 2)];
 
   const expand = (text: string): string[] | null => {
     if (text === '') return [];
@@ -90,7 +107,12 @@ function parseIPv6(ip: string): number[] | null {
     const octets = last.split('.');
     if (octets.length !== 4) return null;
     const values = octets.map(Number);
-    if (values.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) return null;
+    if (
+      values.some(
+        (value) => !Number.isInteger(value) || value < 0 || value > 255,
+      )
+    )
+      return null;
     const hi = ((values[0]! << 8) | values[1]!).toString(16);
     const lo = ((values[2]! << 8) | values[3]!).toString(16);
     return [...groups.slice(0, -1), hi, lo];
@@ -103,7 +125,10 @@ function parseIPv6(ip: string): number[] | null {
   const total = head.length + tail.length;
   if (doubleColon === -1 ? total !== 8 : total > 7) return null;
 
-  const groups = doubleColon === -1 ? head : [...head, ...new Array(8 - total).fill('0'), ...tail];
+  const groups =
+    doubleColon === -1
+      ? head
+      : [...head, ...new Array(8 - total).fill('0'), ...tail];
   if (groups.length !== 8) return null;
 
   const bytes: number[] = [];
@@ -124,11 +149,14 @@ function parseIPv6(ip: string): number[] | null {
  * above is bypassed simply by writing the address in the other family.
  */
 function isBlockedV6(bytes: number[]): boolean {
-  const zeroBetween = (from: number, to: number) => bytes.slice(from, to).every((b) => b === 0);
-  const embeddedV4 = (at: number) => isBlockedV4(bytes.slice(at, at + 4).join('.'));
+  const zeroBetween = (from: number, to: number) =>
+    bytes.slice(from, to).every((b) => b === 0);
+  const embeddedV4 = (at: number) =>
+    isBlockedV4(bytes.slice(at, at + 4).join('.'));
 
   // `::ffff:0:0/96` — an IPv4 address wearing an IPv6 coat.
-  if (zeroBetween(0, 10) && bytes[10] === 0xff && bytes[11] === 0xff) return embeddedV4(12);
+  if (zeroBetween(0, 10) && bytes[10] === 0xff && bytes[11] === 0xff)
+    return embeddedV4(12);
 
   // `::/96` — the unspecified address `::`, the loopback `::1` and the whole
   // deprecated "IPv4-compatible" family live in here, and none of them is a
@@ -139,7 +167,13 @@ function isBlockedV6(bytes: number[]): boolean {
 
   // `64:ff9b::/96` (NAT64) and `2002::/16` (6to4) are IPv4 destinations wearing
   // a native-looking IPv6 prefix; judge them by the address they carry.
-  if (bytes[0] === 0x00 && bytes[1] === 0x64 && bytes[2] === 0xff && bytes[3] === 0x9b && zeroBetween(4, 12)) {
+  if (
+    bytes[0] === 0x00 &&
+    bytes[1] === 0x64 &&
+    bytes[2] === 0xff &&
+    bytes[3] === 0x9b &&
+    zeroBetween(4, 12)
+  ) {
     return embeddedV4(12);
   }
   if (bytes[0] === 0x20 && bytes[1] === 0x02) return embeddedV4(2);
@@ -185,7 +219,9 @@ export function isBlockedAddress(ip: string): boolean {
  * Pulled out of the `connect.lookup` hook below so its decisions can be stated
  * directly on address sets no offline resolver would hand back.
  */
-export function filterSafeAddresses(addresses: readonly { address: string }[]): { address: string }[] {
+export function filterSafeAddresses(
+  addresses: readonly { address: string }[],
+): { address: string }[] {
   const safe = addresses.filter((entry) => !isBlockedAddress(entry.address));
   if (safe.length === 0) throw new Error(BLOCKED_ADDRESS_MESSAGE);
   return safe;
@@ -194,7 +230,11 @@ export function filterSafeAddresses(addresses: readonly { address: string }[]): 
 export type GuardedLookup = (
   hostname: string,
   options: LookupOptions,
-  callback: (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void,
+  callback: (
+    err: NodeJS.ErrnoException | null,
+    address: string | LookupAddress[],
+    family?: number,
+  ) => void,
 ) => void;
 
 /**
@@ -227,7 +267,9 @@ export const guardedLookup: GuardedLookup = (hostname, options, callback) => {
  * that — the refusal's status and message — was identical to a working guard
  * refusing a blocked host. Only counting the calls tells the two apart.
  */
-export function createGuardedAgent(lookup: GuardedLookup = guardedLookup): Agent {
+export function createGuardedAgent(
+  lookup: GuardedLookup = guardedLookup,
+): Agent {
   return new Agent({ connect: { lookup } });
 }
 
@@ -277,9 +319,13 @@ function assertFetchableUrl(rawUrl: string): URL {
 type UndiciResponse = Awaited<ReturnType<typeof undiciFetch>>;
 
 /** Reads the body, aborting as soon as it exceeds `maxBytes`. */
-export async function readCappedBody(response: UndiciResponse, maxBytes: number): Promise<Buffer> {
+export async function readCappedBody(
+  response: UndiciResponse,
+  maxBytes: number,
+): Promise<Buffer> {
   const reader = response.body?.getReader();
-  if (!reader) throw new BadGatewayException('La source a renvoyé un corps vide');
+  if (!reader)
+    throw new BadGatewayException('La source a renvoyé un corps vide');
 
   const chunks: Buffer[] = [];
   let total = 0;
@@ -289,7 +335,9 @@ export async function readCappedBody(response: UndiciResponse, maxBytes: number)
     total += value.byteLength;
     if (total > maxBytes) {
       await reader.cancel().catch(() => undefined);
-      throw new BadRequestException('La réponse de la source dépasse la taille autorisée');
+      throw new BadRequestException(
+        'La réponse de la source dépasse la taille autorisée',
+      );
     }
     chunks.push(Buffer.from(value));
   }
@@ -368,7 +416,10 @@ export async function safeFetch(
 
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location');
-        if (!location) throw new BadGatewayException('La source a renvoyé une redirection vide');
+        if (!location)
+          throw new BadGatewayException(
+            'La source a renvoyé une redirection vide',
+          );
         let nextRawUrl: string;
         try {
           nextRawUrl = new URL(location, url).toString();
@@ -376,7 +427,9 @@ export async function safeFetch(
           // A malformed Location is the remote server's fault, not a bug in
           // our validation — surface it as an upstream failure, not a raw
           // parse error with our stack trace attached.
-          throw new BadGatewayException('La source a renvoyé une redirection invalide');
+          throw new BadGatewayException(
+            'La source a renvoyé une redirection invalide',
+          );
         }
         url = assertFetchableUrl(nextRawUrl);
         continue;
@@ -392,10 +445,15 @@ export async function safeFetch(
         throw new BadGatewayException(`La source a répondu ${response.status}`);
       }
 
-      const contentType = (response.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase();
+      const contentType = (response.headers.get('content-type') ?? '')
+        .split(';')[0]!
+        .trim()
+        .toLowerCase();
       const declared = Number(response.headers.get('content-length'));
       if (Number.isFinite(declared) && declared > options.maxBytes) {
-        throw new BadRequestException('La réponse de la source dépasse la taille autorisée');
+        throw new BadRequestException(
+          'La réponse de la source dépasse la taille autorisée',
+        );
       }
 
       let body: Buffer;

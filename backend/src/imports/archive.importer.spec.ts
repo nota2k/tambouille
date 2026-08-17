@@ -16,9 +16,9 @@ const FIXTURE_ID = 'shakedownstreet2024-08-30.akg481.flac';
 
 describe('extractIdentifier', () => {
   it('reads the identifier from a details URL', () => {
-    expect(extractIdentifier(new URL('https://archive.org/details/my-item'))).toBe(
-      'my-item',
-    );
+    expect(
+      extractIdentifier(new URL('https://archive.org/details/my-item')),
+    ).toBe('my-item');
   });
 
   it('reads it from a details URL with a trailing path', () => {
@@ -38,7 +38,9 @@ describe('extractIdentifier', () => {
   });
 
   it('returns null for a path that is not details or download', () => {
-    expect(extractIdentifier(new URL('https://archive.org/search?q=x'))).toBeNull();
+    expect(
+      extractIdentifier(new URL('https://archive.org/search?q=x')),
+    ).toBeNull();
   });
 });
 
@@ -127,7 +129,9 @@ describe('pickCoverUrl', () => {
 
   it('keeps an image whose size the item does not declare', () => {
     expect(
-      pickCoverUrl('my-item', { files: [{ name: 'cover.jpg', format: 'JPEG' }] }),
+      pickCoverUrl('my-item', {
+        files: [{ name: 'cover.jpg', format: 'JPEG' }],
+      }),
     ).toBe('https://archive.org/download/my-item/cover.jpg');
   });
 
@@ -145,7 +149,9 @@ describe('pickCoverUrl', () => {
 
   it('encodes a file name that would otherwise cut the URL short', () => {
     expect(
-      pickCoverUrl('my-item', { files: [{ name: 'a #1.jpg', format: 'JPEG' }] }),
+      pickCoverUrl('my-item', {
+        files: [{ name: 'a #1.jpg', format: 'JPEG' }],
+      }),
     ).toBe('https://archive.org/download/my-item/a%20%231.jpg');
   });
 
@@ -208,8 +214,19 @@ describe('parseArchiveItem', () => {
   it('collapses a derivative onto its original and keeps the mp3', () => {
     const items = parseArchiveItem('my-item', {
       files: [
-        { name: 't01.flac', format: '24bit Flac', length: '301.16', title: 'One' },
-        { name: 't01.mp3', format: 'VBR MP3', length: '05:01', title: 'One', original: 't01.flac' },
+        {
+          name: 't01.flac',
+          format: '24bit Flac',
+          length: '301.16',
+          title: 'One',
+        },
+        {
+          name: 't01.mp3',
+          format: 'VBR MP3',
+          length: '05:01',
+          title: 'One',
+          original: 't01.flac',
+        },
       ],
     });
     expect(items).toHaveLength(1);
@@ -219,7 +236,14 @@ describe('parseArchiveItem', () => {
 
   it('keeps a lossless track that has no mp3 derivative', () => {
     const items = parseArchiveItem('my-item', {
-      files: [{ name: 't01.flac', format: '24bit Flac', length: '301.16', title: 'One' }],
+      files: [
+        {
+          name: 't01.flac',
+          format: '24bit Flac',
+          length: '301.16',
+          title: 'One',
+        },
+      ],
     });
     expect(items).toHaveLength(1);
     expect(items[0]!.ref).toBe('archive:my-item/t01.flac');
@@ -240,8 +264,18 @@ describe('parseArchiveItem', () => {
     // blindly would fold unrelated tracks together.
     const items = parseArchiveItem('my-item', {
       files: [
-        { name: 't01.mp3', format: 'VBR MP3', title: 'One', original: 'sheet.pdf' },
-        { name: 't02.mp3', format: 'VBR MP3', title: 'Two', original: 'sheet.pdf' },
+        {
+          name: 't01.mp3',
+          format: 'VBR MP3',
+          title: 'One',
+          original: 'sheet.pdf',
+        },
+        {
+          name: 't02.mp3',
+          format: 'VBR MP3',
+          title: 'Two',
+          original: 'sheet.pdf',
+        },
       ],
     });
     expect(items).toHaveLength(2);
@@ -257,7 +291,9 @@ describe('parseArchiveItem', () => {
 
   it('returns an empty list when the item holds no audio', () => {
     expect(
-      parseArchiveItem('my-item', { files: [{ name: 'a.txt', format: 'Text' }] }),
+      parseArchiveItem('my-item', {
+        files: [{ name: 'a.txt', format: 'Text' }],
+      }),
     ).toEqual([]);
   });
 

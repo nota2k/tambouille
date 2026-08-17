@@ -52,7 +52,10 @@ describe('ImportsService', () => {
       sourceRef: 'https://x.test/a.mp3',
       sourceLabel: 'x.test',
     };
-    const one: SourceImporter = { ...stub('one', 'one.test'), resolve: async () => mix };
+    const one: SourceImporter = {
+      ...stub('one', 'one.test'),
+      resolve: async () => mix,
+    };
     const many: SourceImporter = {
       ...stub('many', 'many.test'),
       resolve: async () => [{ ref: 'many:1', title: 'A' }],
@@ -87,7 +90,9 @@ describe('ImportsService', () => {
 
     // The value keeps every colon after the first, so a ref carrying a URL
     // survives the round trip intact.
-    await expect(service.importItem('target:https://x.test/a.mp3')).resolves.toEqual({
+    await expect(
+      service.importItem('target:https://x.test/a.mp3'),
+    ).resolves.toEqual({
       ...imported,
       sourceRef: 'https://x.test/a.mp3',
     });

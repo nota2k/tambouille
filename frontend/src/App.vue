@@ -19,7 +19,10 @@ onMounted(() => {
 <template>
   <!-- pb-28 sur le conteneur, pas sur main : la barre de lecture est en position
        fixe, et le pied de page doit lui aussi rester au-dessus d'elle. -->
-  <div class="flex min-h-screen flex-col text-tambouille-text" :class="playerStore.currentMix ? 'pb-28' : ''">
+  <div
+    class="flex min-h-screen flex-col text-tambouille-text"
+    :class="playerStore.currentMix ? 'pb-28' : ''"
+  >
     <NavBar />
     <main class="flex-1">
       <RouterView />

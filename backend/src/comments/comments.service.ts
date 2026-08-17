@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { PaginationDto } from '../users/dto/pagination.dto';
@@ -52,7 +57,9 @@ export class CommentsService {
     }
 
     if (dto.parentId) {
-      const parent = await this.prisma.comment.findUnique({ where: { id: dto.parentId } });
+      const parent = await this.prisma.comment.findUnique({
+        where: { id: dto.parentId },
+      });
       if (!parent || parent.mixId !== mixId) {
         throw new BadRequestException('Parent comment not found on this mix');
       }
@@ -72,7 +79,9 @@ export class CommentsService {
     }
 
     if (dto.timecodeSec === undefined) {
-      throw new BadRequestException('timecodeSec is required for a top-level comment');
+      throw new BadRequestException(
+        'timecodeSec is required for a top-level comment',
+      );
     }
 
     return this.prisma.comment.create({
@@ -98,7 +107,9 @@ export class CommentsService {
       throw new NotFoundException('Comment not found');
     }
     if (comment.userId !== userId && comment.mix.userId !== userId) {
-      throw new ForbiddenException('You can only delete your own comments or comments on your own mixes');
+      throw new ForbiddenException(
+        'You can only delete your own comments or comments on your own mixes',
+      );
     }
     await this.prisma.comment.delete({ where: { id: commentId } });
   }

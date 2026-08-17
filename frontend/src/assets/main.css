@@ -2,17 +2,17 @@
    à sa place, donc un @import placé sous lui se retrouve précédé de règles et le
    minifieur le jette — les polices ne partaient pas en production. */
 @import url('https://fonts.googleapis.com/css2?family=Arvo:wght@400;700&family=Rambla:wght@400;700&display=swap');
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Gulax reste la police du logotype (« Tambouille ») et de la signature du pied de
    page : c'est la marque, pas le système typographique. Tout le reste suit la
    maquette — Arvo pour les titres, Rambla pour le texte courant. */
 @font-face {
-  font-family: "Gulax";
+  font-family: 'Gulax';
   src:
-    url("./fonts/Gulax-Regular.woff2") format("woff2"),
-    url("./fonts/Gulax-Regular.woff") format("woff"),
-    url("./fonts/Gulax-Regular.eot") format("embedded-opentype");
+    url('./fonts/Gulax-Regular.woff2') format('woff2'),
+    url('./fonts/Gulax-Regular.woff') format('woff'),
+    url('./fonts/Gulax-Regular.eot') format('embedded-opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -80,9 +80,14 @@ body {
  * mix dans les listes, cartes, lecteur. Deux niveaux, pas deux polices en
  * concurrence : Gulax annonce l'écran, Arvo nomme les objets.
  */
-h1, h2, h3, h4, h5, h6,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
 .font-wordmark {
-  font-family: "Gulax", sans-serif;
+  font-family: 'Gulax', sans-serif;
   letter-spacing: -0.01em;
 }
 
@@ -139,7 +144,7 @@ h1, h2, h3, h4, h5, h6,
 .page-grid {
   display: grid;
   grid-template-columns:
-    [full-start]  minmax(var(--page-gutter, 1rem), 1fr)
+    [full-start] minmax(var(--page-gutter, 1rem), 1fr)
     [content-start] min(var(--page-width, 72rem), 100% - var(--page-gutter, 1rem) * 2) [content-end]
     minmax(var(--page-gutter, 1rem), 1fr)
     [full-end];
@@ -200,33 +205,49 @@ h1, h2, h3, h4, h5, h6,
   line-height: 1;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .tb-btn {
   background: var(--color-tambouille-accent);
   color: #fff;
 }
-.tb-btn:hover:not(:disabled) { background: var(--color-tambouille-accent-hover); }
+.tb-btn:hover:not(:disabled) {
+  background: var(--color-tambouille-accent-hover);
+}
 
 .tb-btn-outline {
   border-color: #000;
   color: #000;
   background: transparent;
 }
-.tb-btn-outline:hover:not(:disabled) { background: #000; color: #fff; }
+.tb-btn-outline:hover:not(:disabled) {
+  background: #000;
+  color: #fff;
+}
 
 .tb-btn-dark {
   background: #000;
   color: #fff;
 }
-.tb-btn-dark:hover:not(:disabled) { background: var(--color-tambouille-accent); }
+.tb-btn-dark:hover:not(:disabled) {
+  background: var(--color-tambouille-accent);
+}
 
 .tb-btn:disabled,
 .tb-btn-outline:disabled,
-.tb-btn-dark:disabled { opacity: 0.4; cursor: not-allowed; }
+.tb-btn-dark:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
-.tb-btn-sm { padding: 0.5rem 0.9rem; font-size: 0.6875rem; }
+.tb-btn-sm {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.6875rem;
+}
 
 /* Puce cerclée : les tags de la colonne latérale et des filtres. */
 .tb-chip {
@@ -241,16 +262,29 @@ h1, h2, h3, h4, h5, h6,
   background: transparent;
   cursor: pointer;
 }
-.tb-chip:hover { background: #000; color: #fff; }
-.tb-chip-on { background: var(--color-tambouille-accent); border-color: var(--color-tambouille-accent); color: #fff; }
-.tb-chip-on:hover { background: var(--color-tambouille-accent-hover); border-color: var(--color-tambouille-accent-hover); color: #fff; }
+.tb-chip:hover {
+  background: #000;
+  color: #fff;
+}
+.tb-chip-on {
+  background: var(--color-tambouille-accent);
+  border-color: var(--color-tambouille-accent);
+  color: #fff;
+}
+.tb-chip-on:hover {
+  background: var(--color-tambouille-accent-hover);
+  border-color: var(--color-tambouille-accent-hover);
+  color: #fff;
+}
 
 /* Un tag dans un flux est un lien rose, pas une pastille grise de plus. */
 .tb-tag {
   color: var(--color-tambouille-accent);
   font-size: 0.875rem;
 }
-.tb-tag:hover { text-decoration: underline; }
+.tb-tag:hover {
+  text-decoration: underline;
+}
 
 .tb-panel-dark {
   background: #000;
@@ -281,8 +315,12 @@ h1, h2, h3, h4, h5, h6,
     outline: none;
   }
 
-  .tb-field::placeholder { color: var(--color-tambouille-faint); }
-  .tb-field:focus { border-color: var(--color-tambouille-accent); }
+  .tb-field::placeholder {
+    color: var(--color-tambouille-faint);
+  }
+  .tb-field:focus {
+    border-color: var(--color-tambouille-accent);
+  }
 }
 
 /*
@@ -292,7 +330,7 @@ h1, h2, h3, h4, h5, h6,
  */
 .cat-title {
   display: block;
-  font-family: "Gulax", sans-serif;
+  font-family: 'Gulax', sans-serif;
   color: #000;
   border-bottom: 2px solid #000;
   padding-bottom: 0.75rem;

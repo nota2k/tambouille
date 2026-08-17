@@ -5,7 +5,8 @@ export class SetUsernameDto {
   @MinLength(3)
   @MaxLength(30)
   @Matches(/^[a-zA-Z0-9_.-]+$/, {
-    message: 'username may only contain letters, numbers, underscores, dots and dashes',
+    message:
+      'username may only contain letters, numbers, underscores, dots and dashes',
   })
   username!: string;
 }

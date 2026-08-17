@@ -28,7 +28,9 @@ export class GoogleTokenVerifier {
     if (!this.client) {
       const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
       if (!clientId) {
-        throw new Error('Missing required environment variable: GOOGLE_CLIENT_ID');
+        throw new Error(
+          'Missing required environment variable: GOOGLE_CLIENT_ID',
+        );
       }
       this.clientId = clientId;
       this.client = new OAuth2Client(clientId);

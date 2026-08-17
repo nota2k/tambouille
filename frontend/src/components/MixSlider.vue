@@ -8,7 +8,10 @@ const scrollEl = ref<HTMLDivElement | null>(null)
 
 function scroll(direction: 1 | -1) {
   if (!scrollEl.value) return
-  scrollEl.value.scrollBy({ left: direction * scrollEl.value.clientWidth * 0.8, behavior: 'smooth' })
+  scrollEl.value.scrollBy({
+    left: direction * scrollEl.value.clientWidth * 0.8,
+    behavior: 'smooth',
+  })
 }
 </script>
 

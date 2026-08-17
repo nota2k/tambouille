@@ -43,5 +43,9 @@ export async function fetchCover(rawUrl: string): Promise<FetchedCover> {
     );
   }
 
-  return { buffer: body, contentType, extension: IMAGE_EXTENSIONS[contentType]! };
+  return {
+    buffer: body,
+    contentType,
+    extension: IMAGE_EXTENSIONS[contentType]!,
+  };
 }

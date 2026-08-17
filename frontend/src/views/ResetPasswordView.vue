@@ -83,10 +83,7 @@ async function onSubmit() {
             : 'Ce lien est incomplet. Ouvre-le depuis le mail, ou demande-en un nouveau.'
         }}
       </p>
-      <RouterLink
-        to="/mot-de-passe-oublie"
-        class="block w-full tb-btn"
-      >
+      <RouterLink to="/mot-de-passe-oublie" class="block w-full tb-btn">
         Demander un nouveau lien
       </RouterLink>
     </div>
@@ -120,11 +117,7 @@ async function onSubmit() {
 
       <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
 
-      <button
-        type="submit"
-        :disabled="loading"
-        class="w-full tb-btn"
-      >
+      <button type="submit" :disabled="loading" class="w-full tb-btn">
         {{ loading ? 'Enregistrement...' : 'Changer le mot de passe' }}
       </button>
     </form>

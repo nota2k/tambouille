@@ -9,7 +9,9 @@ describe('r2KeysOnly', () => {
   });
 
   it('drops null and undefined, which is how an absent cover arrives', () => {
-    expect(r2KeysOnly(['covers/a.jpg', null, undefined])).toEqual(['covers/a.jpg']);
+    expect(r2KeysOnly(['covers/a.jpg', null, undefined])).toEqual([
+      'covers/a.jpg',
+    ]);
   });
 
   it('drops empty and whitespace-only entries', () => {
@@ -36,7 +38,9 @@ describe('r2KeysOnly', () => {
   });
 
   it('removes duplicates so one object is not named twice in a batch', () => {
-    expect(r2KeysOnly(['covers/a.jpg', 'covers/a.jpg'])).toEqual(['covers/a.jpg']);
+    expect(r2KeysOnly(['covers/a.jpg', 'covers/a.jpg'])).toEqual([
+      'covers/a.jpg',
+    ]);
   });
 
   it('returns an empty array for an empty input', () => {

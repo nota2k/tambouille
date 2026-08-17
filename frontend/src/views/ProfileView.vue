@@ -65,8 +65,12 @@ async function loadProfile() {
     ] = await Promise.all([
       apiClient.get<UserProfile>(`/users/${username}`),
       apiClient.get<{ items: Mix[] }>('/mixes', { params: { username, limit: 50 } }),
-      apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/followers`, { params: { limit: 50 } }),
-      apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/following`, { params: { limit: 50 } }),
+      apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/followers`, {
+        params: { limit: 50 },
+      }),
+      apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/following`, {
+        params: { limit: 50 },
+      }),
       fetchUserPlaylists(username, { limit: 50 }),
     ])
     profile.value = userData
@@ -161,7 +165,10 @@ const signatureTags = computed(() => {
   for (const mix of mixes.value) {
     for (const tag of mix.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
   }
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([tag]) => tag)
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([tag]) => tag)
 })
 
 watch(() => route.params.username, loadProfile)
@@ -170,14 +177,21 @@ onMounted(loadProfile)
 
 <template>
   <div>
-    <div v-if="loading" class="mx-auto max-w-6xl px-4 py-16 text-center text-tambouille-muted">Chargement...</div>
+    <div v-if="loading" class="mx-auto max-w-6xl px-4 py-16 text-center text-tambouille-muted">
+      Chargement...
+    </div>
 
     <template v-else-if="profile">
       <!-- Bandeau court : c'est ici, et seulement ici, que le motif topographique
            survit. À 120 px il ne mange plus le premier écran, et les mix
            commencent au-dessus de la ligne de flottaison. -->
       <div class="relative h-[120px] overflow-hidden sm:h-[150px]">
-        <img v-if="profile.coverUrl" :src="mediaUrl(profile.coverUrl)" class="h-full w-full object-cover" alt="" />
+        <img
+          v-if="profile.coverUrl"
+          :src="mediaUrl(profile.coverUrl)"
+          class="h-full w-full object-cover"
+          alt=""
+        />
         <div v-else class="topo-band h-full w-full" />
 
         <button
@@ -188,11 +202,19 @@ onMounted(loadProfile)
         >
           Modifier la couverture
         </button>
-        <input ref="coverInput" type="file" accept="image/*" class="hidden" @change="onCoverChange" />
+        <input
+          ref="coverInput"
+          type="file"
+          accept="image/*"
+          class="hidden"
+          @change="onCoverChange"
+        />
       </div>
 
       <div class="mx-auto max-w-6xl px-4 pb-12">
-        <div class="flex flex-col items-start gap-5 border-b-2 border-tambouille-rule pb-6 sm:flex-row sm:items-end sm:gap-7">
+        <div
+          class="flex flex-col items-start gap-5 border-b-2 border-tambouille-rule pb-6 sm:flex-row sm:items-end sm:gap-7"
+        >
           <div class="relative -mt-14 shrink-0 sm:-mt-[56px]">
             <img
               v-if="profile.avatarUrl"
@@ -219,14 +241,24 @@ onMounted(loadProfile)
                 />
               </svg>
             </button>
-            <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
+            <input
+              ref="avatarInput"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="onAvatarChange"
+            />
           </div>
 
           <div class="min-w-0 flex-1 sm:pb-1.5">
             <h1 class="text-[clamp(1.75rem,4vw,2.5rem)] leading-none">{{ profile.displayName }}</h1>
             <p class="pt-2 text-[15px] text-tambouille-muted">
-              {{ profile.mixesCount }} mix<template v-if="totalDuration"> · {{ totalDuration }} de cuisine</template>
-              <template v-if="signatureTags.length"> · surtout {{ signatureTags.join(' et ') }}</template>
+              {{ profile.mixesCount }} mix<template v-if="totalDuration">
+                · {{ totalDuration }} de cuisine</template
+              >
+              <template v-if="signatureTags.length">
+                · surtout {{ signatureTags.join(' et ') }}</template
+              >
             </p>
           </div>
 
@@ -248,7 +280,11 @@ onMounted(loadProfile)
         <div class="flex flex-wrap items-baseline gap-7 pt-4 text-[15px] text-tambouille-muted">
           <button
             class="pb-3 transition"
-            :class="activeTab === 'mixes' ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text' : 'hover:text-tambouille-text'"
+            :class="
+              activeTab === 'mixes'
+                ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text'
+                : 'hover:text-tambouille-text'
+            "
             @click="activeTab = 'mixes'"
           >
             Mix ({{ profile.mixesCount }})
@@ -256,7 +292,11 @@ onMounted(loadProfile)
           <button
             v-if="isOwnProfile"
             class="pb-3 transition"
-            :class="activeTab === 'favorites' ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text' : 'hover:text-tambouille-text'"
+            :class="
+              activeTab === 'favorites'
+                ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text'
+                : 'hover:text-tambouille-text'
+            "
             @click="activeTab = 'favorites'"
           >
             Favoris ({{ favorites.length }})
@@ -315,7 +355,9 @@ onMounted(loadProfile)
                 Sois le premier, ou range ses mix dans une playlist à toi.
               </p>
               <div class="flex flex-wrap gap-2.5">
-                <button v-if="!isOwnProfile" class="tb-btn tb-btn-sm" @click="toggleFollow">Suivre</button>
+                <button v-if="!isOwnProfile" class="tb-btn tb-btn-sm" @click="toggleFollow">
+                  Suivre
+                </button>
                 <RouterLink
                   :to="{ name: 'user-playlists', params: { username: profile.username } }"
                   class="tb-btn-sm border border-white text-white hover:bg-white hover:text-black"
@@ -346,7 +388,11 @@ onMounted(loadProfile)
 
             <div class="pt-8">
               <p class="tb-eyebrow">Playlists</p>
-              <form v-if="isOwnProfile" class="flex items-stretch pt-4" @submit.prevent="submitNewPlaylist">
+              <form
+                v-if="isOwnProfile"
+                class="flex items-stretch pt-4"
+                @submit.prevent="submitNewPlaylist"
+              >
                 <input
                   v-model="newPlaylistTitle"
                   type="text"
@@ -354,7 +400,11 @@ onMounted(loadProfile)
                   placeholder="Nouvelle playlist…"
                   class="tb-field min-w-0 flex-1 border-r-0"
                 />
-                <button type="submit" :disabled="creatingPlaylist || !newPlaylistTitle.trim()" class="tb-btn shrink-0">
+                <button
+                  type="submit"
+                  :disabled="creatingPlaylist || !newPlaylistTitle.trim()"
+                  class="tb-btn shrink-0"
+                >
                   {{ creatingPlaylist ? '…' : 'Créer' }}
                 </button>
               </form>
@@ -363,7 +413,11 @@ onMounted(loadProfile)
                 Aucune playlist pour l’instant.
               </p>
               <div v-else class="flex flex-wrap gap-4 pt-4">
-                <PlaylistCard v-for="playlist in playlists.slice(0, 4)" :key="playlist.id" :playlist="playlist" />
+                <PlaylistCard
+                  v-for="playlist in playlists.slice(0, 4)"
+                  :key="playlist.id"
+                  :playlist="playlist"
+                />
               </div>
             </div>
           </aside>

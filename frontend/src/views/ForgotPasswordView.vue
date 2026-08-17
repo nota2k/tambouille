@@ -42,12 +42,7 @@ async function onSubmit() {
         Rien reçu ? Regarde dans tes spams : le mail part du serveur du site, et il y atterrit
         parfois.
       </p>
-      <RouterLink
-        to="/login"
-        class="block w-full tb-btn"
-      >
-        Retour à la connexion
-      </RouterLink>
+      <RouterLink to="/login" class="block w-full tb-btn"> Retour à la connexion </RouterLink>
     </div>
 
     <form v-else class="space-y-4" @submit.prevent="onSubmit">
@@ -57,29 +52,21 @@ async function onSubmit() {
 
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Email</label>
-        <input
-          v-model="email"
-          type="email"
-          required
-          autocomplete="email"
-          class="w-full tb-field"
-        />
+        <input v-model="email" type="email" required autocomplete="email" class="w-full tb-field" />
       </div>
 
       <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
 
-      <button
-        type="submit"
-        :disabled="loading"
-        class="w-full tb-btn"
-      >
+      <button type="submit" :disabled="loading" class="w-full tb-btn">
         {{ loading ? 'Envoi...' : 'Envoyer le lien' }}
       </button>
     </form>
 
     <p class="mt-4 text-sm text-tambouille-muted">
       Tu t'en souviens ?
-      <RouterLink to="/login" class="text-tambouille-accent hover:underline">Se connecter</RouterLink>
+      <RouterLink to="/login" class="text-tambouille-accent hover:underline"
+        >Se connecter</RouterLink
+      >
     </p>
   </div>
 </template>

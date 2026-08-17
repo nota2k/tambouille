@@ -51,9 +51,7 @@ const playbackError = computed(() =>
     ? "Ce mix n'a pas de source audio et ne peut pas être lu."
     : widgetError.value || audioError.value,
 )
-const canPlay = computed(
-  () => !hasNoSource.value && !widgetError.value && !audioError.value,
-)
+const canPlay = computed(() => !hasNoSource.value && !widgetError.value && !audioError.value)
 
 const currentTrack = computed(() => {
   const tracklist = playerStore.currentMix?.tracklist
@@ -267,7 +265,7 @@ async function setupWidget(mixId: string, key: string) {
     ])
   } catch {
     if (!isCurrentMix(mixId)) return
-    widgetError.value = "Ce mix est introuvable sur Mixcloud — il a peut-être été retiré."
+    widgetError.value = 'Ce mix est introuvable sur Mixcloud — il a peut-être été retiré.'
     widgetLoading.value = false
     playerStore.pause()
     return
@@ -425,10 +423,7 @@ function onEnded() {
 </script>
 
 <template>
-  <div
-    v-if="playerStore.currentMix"
-    class="fixed inset-x-0 bottom-0 z-40 bg-black text-white"
-  >
+  <div v-if="playerStore.currentMix" class="fixed inset-x-0 bottom-0 z-40 bg-black text-white">
     <!--
       Exactly one backend is mounted at a time. The Mixcloud widget is an iframe whose
       interior cannot be styled from here, so it is hidden and driven by the controls below.
@@ -490,8 +485,21 @@ function onEnded() {
         :aria-label="widgetLoading ? 'Chargement' : playerStore.isPlaying ? 'Pause' : 'Lecture'"
         @click="playerStore.toggle()"
       >
-        <svg v-if="widgetLoading" viewBox="0 0 24 24" class="h-5 w-5 animate-spin" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.5" opacity="0.3" />
+        <svg
+          v-if="widgetLoading"
+          viewBox="0 0 24 24"
+          class="h-5 w-5 animate-spin"
+          aria-hidden="true"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            opacity="0.3"
+          />
           <path
             d="M21 12a9 9 0 0 0-9-9"
             fill="none"

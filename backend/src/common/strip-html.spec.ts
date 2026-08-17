@@ -24,9 +24,9 @@ describe('stripHtml', () => {
   it('keeps the line breaks that block tags stood for', () => {
     // Archive.org writes its description as a run of <div> lines; dropping the
     // tags without replacing them would run every line into one paragraph.
-    expect(stripHtml('<div>Shakedown Street</div><div>Esters At Oneida</div>')).toBe(
-      'Shakedown Street\nEsters At Oneida',
-    );
+    expect(
+      stripHtml('<div>Shakedown Street</div><div>Esters At Oneida</div>'),
+    ).toBe('Shakedown Street\nEsters At Oneida');
   });
 
   it('turns <br> into a line break', () => {

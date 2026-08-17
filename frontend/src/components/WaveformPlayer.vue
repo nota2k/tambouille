@@ -11,9 +11,7 @@ let animId = 0
 
 const WAVEFORM_RESOLUTION = 200
 
-const isThisMixPlaying = computed(
-  () => playerStore.currentMix?.id === props.mix.id,
-)
+const isThisMixPlaying = computed(() => playerStore.currentMix?.id === props.mix.id)
 const isPlaying = computed(() => isThisMixPlaying.value && playerStore.isPlaying)
 
 function seededRandom(seed: string) {
@@ -143,9 +141,12 @@ watch(isPlaying, (playing) => {
 
 watch(isThisMixPlaying, () => draw())
 
-watch(() => playerStore.duration, () => {
-  if (isThisMixPlaying.value && !isPlaying.value) draw()
-})
+watch(
+  () => playerStore.duration,
+  () => {
+    if (isThisMixPlaying.value && !isPlaying.value) draw()
+  },
+)
 
 onMounted(() => {
   draw()

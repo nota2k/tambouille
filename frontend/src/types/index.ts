@@ -159,5 +159,4 @@ export interface MixImport {
 /** Un corps JSON ne se filtre pas comme une union TypeScript : les deux issues
  *  de `POST /imports/resolve` sont donc discriminées explicitement. */
 export type ResolveResponse =
-  | { kind: 'mix'; mix: MixImport }
-  | { kind: 'list'; items: SourceItem[] }
+  { kind: 'mix'; mix: MixImport } | { kind: 'list'; items: SourceItem[] }

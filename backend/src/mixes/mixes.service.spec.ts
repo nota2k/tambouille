@@ -834,7 +834,10 @@ describe('update — the cover it replaces', () => {
 
   it('leaves the old cover alone when the update itself fails', async () => {
     const prisma = createPrismaMock();
-    prisma.mix.findUnique.mockResolvedValue({ ...remoteMix, coverUrl: OLD_COVER });
+    prisma.mix.findUnique.mockResolvedValue({
+      ...remoteMix,
+      coverUrl: OLD_COVER,
+    });
     prisma.mix.update.mockRejectedValue(new Error('write failed'));
     const service = new MixesService(prisma as unknown as PrismaService);
 

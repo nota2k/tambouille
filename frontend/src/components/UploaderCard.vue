@@ -23,7 +23,10 @@ function toggleFollow() {
     <p class="tb-eyebrow">Mijoté par</p>
 
     <div class="flex items-center gap-4 pt-4">
-      <RouterLink :to="{ name: 'profile', params: { username: profile.username } }" class="shrink-0">
+      <RouterLink
+        :to="{ name: 'profile', params: { username: profile.username } }"
+        class="shrink-0"
+      >
         <img
           v-if="profile.avatarUrl"
           :src="mediaUrl(profile.avatarUrl)"
@@ -60,7 +63,10 @@ function toggleFollow() {
       </button>
     </div>
 
-    <p v-if="profile.bio" class="mt-4 whitespace-pre-line text-sm leading-relaxed text-tambouille-muted">
+    <p
+      v-if="profile.bio"
+      class="mt-4 whitespace-pre-line text-sm leading-relaxed text-tambouille-muted"
+    >
       {{ profile.bio }}
     </p>
   </div>

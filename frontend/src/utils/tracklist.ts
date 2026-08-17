@@ -13,8 +13,7 @@ export interface TracklistEntryPayload {
 }
 
 export type BuildTracklistResult =
-  | { ok: true; entries: TracklistEntryPayload[] }
-  | { ok: false; error: string }
+  { ok: true; entries: TracklistEntryPayload[] } | { ok: false; error: string }
 
 /**
  * Converts editable rows into the payload sent to the API. Blank rows are
@@ -41,7 +40,10 @@ export function buildTracklist(rows: TrackRow[]): BuildTracklistResult {
     // somewhere on the timeline.
     const timecodeSec = timecodeRaw ? parseTimecode(timecodeRaw) : 0
     if (timecodeSec === null) {
-      return { ok: false, error: `Timecode invalide : "${row.timecode}" (utilisez mm:ss ou hh:mm:ss).` }
+      return {
+        ok: false,
+        error: `Timecode invalide : "${row.timecode}" (utilisez mm:ss ou hh:mm:ss).`,
+      }
     }
 
     entries.push({ artist, title, timecodeSec })

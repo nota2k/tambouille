@@ -42,11 +42,7 @@ async function submit() {
         class="w-full tb-field"
       />
       <p v-if="error" class="mt-2 text-sm text-red-400">{{ error }}</p>
-      <button
-        type="submit"
-        :disabled="submitting"
-        class="mt-4 w-full tb-btn"
-      >
+      <button type="submit" :disabled="submitting" class="mt-4 w-full tb-btn">
         {{ submitting ? 'Un instant…' : 'Continuer' }}
       </button>
     </form>

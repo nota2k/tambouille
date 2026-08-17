@@ -1,4 +1,8 @@
-import { BadGatewayException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   MixcloudService,
   parseSections,
@@ -39,12 +43,19 @@ function stalledBodyResponse(signal: AbortSignal): Response {
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       signal.addEventListener('abort', () => {
-        controller.error(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+        controller.error(
+          Object.assign(new Error('The operation was aborted'), {
+            name: 'AbortError',
+          }),
+        );
       });
     },
   });
 
-  return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
+  return new Response(body, {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 }
 
 /** Comfortably past the service's own REQUEST_TIMEOUT_MS. */
@@ -57,8 +68,16 @@ function cloudcastFixture(overrides: Record<string, unknown> = {}) {
     name: 'Vorwerk #7 / Passages Pas Sages',
     slug: 'vorwerk-7-passages-pas-sages',
     tags: [
-      { key: '/genres/italo-disco/', url: 'https://www.mixcloud.com/genres/italo-disco/', name: 'Italo disco' },
-      { key: '/genres/new-wave/', url: 'https://www.mixcloud.com/genres/new-wave/', name: 'New wave' },
+      {
+        key: '/genres/italo-disco/',
+        url: 'https://www.mixcloud.com/genres/italo-disco/',
+        name: 'Italo disco',
+      },
+      {
+        key: '/genres/new-wave/',
+        url: 'https://www.mixcloud.com/genres/new-wave/',
+        name: 'New wave',
+      },
     ],
     created_time: '2022-05-26T01:41:02Z',
     audio_length: 2889,
@@ -77,7 +96,9 @@ describe('MixcloudService', () => {
   let service: MixcloudService;
 
   beforeEach(() => {
-    fetchMock = jest.fn().mockResolvedValue(jsonResponse({ data: [cloudcastFixture()] }));
+    fetchMock = jest
+      .fn()
+      .mockResolvedValue(jsonResponse({ data: [cloudcastFixture()] }));
     global.fetch = fetchMock as unknown as typeof fetch;
     service = new MixcloudService();
   });
@@ -106,21 +127,28 @@ describe('MixcloudService', () => {
       ['a dot, which api.mixcloud.com does not use in usernames', 'nota.music'],
       ['more than 64 characters', 'a'.repeat(65)],
     ])('rejects %s without making a request', async (_label, username) => {
-      await expect(service.listCloudcasts(username)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.listCloudcasts(username)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it.each([['Notamusic'], ['nota_music'], ['nota-music-2'], ['a'], ['a'.repeat(64)]])(
-      'accepts %s',
-      async (username) => {
-        await expect(service.listCloudcasts(username)).resolves.toBeDefined();
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-      },
-    );
+    it.each([
+      ['Notamusic'],
+      ['nota_music'],
+      ['nota-music-2'],
+      ['a'],
+      ['a'.repeat(64)],
+    ])('accepts %s', async (username) => {
+      await expect(service.listCloudcasts(username)).resolves.toBeDefined();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
 
     it('calls the documented upstream listing URL', async () => {
       await service.listCloudcasts('Notamusic');
-      expect(requestedUrl()).toBe('https://api.mixcloud.com/Notamusic/cloudcasts/?limit=50');
+      expect(requestedUrl()).toBe(
+        'https://api.mixcloud.com/Notamusic/cloudcasts/?limit=50',
+      );
     });
   });
 
@@ -137,18 +165,21 @@ describe('MixcloudService', () => {
       ['a space', '/Notamusic/vorwerk 7/'],
       ['a percent escape', '/Notamusic/%2e%2e%2f/'],
     ])('rejects %s without making a request', async (_label, key) => {
-      await expect(service.getCloudcast(key)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.getCloudcast(key)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it.each([['/Notamusic/vorwerk-7-passages-pas-sages/'], ['/nota_music/mix.v2/'], ['/a/b/']])(
-      'accepts %s',
-      async (key) => {
-        fetchMock.mockResolvedValue(jsonResponse(cloudcastFixture()));
-        await expect(service.getCloudcast(key)).resolves.toBeDefined();
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-      },
-    );
+    it.each([
+      ['/Notamusic/vorwerk-7-passages-pas-sages/'],
+      ['/nota_music/mix.v2/'],
+      ['/a/b/'],
+    ])('accepts %s', async (key) => {
+      fetchMock.mockResolvedValue(jsonResponse(cloudcastFixture()));
+      await expect(service.getCloudcast(key)).resolves.toBeDefined();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
 
     /**
      * Mixcloud percent-encodes non-ASCII slugs, so the pattern admits escapes
@@ -161,7 +192,9 @@ describe('MixcloudService', () => {
         const key = '/Notamusic/antimythes-i-emission-ou%C3%AFedire-34/';
 
         await expect(service.getCloudcast(key)).resolves.toBeDefined();
-        expect(requestedUrl()).toBe('https://api.mixcloud.com/Notamusic/antimythes-i-emission-ou%C3%AFedire-34/');
+        expect(requestedUrl()).toBe(
+          'https://api.mixcloud.com/Notamusic/antimythes-i-emission-ou%C3%AFedire-34/',
+        );
       });
 
       it.each([
@@ -176,7 +209,9 @@ describe('MixcloudService', () => {
         ['an escape with a single hex digit', '/Notamusic/vorwerk%C/'],
         ['a truncated UTF-8 sequence', '/Notamusic/vorwerk%C3/'],
       ])('rejects %s without making a request', async (_label, key) => {
-        await expect(service.getCloudcast(key)).rejects.toBeInstanceOf(BadRequestException);
+        await expect(service.getCloudcast(key)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
         expect(fetchMock).not.toHaveBeenCalled();
       });
     });
@@ -184,7 +219,9 @@ describe('MixcloudService', () => {
     it('calls the upstream cloudcast URL built from the key', async () => {
       fetchMock.mockResolvedValue(jsonResponse(cloudcastFixture()));
       await service.getCloudcast('/Notamusic/vorwerk-7-passages-pas-sages/');
-      expect(requestedUrl()).toBe('https://api.mixcloud.com/Notamusic/vorwerk-7-passages-pas-sages/');
+      expect(requestedUrl()).toBe(
+        'https://api.mixcloud.com/Notamusic/vorwerk-7-passages-pas-sages/',
+      );
     });
   });
 
@@ -210,10 +247,17 @@ describe('MixcloudService', () => {
   describe('mapping a cloudcast for the upload form', () => {
     it('produces the shape the form consumes', async () => {
       fetchMock.mockResolvedValue(
-        jsonResponse(cloudcastFixture({ description: 'Une heure de disco italienne.', sections: [] })),
+        jsonResponse(
+          cloudcastFixture({
+            description: 'Une heure de disco italienne.',
+            sections: [],
+          }),
+        ),
       );
 
-      await expect(service.getCloudcast('/Notamusic/vorwerk-7-passages-pas-sages/')).resolves.toEqual({
+      await expect(
+        service.getCloudcast('/Notamusic/vorwerk-7-passages-pas-sages/'),
+      ).resolves.toEqual({
         title: 'Vorwerk #7 / Passages Pas Sages',
         description: 'Une heure de disco italienne.',
         tags: ['Italo disco', 'New wave'],
@@ -227,10 +271,11 @@ describe('MixcloudService', () => {
     });
 
     it('drops duplicate and blank tags', () => {
-      expect(toCloudcastSummary({ tags: [{ name: 'House' }, { name: 'House' }, { name: '  ' }, 'Disco'] }).tags).toEqual([
-        'House',
-        'Disco',
-      ]);
+      expect(
+        toCloudcastSummary({
+          tags: [{ name: 'House' }, { name: 'House' }, { name: '  ' }, 'Disco'],
+        }).tags,
+      ).toEqual(['House', 'Disco']);
     });
   });
 
@@ -260,7 +305,10 @@ describe('MixcloudService', () => {
 
     it('ignore une URL de profil qui ne pointe pas vers Mixcloud', () => {
       // Elle vient d'une réponse distante et devient un lien cliquable dans le formulaire.
-      expect(readArtist({ ...user, url: 'https://ailleurs.example/Notamusic/' })?.profileUrl).toBeUndefined();
+      expect(
+        readArtist({ ...user, url: 'https://ailleurs.example/Notamusic/' })
+          ?.profileUrl,
+      ).toBeUndefined();
     });
 
     it('ne fabrique pas d’artiste quand Mixcloud n’en donne aucun', () => {
@@ -269,7 +317,11 @@ describe('MixcloudService', () => {
     });
 
     it('ajoute le nom en tête des tags', () => {
-      expect(toCloudcastImport(cloudcastFixture({ user })).tags).toEqual(['Nota', 'Italo disco', 'New wave']);
+      expect(toCloudcastImport(cloudcastFixture({ user })).tags).toEqual([
+        'Nota',
+        'Italo disco',
+        'New wave',
+      ]);
     });
 
     it('garde le nom quand le mix porte déjà 10 tags', () => {
@@ -284,7 +336,9 @@ describe('MixcloudService', () => {
     });
 
     it('ne duplique pas un nom déjà présent parmi les tags, quelle que soit la casse', () => {
-      const result = toCloudcastImport(cloudcastFixture({ user, tags: [{ name: 'nota' }, { name: 'Disco' }] })).tags;
+      const result = toCloudcastImport(
+        cloudcastFixture({ user, tags: [{ name: 'nota' }, { name: 'Disco' }] }),
+      ).tags;
 
       expect(result).toEqual(['Nota', 'Disco']);
     });
@@ -294,14 +348,21 @@ describe('MixcloudService', () => {
     });
 
     it('accompagne aussi les mix listés, pas seulement celui qu’on importe', () => {
-      expect(toCloudcastSummary(cloudcastFixture({ user })).artist?.name).toBe('Nota');
+      expect(toCloudcastSummary(cloudcastFixture({ user })).artist?.name).toBe(
+        'Nota',
+      );
     });
   });
 
   describe('picking a cover', () => {
     it('prefers the largest picture Mixcloud offers', () => {
       expect(
-        pickPictureUrl({ large: 'l', extra_large: 'xl', '640wx640h': '640', '1024wx1024h': '1024' }),
+        pickPictureUrl({
+          large: 'l',
+          extra_large: 'xl',
+          '640wx640h': '640',
+          '1024wx1024h': '1024',
+        }),
       ).toBe('1024');
     });
 
@@ -317,27 +378,43 @@ describe('MixcloudService', () => {
   describe('reporting upstream failures', () => {
     it('turns an upstream 404 into a 404', async () => {
       fetchMock.mockResolvedValue(jsonResponse({ error: {} }, 404));
-      await expect(service.listCloudcasts('nobody')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.listCloudcasts('nobody')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
     it('turns an upstream 500 into a 502', async () => {
       fetchMock.mockResolvedValue(jsonResponse({}, 500));
-      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(BadGatewayException);
+      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(
+        BadGatewayException,
+      );
     });
 
     it('turns a transport failure into a 502', async () => {
       fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
-      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(BadGatewayException);
+      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(
+        BadGatewayException,
+      );
     });
 
     it('turns a timeout into a 502', async () => {
-      fetchMock.mockRejectedValue(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
-      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(BadGatewayException);
+      fetchMock.mockRejectedValue(
+        Object.assign(new Error('The operation was aborted'), {
+          name: 'AbortError',
+        }),
+      );
+      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(
+        BadGatewayException,
+      );
     });
 
     it('turns an unreadable body into a 502', async () => {
-      fetchMock.mockResolvedValue(new Response('<html>nope</html>', { status: 200 }));
-      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(BadGatewayException);
+      fetchMock.mockResolvedValue(
+        new Response('<html>nope</html>', { status: 200 }),
+      );
+      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(
+        BadGatewayException,
+      );
     });
 
     it('sends an abort signal so the request cannot hang forever', async () => {
@@ -354,14 +431,18 @@ describe('MixcloudService', () => {
     it('aborts a body that stalls after the headers have arrived', async () => {
       jest.useFakeTimers();
       let signal: AbortSignal | undefined;
-      fetchMock.mockImplementation(async (_url: string, options: RequestInit) => {
-        signal = options.signal as AbortSignal;
-        return stalledBodyResponse(signal);
-      });
+      fetchMock.mockImplementation(
+        async (_url: string, options: RequestInit) => {
+          signal = options.signal as AbortSignal;
+          return stalledBodyResponse(signal);
+        },
+      );
 
       // The assertion is attached before the clock moves so the rejection it
       // is waiting for is never an unhandled one.
-      const settled = expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(BadGatewayException);
+      const settled = expect(
+        service.listCloudcasts('Notamusic'),
+      ).rejects.toBeInstanceOf(BadGatewayException);
       await jest.advanceTimersByTimeAsync(PAST_THE_DEADLINE_MS);
 
       expect(signal?.aborted).toBe(true);
@@ -381,12 +462,19 @@ describe('MixcloudService', () => {
     });
 
     it('turns a redirect into a 502 instead of relaying what it points at', async () => {
-      fetchMock.mockImplementation(async (_url: string, options: RequestInit) => {
-        if (options.redirect === 'error') throw new TypeError('fetch failed: unexpected redirect');
-        return jsonResponse({ data: [cloudcastFixture({ name: 'internal metadata' })] });
-      });
+      fetchMock.mockImplementation(
+        async (_url: string, options: RequestInit) => {
+          if (options.redirect === 'error')
+            throw new TypeError('fetch failed: unexpected redirect');
+          return jsonResponse({
+            data: [cloudcastFixture({ name: 'internal metadata' })],
+          });
+        },
+      );
 
-      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(BadGatewayException);
+      await expect(service.listCloudcasts('Notamusic')).rejects.toBeInstanceOf(
+        BadGatewayException,
+      );
     });
   });
 });
@@ -399,8 +487,14 @@ describe('parseSections', () => {
   it('reads fields nested under a track', () => {
     expect(
       parseSections([
-        { start_time: 0, track: { artist: { name: 'Daft Punk' }, name: 'One More Time' } },
-        { start_time: 320, track: { artist: { name: 'Cerrone' }, name: 'Supernature' } },
+        {
+          start_time: 0,
+          track: { artist: { name: 'Daft Punk' }, name: 'One More Time' },
+        },
+        {
+          start_time: 320,
+          track: { artist: { name: 'Cerrone' }, name: 'Supernature' },
+        },
       ]),
     ).toEqual([
       { artist: 'Daft Punk', title: 'One More Time', timecodeSec: 0 },
@@ -421,9 +515,11 @@ describe('parseSections', () => {
   });
 
   it('accepts an artist given as a bare string inside a track', () => {
-    expect(parseSections([{ start_time: 5, track: { artist: 'Cerrone', name: 'Supernature' } }])).toEqual([
-      { artist: 'Cerrone', title: 'Supernature', timecodeSec: 5 },
-    ]);
+    expect(
+      parseSections([
+        { start_time: 5, track: { artist: 'Cerrone', name: 'Supernature' } },
+      ]),
+    ).toEqual([{ artist: 'Cerrone', title: 'Supernature', timecodeSec: 5 }]);
   });
 
   it('skips a section that carries only a chapter', () => {
@@ -443,8 +539,17 @@ describe('parseSections', () => {
   it('keeps a section that names a chapter alongside a usable track', () => {
     expect(
       parseSections([
-        { chapter: 'Intro', artist: 'Cerrone', song: 'Supernature', start_time: 0 },
-        { chapter: 'Peak time', start_time: 600, track: { artist: 'Daft Punk', name: 'One More Time' } },
+        {
+          chapter: 'Intro',
+          artist: 'Cerrone',
+          song: 'Supernature',
+          start_time: 0,
+        },
+        {
+          chapter: 'Peak time',
+          start_time: 600,
+          track: { artist: 'Daft Punk', name: 'One More Time' },
+        },
       ]),
     ).toEqual([
       { artist: 'Cerrone', title: 'Supernature', timecodeSec: 0 },
@@ -453,13 +558,21 @@ describe('parseSections', () => {
   });
 
   it('drops an entry missing its artist rather than importing half of it', () => {
-    expect(parseSections([{ song: 'Supernature', start_time: 60 }])).toEqual([]);
-    expect(parseSections([{ start_time: 60, track: { name: 'Supernature' } }])).toEqual([]);
+    expect(parseSections([{ song: 'Supernature', start_time: 60 }])).toEqual(
+      [],
+    );
+    expect(
+      parseSections([{ start_time: 60, track: { name: 'Supernature' } }]),
+    ).toEqual([]);
   });
 
   it('drops an entry missing its title rather than importing half of it', () => {
     expect(parseSections([{ artist: 'Cerrone', start_time: 60 }])).toEqual([]);
-    expect(parseSections([{ start_time: 60, track: { artist: { name: 'Cerrone' } } }])).toEqual([]);
+    expect(
+      parseSections([
+        { start_time: 60, track: { artist: { name: 'Cerrone' } } },
+      ]),
+    ).toEqual([]);
   });
 
   it('sorts entries by timecode and defaults a missing start_time to zero', () => {

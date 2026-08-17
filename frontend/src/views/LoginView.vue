@@ -82,20 +82,14 @@ async function onSubmit() {
     </p>
 
     <p v-if="linkingCard" class="mb-4 text-sm text-tambouille-accent">
-      Un compte existe déjà avec l'adresse de ta carte de membre. Connecte-toi
-      comme d'habitude : ta carte sera rattachée juste après, sans autre
-      manipulation.
+      Un compte existe déjà avec l'adresse de ta carte de membre. Connecte-toi comme d'habitude : ta
+      carte sera rattachée juste après, sans autre manipulation.
     </p>
 
     <form class="space-y-4" @submit.prevent="onSubmit">
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Email ou nom d'utilisateur</label>
-        <input
-          v-model="emailOrUsername"
-          type="text"
-          required
-          class="w-full tb-field"
-        />
+        <input v-model="emailOrUsername" type="text" required class="w-full tb-field" />
       </div>
 
       <div>
@@ -108,21 +102,12 @@ async function onSubmit() {
             Mot de passe oublié ?
           </RouterLink>
         </div>
-        <input
-          v-model="password"
-          type="password"
-          required
-          class="w-full tb-field"
-        />
+        <input v-model="password" type="password" required class="w-full tb-field" />
       </div>
 
       <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
 
-      <button
-        type="submit"
-        :disabled="loading"
-        class="w-full tb-btn"
-      >
+      <button type="submit" :disabled="loading" class="w-full tb-btn">
         {{ loading ? 'Connexion...' : 'Se connecter' }}
       </button>
     </form>
@@ -140,7 +125,9 @@ async function onSubmit() {
 
     <p class="mt-4 text-sm text-tambouille-muted">
       Pas de compte ?
-      <RouterLink to="/register" class="text-tambouille-accent hover:underline">S'inscrire</RouterLink>
+      <RouterLink to="/register" class="text-tambouille-accent hover:underline"
+        >S'inscrire</RouterLink
+      >
     </p>
   </div>
 </template>

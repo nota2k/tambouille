@@ -115,30 +115,39 @@ async function submitDelete() {
             >
               {{ authStore.user?.displayName?.[0]?.toUpperCase() }}
             </div>
-            <div class="absolute inset-0 flex items-center justify-center rounded-none bg-black/40 opacity-0 transition group-hover:opacity-100">
+            <div
+              class="absolute inset-0 flex items-center justify-center rounded-none bg-black/40 opacity-0 transition group-hover:opacity-100"
+            >
               <svg viewBox="0 0 24 24" class="h-5 w-5 fill-white">
-                <path d="M9 3l-1.83 2H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2h-3.17L15 3H9zm3 15a5 5 0 110-10 5 5 0 010 10z" />
+                <path
+                  d="M9 3l-1.83 2H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2h-3.17L15 3H9zm3 15a5 5 0 110-10 5 5 0 010 10z"
+                />
               </svg>
             </div>
           </button>
-          <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
+          <input
+            ref="avatarInput"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="onAvatarChange"
+          />
           <div class="text-sm text-tambouille-muted">Cliquez sur la photo pour la modifier</div>
         </div>
 
         <form class="space-y-4" @submit.prevent="saveProfile">
           <label class="block">
-            <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted">
+            <span
+              class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted"
+            >
               Nom affiché
             </span>
-            <input
-              v-model="editDisplayName"
-              type="text"
-              maxlength="50"
-              class="w-full tb-field"
-            />
+            <input v-model="editDisplayName" type="text" maxlength="50" class="w-full tb-field" />
           </label>
           <label class="block">
-            <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted">
+            <span
+              class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted"
+            >
               Description
             </span>
             <textarea
@@ -152,13 +161,7 @@ async function submitDelete() {
               {{ editBio.length }}/280
             </span>
           </label>
-          <button
-            type="submit"
-            :disabled="savingProfile"
-            class="tb-btn"
-          >
-            Enregistrer
-          </button>
+          <button type="submit" :disabled="savingProfile" class="tb-btn">Enregistrer</button>
         </form>
       </div>
     </section>
@@ -168,8 +171,8 @@ async function submitDelete() {
       <h2 class="mb-4 text-lg font-semibold">Mot de passe</h2>
       <div class="rounded-none border border-tambouille-border bg-tambouille-surface p-6">
         <p class="mb-4 text-sm text-tambouille-muted">
-          Ton compte se connecte avec Google. Un mot de passe te donnera un second
-          moyen d'accès si tu perds ce compte Google.
+          Ton compte se connecte avec Google. Un mot de passe te donnera un second moyen d'accès si
+          tu perds ce compte Google.
         </p>
         <form class="flex gap-2" @submit.prevent="submitPassword">
           <input
@@ -181,12 +184,7 @@ async function submitDelete() {
             placeholder="Nouveau mot de passe"
             class="flex-1 tb-field"
           />
-          <button
-            type="submit"
-            class="tb-btn"
-          >
-            Enregistrer
-          </button>
+          <button type="submit" class="tb-btn">Enregistrer</button>
         </form>
         <p v-if="passwordError" class="mt-2 text-sm text-red-500">{{ passwordError }}</p>
         <p v-if="passwordSaved" class="mt-2 text-sm text-green-600">Mot de passe enregistré.</p>
@@ -199,8 +197,8 @@ async function submitDelete() {
       <div class="rounded-none border border-tambouille-border bg-tambouille-surface p-6">
         <template v-if="!authStore.user.hasGoogle">
           <p class="mb-4 text-sm text-tambouille-muted">
-            Associe ton compte Google pour te connecter en un clic. Ton mot de passe
-            continuera de fonctionner.
+            Associe ton compte Google pour te connecter en un clic. Ton mot de passe continuera de
+            fonctionner.
           </p>
           <div :class="linkingGoogle && 'pointer-events-none opacity-50'">
             <GoogleSignInButton @credential="onGoogleCredential" />
@@ -222,9 +220,9 @@ async function submitDelete() {
       <div class="rounded-none border border-tambouille-border bg-tambouille-surface p-6">
         <template v-if="!authStore.user.hasKeycloak">
           <p class="mb-4 text-sm text-tambouille-muted">
-            Associe ta carte de membre du club pour te connecter en un clic. Ton mot de
-            passe continuera de fonctionner, et l'adresse de ta carte peut être
-            différente de celle de ton compte.
+            Associe ta carte de membre du club pour te connecter en un clic. Ton mot de passe
+            continuera de fonctionner, et l'adresse de ta carte peut être différente de celle de ton
+            compte.
           </p>
           <KeycloakSignInButton intent="link" label="Associer ma carte de membre" />
         </template>
@@ -240,11 +238,13 @@ async function submitDelete() {
     <!-- Delete account -->
     <section>
       <h2 class="mb-4 text-lg font-semibold text-red-500">Zone de danger</h2>
-      <div class="rounded-none border border-red-300 bg-red-50 p-6 dark:border-red-500/30 dark:bg-red-500/5">
+      <div
+        class="rounded-none border border-red-300 bg-red-50 p-6 dark:border-red-500/30 dark:bg-red-500/5"
+      >
         <p class="mb-1 text-sm font-medium">Supprimer mon compte</p>
         <p class="mb-4 text-sm text-tambouille-muted">
-          Cette action est irréversible. Tous tes mixs, playlists, commentaires et
-          abonnements seront définitivement supprimés.
+          Cette action est irréversible. Tous tes mixs, playlists, commentaires et abonnements
+          seront définitivement supprimés.
         </p>
         <form class="space-y-3" @submit.prevent="submitDelete">
           <label class="block">

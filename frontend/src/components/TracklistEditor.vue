@@ -15,7 +15,11 @@ function removeRow(index: number) {
 <template>
   <div>
     <div class="space-y-2">
-      <div v-for="(row, index) in rows" :key="index" class="flex flex-wrap items-center gap-2 sm:flex-nowrap text-tambouille-accent">
+      <div
+        v-for="(row, index) in rows"
+        :key="index"
+        class="flex flex-wrap items-center gap-2 sm:flex-nowrap text-tambouille-accent"
+      >
         <input
           v-model="row.timecode"
           type="text"
@@ -49,7 +53,11 @@ function removeRow(index: number) {
       </div>
     </div>
 
-    <button type="button" class="mt-2 text-sm text-tambouille-accent hover:underline" @click="addRow">
+    <button
+      type="button"
+      class="mt-2 text-sm text-tambouille-accent hover:underline"
+      @click="addRow"
+    >
       + Ajouter un morceau
     </button>
   </div>

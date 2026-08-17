@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { PaginationDto } from '../users/dto/pagination.dto';
@@ -16,7 +24,11 @@ export class MixCommentsController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  create(@Param('mixId') mixId: string, @CurrentUserId() userId: string, @Body() dto: CreateCommentDto) {
+  create(
+    @Param('mixId') mixId: string,
+    @CurrentUserId() userId: string,
+    @Body() dto: CreateCommentDto,
+  ) {
     return this.commentsService.create(mixId, userId, dto);
   }
 }

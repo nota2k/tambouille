@@ -98,15 +98,19 @@ export function parseEmissionPage(html: string): OuiedireEmission {
   // The page lists FLAC first and a browser would take it — tens of times
   // heavier for the listener, for a difference no one hears on a DJ set.
   const sources = [
-    ...html.matchAll(/<source[^>]*src=["']([^"']+)["'][^>]*type=["']([^"']+)["']/gi),
+    ...html.matchAll(
+      /<source[^>]*src=["']([^"']+)["'][^>]*type=["']([^"']+)["']/gi,
+    ),
   ]
     .map((match) => ({ src: match[1]!, type: match[2]! }))
     .sort((a, b) => formatRank(a.type, a.src) - formatRank(b.type, b.src));
 
-  const audioUrl = sources.find((source) => source.src.startsWith('https://'))?.src;
+  const audioUrl = sources.find((source) =>
+    source.src.startsWith('https://'),
+  )?.src;
   if (!audioUrl) {
     throw new BadRequestException(
-      "Cette page Ouïedire ne propose aucun fichier audio lisible",
+      'Cette page Ouïedire ne propose aucun fichier audio lisible',
     );
   }
 
@@ -206,7 +210,7 @@ export class OuiedireImporter implements SourceImporter {
       // but carries no audio, so "no such show" and "page we cannot read" are
       // the same observation from here.
       throw new NotFoundException(
-        "Cette page Ouïedire ne correspond à aucune émission lisible",
+        'Cette page Ouïedire ne correspond à aucune émission lisible',
       );
     }
 
