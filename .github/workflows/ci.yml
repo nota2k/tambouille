@@ -229,16 +229,37 @@ jobs:
       # apt-get plutôt qu'une action tierce : ce workflow porte la clé SSH de
       # production, et une action tierce épinglée sur un tag mobile pourrait la
       # lire. Voir design.md, Decisions.
-      # Exercer l'accès avant d'en dépendre. `BatchMode=yes` interdit toute
-      # invite interactive : sans lui, une clé non autorisée fait attendre une
-      # saisie qui ne viendra jamais, et l'étape suivante pend au lieu
-      # d'échouer. C'est ce qui est arrivé au premier essai.
-      - name: Vérifier l'accès SSH
+      # SONDE TEMPOIRE — à retirer une fois le transport choisi.
+      #
+      # Le port 22 s'est révélé filtré depuis un runner (connexion abandonnée
+      # sans réponse) alors qu'il répond depuis un poste de développement : le
+      # pare-feu du mutualisé n'accepte que des adresses connues. Avant de
+      # réécrire le transfert en FTP, il faut savoir si le 21 subit le même
+      # sort — sinon on aurait bâti toute une voie sur une hypothèse invérifiée,
+      # ce qui est exactement l'erreur qu'on vient de faire.
+      #
+      # Aucune de ces sondes n'a besoin d'identifiants : elles n'ouvrent qu'une
+      # connexion TCP. `timeout` distingue les deux réponses qui comptent —
+      # « refusé » (port fermé, la machine répond) contre « expiré » (paquets
+      # jetés, pare-feu).
+      - name: Sonder les ports depuis le runner
         run: |
-          set -euo pipefail
-          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key \
-            ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} \
-            'echo "acces SSH ok depuis $(hostname)"'
+          set -uo pipefail
+          probe() {
+            local port=$1 label=$2
+            if timeout 8 bash -c "cat < /dev/null > /dev/tcp/${{ secrets.O2SWITCH_HOST }}/$port" 2>/dev/null; then
+              echo "  port $port ($label) : OUVERT"
+            else
+              case $? in
+                124) echo "  port $port ($label) : EXPIRÉ — paquets jetés, pare-feu" ;;
+                *)   echo "  port $port ($label) : refusé ou fermé" ;;
+              esac
+            fi
+          }
+          probe 21  "FTP"
+          probe 22  "SSH"
+          probe 990 "FTPS implicite"
+          probe 443 "HTTPS — témoin, doit être ouvert"
 
       - name: Installer rclone
         run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone
