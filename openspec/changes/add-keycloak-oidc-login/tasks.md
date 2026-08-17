@@ -3,9 +3,10 @@
 Rien d'autre ne commence avant que ces trois points soient constatés. Un échec ici
 arrête le changement plutôt que de le contourner (voir `design.md` — Migration Plan).
 
-- [ ] 1.1 Vérifier qu'un SMTP fonctionnel est configuré dans Realm settings → Email, et envoyer un mail de test depuis Keycloak. Sans lui, la vérification du courriel activée bloque les membres sur l'action requise `VERIFY_EMAIL` à leur prochaine connexion, y compris sur `vip.jeancloude.club`.
-- [ ] 1.2 Obtenir un `id_token` réel du realm avec le scope `email` et constater que `email_verified` y figure. Le document de découverte ne l'annonce pas dans `claims_supported` et toute la garde de création en dépend. S'il est absent, arrêter et revenir sur le périmètre.
-- [ ] 1.3 Créer le client public sur le realm : PKCE S256 obligatoire, pas de secret, URIs de redirection de `localhost:5173` et du site de production. Noter le `client_id`, qui sera l'audience attendue.
+- [x] 1.1 Vérifier qu'un SMTP fonctionnel est configuré dans Realm settings → Email, et utiliser le bouton **Test connection** de Keycloak, qui envoie un message à l'adresse du compte admin. C'est l'envoi réel qui compte : la configuration peut être remplie et l'expédition échouer. Sans lui, la vérification du courriel activée bloque les membres sur l'action requise `VERIFY_EMAIL` à leur prochaine connexion, y compris sur `vip.jeancloude.club`.
+- [ ] 1.2 Créer le client public sur le realm : PKCE S256 obligatoire, pas de secret, URIs de redirection de `localhost:5173` et du site de production. Noter le `client_id`, qui sera l'audience attendue. **Ne pas activer le chiffrement de l'`id_token`** : le realm publie une clé `RSA-OAEP` (`use: enc`), donc il sait émettre du JWE, et un jeton chiffré ferait échouer une vérification par signature seule — il faudrait le déchiffrer d'abord.
+- [ ] 1.3 Obtenir un `id_token` réel de ce client avec le scope `email` et constater que `email_verified` y figure, ainsi que sa valeur. Le document de découverte ne l'annonce pas dans `claims_supported` et toute la garde de création en dépend. S'il est absent, arrêter et revenir sur le périmètre. Le plus simple est de faire le flux réel dans un navigateur et de lire la réponse du `token_endpoint` dans les outils de développement ; à défaut, activer « Direct access grants » le temps d'un appel, puis le remettre à Off.
+- [x] 1.4 Constater les clés publiées par le realm : `RS256` (`use: sig`) et `RSA-OAEP` (`use: enc`), une seule clé de signature. À noter que l'absence de clé symétrique dans le JWKS ne diminue pas l'exigence de la tâche 3.3 mais la confirme : la confusion d'algorithme consiste précisément à reprendre la clé publique publiée comme secret HMAC.
 
 ## 2. Schéma
 
