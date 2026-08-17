@@ -1,0 +1,31 @@
+L'ordre des groupes n'est pas indicatif : le groupe 1 rend le dépôt conforme
+*avant* que le groupe 2 ne se mette à vérifier. L'inverse rendrait rouge la
+proposition de fusion qui porte ce changement.
+
+## 1. Rendre le dépôt conforme
+
+- [ ] 1.1 Supprimer `backend/test/app.e2e-spec.ts`. *Vérifier* : `npm run test:e2e` depuis `backend/` passe — 1 suite, 2 tests. Ce fichier est le gabarit de `nest new` ; il échoue à l'import sur `R2_ACCOUNT_ID` manquant, jamais sur l'assertion `Hello World` que `TODOS.md` lui prête. Corriger cette entrée de `TODOS.md` au passage, ou la retirer puisqu'elle est traitée ici.
+- [ ] 1.2 Ajouter `dist` aux chemins ignorés dans `frontend/.oxlintrc.json`, aligné sur le `globalIgnores(['**/dist/**', ...])` déjà présent dans `frontend/eslint.config.ts`. *Vérifier* : `npx oxlint .` depuis `frontend/` ne signale plus aucun fichier sous `dist/`.
+- [ ] 1.3 Mettre le formatage au propre : `npx prettier --write "src/**/*.ts" "test/**/*.ts"` côté backend (41 fichiers), `npx prettier --write src/` côté frontend (38 fichiers). Commit séparé des autres tâches — c'est du bruit mécanique qui rendrait toute autre revue illisible s'il y était mêlé. *Vérifier* : `--check` passe des deux côtés, et `npm test` est toujours à 539/539.
+- [ ] 1.4 Ajouter les scripts de vérification. Backend : `format:check` (`prettier --check "src/**/*.ts" "test/**/*.ts"`) et `lint:check` (`eslint "{src,apps,libs,test}/**/*.ts"`, sans `--fix`). Frontend : `format:check` (`prettier --check src/`), `lint:check` (`oxlint .` puis `eslint .`, sans `--fix`). Laisser intacts les scripts correcteurs existants (`lint`, `format`), qui restent l'outil local.
+- [ ] 1.5 Vérifier que les scripts de vérification échouent au lieu de corriger : désaligner volontairement un fichier, lancer `format:check`, constater un code de sortie non nul **et** que le fichier n'a pas été modifié. Puis annuler la modification. C'est le scénario « Fichier mal formaté soumis au script de vérification » de la spécification, et c'est la seule tâche qui distingue une vérification d'un théâtre de vérification.
+
+## 2. Le workflow
+
+- [ ] 2.1 Créer `.github/workflows/ci.yml` : déclencheurs `pull_request` vers `main` et `push` sur `main` ; `concurrency` groupée sur la référence avec `cancel-in-progress: true` pour les propositions de fusion, jamais pour `main`.
+- [ ] 2.2 Tâche `backend` : `actions/checkout`, `actions/setup-node` en node 22 avec `cache: npm` et `cache-dependency-path: backend/package-lock.json`, puis `npm ci`, `npm run format:check`, `npm test`, `npm run build`. Ne lui fournir aucune variable d'environnement ni aucun secret — c'est ce que la spécification exige et ce que la mesure autorise.
+- [ ] 2.3 Tâche `frontend` : mêmes actions, `cache-dependency-path: frontend/package-lock.json`, puis `npm ci`, `npm run format:check`, `npm run lint:check`, `npm run build`. `build` enchaîne déjà `vue-tsc --build` et `vite build` par `run-p`, donc le typage est couvert sans étape séparée.
+- [ ] 2.4 Tâche `e2e` : service `postgres:16-alpine` (mêmes identifiants que `docker-compose.yml`) avec un `health-check`, `DATABASE_URL` pointant dessus, puis `npm ci` et `npm run test:e2e`. **Aucune étape de migration** : vérifié, la suite passe contre une base vide. Si quelqu'un ajoute `prisma migrate deploy` ici plus tard, il ajoute une dépendance dont la suite n'a pas besoin.
+- [ ] 2.5 Ajouter le rapport `eslint` non bloquant : une étape `continue-on-error: true` par paquet lançant `lint:check`. *Vérifier* : la tâche reste verte alors que l'étape est rouge et que son rapport est lisible dans les journaux. C'est le scénario « L'analyse statique signale des problèmes ».
+
+## 3. Mise en service
+
+- [ ] 3.1 Ouvrir la proposition de fusion et constater le premier passage complet. Relever la durée de chaque tâche : au-delà de quelques minutes, le retour cesse d'être utilisable et il faudra revoir la mise en cache.
+- [ ] 3.2 **Vérifier que le rouge fonctionne**, une assertion à la fois : casser volontairement un test et constater l'échec ; rétablir, casser le typage frontend, constater ; rétablir, désaligner un fichier, constater. Une vérification qu'on n'a jamais vue échouer n'est pas une vérification. Aucune de ces trois cassures ne doit être fusionnée.
+- [ ] 3.3 Vérifier qu'aucune tâche ne réclame de secret : relire le workflow, confirmer l'absence de toute référence à `secrets.`. C'est ce qui permettra plus tard d'accepter des propositions venues d'un fork sans réoutiller.
+- [ ] 3.4 Une fois le passage vert obtenu, activer la protection de branche sur `main` dans l'interface GitHub et y exiger les tâches. **Geste manuel, hors du dépôt** : tant qu'il n'est pas fait, une proposition rouge reste fusionnable et le workflow n'est qu'un avis.
+
+## 4. Ce que ce changement laisse derrière lui
+
+- [ ] 4.1 Ouvrir une entrée `TODOS.md` pour le nettoyage de l'analyse statique : 659 problèmes backend (637 erreurs, dont ~294 non auto-corrigeables) et 22 frontend, ces derniers étant 16 `@typescript-eslint/no-explicit-any` et 6 `vue/no-mutating-props`. Nommer les mutations de props explicitement — un composant qui écrit dans ses propres props est un défaut, pas une préférence de style. Sans cette entrée, le rapport non bloquant ne sera jamais lu et le choix de ne pas bloquer devient un abandon.
+- [ ] 4.2 Consigner l'instabilité observée, et capturer la sortie complète à la première récidive : `jest` a échoué une fois sur huit exécutions (3 tests, 2 suites, 25 s contre 5 à 15 s), sans être reproductible depuis, y compris sous charge. Aucune reprise automatique n'est en place, délibérément. Tant que les tests concernés ne sont pas identifiés, cette instabilité est le seul défaut connu susceptible de rendre la vérification rouge sans raison.
