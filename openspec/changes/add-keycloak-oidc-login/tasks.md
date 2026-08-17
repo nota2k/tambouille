@@ -49,17 +49,34 @@ arrête le changement plutôt que de le contourner (voir `design.md` — Migrati
 
 - [x] 7.1 Ajouter `KEYCLOAK_ISSUER="https://cartemembre.jeancloude.club/realms/jeancloude.club"` et `KEYCLOAK_CLIENT_ID="tambouille"` à `backend/.env.example`, avec le commentaire d'usage en français comme les autres entrées, et la mention que ces variables sont lues au premier usage donc leur absence ne casse que ce flux.
 - [x] 7.2 Ajouter `VITE_KEYCLOAK_ISSUER` et `VITE_KEYCLOAK_CLIENT_ID` (mêmes valeurs, le client est public et son identifiant n'est pas un secret) à `frontend/.env.example` et `frontend/.env.production`.
-- [ ] 7.3 Mentionner la connexion par carte de membre dans la liste des fonctionnalités du `README.md`.
+- [x] 7.3 Mentionner la connexion par carte de membre dans la liste des fonctionnalités du `README.md`, ainsi que `jose` dans la pile technique.
 
-## 8. Vérification de bout en bout
+## 8. Recette de bout en bout
 
 Contre le realm réel, par requête et réponse, en complément des tests unitaires.
+Ces huit parcours sont ce que les tests ne peuvent pas établir : ils traversent
+le realm, le navigateur, l'API et la base d'un seul tenant.
 
-- [ ] 8.1 Nouveau membre sans compte Tambouille : un clic crée le compte et amène au choix du nom d'utilisateur.
-- [ ] 8.2 Membre disposant déjà d'un compte à la même adresse : refus, connexion, rattachement automatique, et à l'arrivée `hasKeycloak` vrai sans nouvelle action.
-- [ ] 8.3 Membre dont l'adresse du club diffère de son adresse Tambouille : constater qu'aucun conflit n'est détecté et qu'un second compte serait créé — c'est le risque connu et non éliminé. Vérifier que le rattachement depuis les réglages est le chemin qui marche, et qu'il est visible.
-- [ ] 8.4 Membre non encore vérifié sur le realm : refus avec un message qui dit quoi faire.
-- [ ] 8.5 Jeton altéré à la main et jeton expiré : 401 dans les deux cas.
-- [ ] 8.6 Compte créé par une carte, puis réinitialisation de mot de passe sur son adresse : le mail arrive et le mot de passe s'installe — la perte de la carte n'enferme pas dehors.
-- [ ] 8.7 Vérifier qu'aucune réponse de l'API ne contient le sujet : `GET /auth/me`, le profil public, la recherche d'utilisateurs.
-- [ ] 8.8 Vérifier que les chemins existants n'ont pas bougé : inscription, connexion par mot de passe, connexion Google, réinitialisation.
+**Préalables** — les réunir avant de commencer, sinon un échec ne voudra rien dire :
+
+- `docker compose up -d`, puis `npm --prefix backend run start:dev` et
+  `npm --prefix frontend run dev`.
+- `backend/.env` et `frontend/.env` renseignés d'après leurs `.env.example`
+  (`KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, et leurs jumeaux `VITE_`).
+- Trois comptes sur le realm : **A** vérifié dont l'adresse n'a aucun compte
+  Tambouille ; **B** vérifié dont l'adresse a déjà un compte Tambouille à mot de
+  passe ; **C** non encore vérifié. Le compte **B** est le seul qui demande une
+  préparation des deux côtés.
+- Un compte Tambouille dont l'adresse **diffère** de celle de sa carte, pour 8.3.
+
+Chaque ligne dit quoi faire, ce qu'on doit voir, et ce que ça établit. Une ligne
+qui échoue s'arrête là : les suivantes supposent la précédente.
+
+- [ ] 8.1 **Création par carte.** Avec **A**, cliquer « Continuer avec ma carte de membre » depuis `/login`. → Le realm demande les identifiants, puis le site revient sur `/bienvenue` pour choisir un nom d'utilisateur. En base, une ligne `users` neuve avec `keycloakId` renseigné, `password` et `username` à `NULL`. *Établit la branche de création et le passage de relais à la garde du routeur.*
+- [ ] 8.2 **Reprise après refus.** Avec **B**, même clic. → Retour sur `/login` portant la bannière « Un compte existe déjà avec l'adresse de ta carte… ». Se connecter avec le mot de passe habituel. → Une redirection brève vers le realm, sans rien demander, puis les réglages affichant « Ta carte de membre est associée ». *Établit le seul chemin que les tests ne couvrent pas : le code `CARD_EMAIL_TAKEN`, l'intention qui traverse la connexion, et le second aller-retour silencieux.* Revenir ensuite sur `/login` et recommencer avec **B** : la carte ouvre maintenant la session directement.
+- [ ] 8.3 **Adresses différentes — le doublon silencieux.** Avec un compte Tambouille sous l'adresse personnelle et une carte sous l'adresse du club, cliquer le bouton depuis `/login`. → **Un second compte est créé**, vide, et l'ancien garde les mixs. C'est le risque connu et non éliminé (voir `design.md`, Risques) : le rapprochement par adresse est aveugle à ce cas. *Le constater une fois évite de le rediagnostiquer plus tard comme un bug.* Vérifier ensuite que le chemin qui marche — se connecter d'abord, puis « Associer ma carte de membre » depuis les réglages — rattache bien la carte au bon compte, et qu'il est visible.
+- [ ] 8.4 **Adresse non vérifiée.** Avec **C**, cliquer le bouton. → Refus affichant qu'il faut vérifier l'adresse sur le realm, et **aucun compte créé** en base. *Établit la garde dont dépend toute la sûreté de la création.*
+- [ ] 8.5 **Jetons refusés.** Rejouer une URL de retour déjà consommée, puis forger un `state` qui ne correspond à rien. → Refus dans les deux cas, sans session ouverte. Séparément, poster un `id_token` altéré à la main sur `POST /auth/oidc` : **401**, pas 409. *Établit que le vérificateur distingue un mauvais jeton d'un conflit de politique.*
+- [ ] 8.6 **La perte de la carte n'enferme pas dehors.** Sur le compte créé en 8.1, demander une réinitialisation de mot de passe pour son adresse. → Le message arrive (Mailpit sur `http://localhost:8025`), le mot de passe s'installe, la connexion par mot de passe fonctionne. *Établit que la création par carte est réversible pour son titulaire.*
+- [ ] 8.7 **Le sujet ne sort pas.** Lire les réponses de `GET /auth/me`, du profil public et de la recherche d'utilisateurs. → `hasKeycloak` y figure, le `sub` du realm **jamais**. *Établit que la clé de recherche du compte reste privée.*
+- [ ] 8.8 **Les chemins existants n'ont pas bougé.** Inscription, connexion par mot de passe, connexion Google, réinitialisation. → Inchangés. *Établit qu'un fournisseur de plus n'a rien coûté aux autres.*
