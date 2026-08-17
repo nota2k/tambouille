@@ -8,7 +8,7 @@ site. Voir `design.md` — Migration Plan.
 ## 1. Les secrets et l'accès
 
 - [x] 1.1 Créer une paire de clés SSH **dédiée au déploiement**, distincte de toute clé personnelle, et déposer la publique dans cPanel › Accès SSH. Une clé dédiée se révoque sans rien casser d'autre.
-- [ ] 1.2 Enregistrer quatre secrets de dépôt : la clé privée, l'hôte, l'utilisateur, et l'empreinte du serveur (`ssh-keyscan`) pour que `StrictHostKeyChecking` reste actif. *Vérifier* : depuis un runner, `ssh <user>@<hôte> 'echo ok'` répond `ok` sans invite ni avertissement d'hôte inconnu.
+- [x] 1.2 Enregistrer quatre secrets de dépôt : la clé privée, l'hôte, l'utilisateur, et l'empreinte du serveur (`ssh-keyscan`) pour que `StrictHostKeyChecking` reste actif. *Vérifier* : depuis un runner, `ssh <user>@<hôte> 'echo ok'` répond `ok` sans invite ni avertissement d'hôte inconnu.
 - [ ] 1.3 Vérifier depuis un runner que rclone atteint le serveur en SFTP et **liste** `~/tambouille` sans rien écrire (`rclone lsd`). C'est la première fois que le transfert est exercé ; qu'il soit en lecture seule est délibéré. **Le workflow porte désormais un mode `dry_run`** qui fait exactement cela : il liste la destination, simule les synchronisations, et saute les deux étapes qui modifient le serveur. Un seul `workflow_dispatch` coché en simulation couvre donc cette tâche et la 2.4, sans montage jetable.
 
 ## 2. La tâche `deploy`
