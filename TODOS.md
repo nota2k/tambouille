@@ -50,7 +50,7 @@ Three blockers, all true today and all independent of this work:
 
 1. `backend/package.json` declares `"postinstall": "prisma generate"` while `prisma` is a devDependency, so `npm ci --omit=dev` invokes a CLI it did not install and fails. `--ignore-scripts` is not a way out: `bcrypt` is a native module that needs its install script. The fix is to drop `prisma generate` from `postinstall` — CI generates the client and rsyncs `generated/` — at the cost of a local `npm install` no longer regenerating it.
 2. Every `lint` script in the repo auto-corrects instead of failing (`eslint --fix`, `oxlint --fix`, `prettier --write`). Wired into CI as-is they go green on anything fixable and the fix is thrown away with the runner. Either add non-fixing variants, or decide lint is not blocking and keep only the tests. **Undecided.**
-3. The scaffolded e2e test must go first — see "Delete or rewrite the scaffolded e2e test" below. While it is there, "blocking tests" means nothing ever deploys.
+3. ~~The scaffolded e2e test must go first.~~ Done as task 1.1 of `add-ci-checks`: `backend/test/app.e2e-spec.ts` is gone and `npm run test:e2e` is green.
 
 **Where the migrations run — settled, see the analysis below.** Migrations go through SSH: `ssh 'cd ~/tambouille/backend && npx --yes prisma@7 migrate deploy'`, and the Postgres port closes. Running `prisma migrate deploy` straight from the CI job is one line shorter and 20-40 s faster per deployment, but it requires the production database to stay reachable from the whole internet — GitHub runners have no fixed IP, so there is no allowlist to write. Either way, migrate *before* the code lands and keep migrations additive; with a single environment that discipline has no safety net.
 
@@ -103,18 +103,14 @@ GitHub secrets needed: an SSH key dedicated to deployment (added under cPanel �
 
 **Effort:** L
 **Priority:** P2
-**Depends on:** `add-keycloak-oidc-login` merged; blocker 3 (the scaffolded e2e test) removed
+**Depends on:** `add-keycloak-oidc-login` merged (done, `5e9686b`); blocker 3 removed (done, `add-ci-checks` task 1.1)
 
 ## Testing
 
-### Delete or rewrite the scaffolded e2e test
-
-**What:** `backend/test/app.e2e-spec.ts` is the file `nest new` generates. Remove it, or replace it with a real health check.
-
-**Why:** It asserts `GET /` returns `"Hello World!"`. There is no `AppController` in the project, and `backend/src/main.ts:20` sets a global `/api` prefix, so the request cannot match. The test fails every run. It is the only file in the e2e suite, which means `npm run test:e2e` is permanently red and the suite carries no signal.
-
-**Context:** Surfaced during `/plan-eng-review` of the transactional-emails spec (2026-08-08). That spec's task T8 adds an e2e regression test (the app must boot with an unreachable SMTP host). It will land in a suite that is already failing, where a genuine regression would be indistinguishable from the existing noise. Fixing this is a one-line `git rm`; replacing it with a real check against `/api` is about ten minutes.
-
-**Effort:** S
-**Priority:** P2
-**Depends on:** None
+<!-- "Delete or rewrite the scaffolded e2e test" was done as task 1.1 of
+     add-ci-checks and removed from this file. Two things it got wrong, worth
+     keeping because both were believed for months: the file did not fail on
+     the `Hello World` assertion — it never reached it, dying at import on a
+     missing `R2_ACCOUNT_ID` — and it was not the only file in the e2e suite.
+     `test/mail-boot.e2e-spec.ts` sat beside it, green, pinning the guarantee
+     that no SMTP fault stops the API from booting. -->
