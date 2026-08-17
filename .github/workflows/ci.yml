@@ -17,6 +17,15 @@ on:
         description: "Référence à déployer (défaut : la branche courante)"
         required: false
         type: string
+      # Exercer le transfert sans rien écrire : rclone liste la destination et
+      # simule la synchronisation, les étapes qui modifient le serveur sont
+      # sautées. C'est ce qui permet de voir ce qu'un déploiement effacerait
+      # AVANT de lui faire confiance, et de valider l'accès sans risque.
+      dry_run:
+        description: "Ne rien écrire : lister et simuler le transfert"
+        required: false
+        default: false
+        type: boolean
 
 # Une nouvelle poussée sur une proposition de fusion annule l'exécution en cours
 # pour cette même référence : seul le dernier état compte. Les exécutions sur
@@ -233,12 +242,20 @@ jobs:
       - name: Transférer les artefacts
         run: |
           set -euo pipefail
-          rclone sync backend/dist/      o2:$REMOTE/backend/dist/      --max-delete=50 --stats-one-line
-          rclone sync backend/generated/ o2:$REMOTE/backend/generated/ --max-delete=50 --stats-one-line
-          rclone sync backend/prisma/    o2:$REMOTE/backend/prisma/    --max-delete=20 --stats-one-line
-          rclone sync frontend/dist/     o2:$REMOTE/frontend/dist/     --max-delete=80 --stats-one-line
-          rclone copy backend/package.json      o2:$REMOTE/backend/
-          rclone copy backend/package-lock.json o2:$REMOTE/backend/
+          DRY=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            DRY="--dry-run"
+            echo "── MODE SIMULATION : rien ne sera écrit ──"
+            echo "Contenu actuel de la destination :"
+            rclone lsd o2:$REMOTE
+            rclone lsd o2:$REMOTE/backend
+          fi
+          rclone sync backend/dist/      o2:$REMOTE/backend/dist/      --max-delete=50 $DRY --stats-one-line
+          rclone sync backend/generated/ o2:$REMOTE/backend/generated/ --max-delete=50 $DRY --stats-one-line
+          rclone sync backend/prisma/    o2:$REMOTE/backend/prisma/    --max-delete=20 $DRY --stats-one-line
+          rclone sync frontend/dist/     o2:$REMOTE/frontend/dist/     --max-delete=80 $DRY --stats-one-line
+          rclone copy backend/package.json      o2:$REMOTE/backend/ $DRY
+          rclone copy backend/package-lock.json o2:$REMOTE/backend/ $DRY
 
       # ── Dépendances d'exécution ──────────────────────────────────────────
       #
@@ -255,6 +272,7 @@ jobs:
       # c'est une à deux minutes économisées sur la grande majorité des
       # livraisons.
       - name: Installer les dépendances d'exécution si le verrou a changé
+        if: ${{ !inputs.dry_run }}
         run: |
           set -euo pipefail
           LOCAL=$(sha256sum backend/package-lock.json | cut -d' ' -f1)
@@ -282,6 +300,7 @@ jobs:
       # tourne sur le nouveau schéma, ce qui est sûr tant que les migrations
       # sont additives. L'inverse ne l'est jamais.
       - name: Migrer et redémarrer
+        if: ${{ !inputs.dry_run }}
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} bash -euo pipefail <<EOSSH
             source ~/nodevenv/tambouille/backend/22/bin/activate
