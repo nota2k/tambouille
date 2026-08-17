@@ -22,6 +22,12 @@ function createPrismaMock() {
   };
 }
 
+// The shape a `findFirst` filter takes on `email`/`username`: either the bare
+// value (exact match) or Prisma's `{ equals, mode }` form. The mocks below
+// discriminate on it to answer the way Postgres would.
+type Filter = string | { equals: string; mode?: string } | undefined;
+type Where = { email?: Filter; username?: Filter };
+
 function createVerifierMock() {
   return { verify: jest.fn() };
 }
@@ -39,6 +45,71 @@ describe('AuthService', () => {
       { signAsync: jest.fn().mockResolvedValue('signed-token') } as unknown as JwtService,
       verifier as unknown as GoogleTokenVerifier,
     );
+  });
+
+  describe('register', () => {
+    const DTO = {
+      email: 'nelly@example.com',
+      username: 'nelly',
+      password: 'correct horse battery staple',
+      displayName: 'Nelly',
+    };
+
+    // The mock answers the way Postgres would rather than returning a canned
+    // row: a field matches across case only if the query actually asked for
+    // `mode: 'insensitive'`. An exact-match check falls straight through it, so
+    // these tests fail if either lookup is reverted.
+    function matches(asked: Filter, stored: string) {
+      return typeof asked === 'object' && asked?.mode === 'insensitive'
+        ? asked.equals.toLowerCase() === stored.toLowerCase()
+        : asked === stored;
+    }
+
+    function accountOn(storedEmail: string, storedUsername: string) {
+      prisma.user.findFirst.mockImplementation(({ where }: { where: Where }) => {
+        const hit = where.email
+          ? matches(where.email, storedEmail)
+          : matches(where.username, storedUsername);
+        return Promise.resolve(hit ? { id: 'u1' } : null);
+      });
+    }
+
+    it('refuses an address that differs only in case from a registered one', async () => {
+      accountOn('nelly@example.com', 'nelly');
+
+      const error = await service
+        .register({ ...DTO, email: 'Nelly@Example.com', username: 'nelly-two' })
+        .catch((e: Error) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      // The decisive assertion: no second row on a mailbox that already has one.
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses a username that differs only in case from a registered one', async () => {
+      accountOn('nelly@example.com', 'nelly');
+
+      const error = await service
+        .register({ ...DTO, email: 'other@example.com', username: 'Nelly' })
+        .catch((e: Error) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('says which of the two is taken', async () => {
+      accountOn('nelly@example.com', 'nelly');
+
+      const onEmail = await service
+        .register({ ...DTO, username: 'nelly-two' })
+        .catch((e: Error) => e.message);
+      const onUsername = await service
+        .register({ ...DTO, email: 'other@example.com' })
+        .catch((e: Error) => e.message);
+
+      expect(onEmail).toMatch(/email/i);
+      expect(onUsername).toMatch(/username/i);
+    });
   });
 
   describe('login', () => {
@@ -400,6 +471,24 @@ describe('AuthService', () => {
       prisma.user.findFirst.mockResolvedValue({ id: 'u2', username: 'nelly' });
 
       await expect(service.setUsername('u1', 'nelly')).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    // Same rule as `register`: the unique index compares strings, so nothing
+    // below this check stops `Nelly` from landing next to `nelly`.
+    it('refuses a username taken by someone else in a different case', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findFirst.mockImplementation(({ where }: { where: Where }) =>
+        Promise.resolve(
+          typeof where.username === 'object' &&
+          where.username?.mode === 'insensitive' &&
+          where.username.equals.toLowerCase() === 'nelly'
+            ? { id: 'u2', username: 'nelly' }
+            : null,
+        ),
+      );
+
+      await expect(service.setUsername('u1', 'Nelly')).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
