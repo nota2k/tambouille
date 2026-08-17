@@ -237,27 +237,26 @@ jobs:
         with:
           node-version: 22
 
-      # Le binaire officiel plutôt qu'une action tierce : ce workflow porte les
-      # identifiants FTP de production, et une action épinglée sur un tag mobile
-      # pourrait les lire. Voir design.md, Decisions.
+      # Action épinglée à un SHA DE COMMIT, jamais à `@v1`.
       #
-      # Et plutôt qu'apt : `apt-get update` rafraîchissait tout l'index des
-      # paquets — 9 à 15 secondes mesurées — pour en installer un seul, et
-      # livrait la version qu'Ubuntu embarque ce mois-ci. Ici la version est
-      # ÉPINGLÉE : le pipeline ne changera pas de comportement parce que
-      # l'image du runner a été reconstruite.
+      # Ce workflow porte les identifiants FTP de production. Un tag est mobile :
+      # `@v1` désigne ce que le mainteneur publiera, un SHA désigne ce qui a été
+      # lu. La différence n'a d'importance que le jour où elle en a beaucoup.
       #
-      # La relever demande un geste délibéré, ce qui est le but.
+      # Le commentaire porte la version lisible, sans quoi le SHA seul rend
+      # impossible de savoir de quoi on est en retard.
+      #
+      # Cette étape précède délibérément « Configurer l'accès FTPS » : le mot de
+      # passe n'entre dans l'environnement qu'après, donc l'action ne l'a jamais
+      # à portée. Ne pas réordonner.
+      #
+      # `version` est épinglée elle aussi — par défaut l'action prend `latest`,
+      # ce qui ferait changer rclone sous nos pieds sans qu'aucun commit ne
+      # l'explique.
       - name: Installer rclone
-        env:
-          RCLONE_VERSION: v1.75.0
-        run: |
-          set -euo pipefail
-          curl -fsSL -o /tmp/rclone.zip \
-            "https://downloads.rclone.org/${RCLONE_VERSION}/rclone-${RCLONE_VERSION}-linux-amd64.zip"
-          sudo unzip -qj /tmp/rclone.zip '*/rclone' -d /usr/local/bin
-          sudo chmod +x /usr/local/bin/rclone
-          rclone version | head -1
+        uses: AnimMouse/setup-rclone@26ef2133e09fd383329a1d4c1fbe6a71db1976c9 # v1.12.0
+        with:
+          version: v1.75.0
 
       # rclone n'accepte pas un mot de passe en clair dans sa configuration : il
       # le veut obscurci. L'obscurcissement est RÉVERSIBLE — ce n'est pas du

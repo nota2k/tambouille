@@ -144,18 +144,34 @@ propre envoi. Coût assumé : la latence du cron s'ajoute à celle du pipeline �
 cinq minutes au pire, davantage si l'installation des dépendances est
 déclenchée.
 
-### rclone installé par `apt-get`, pas par une action tierce
+### rclone installé par l'action officielle, épinglée à un SHA de commit
 
-Le workflow portera les identifiants FTP de production. Y faire entrer une
-action tierce étend la surface d'approvisionnement à un dépôt sur lequel
-personne ici n'a de prise : un tag déplacé lit le secret.
+Décision révisée. Le design retenait d'abord `apt-get`, pour ne pas faire entrer
+un dépôt tiers dans un workflow qui porte les identifiants de production. Deux
+mesures ont fait pencher autrement :
 
-*Écarté* : `AnimMouse/setup-rclone`, qui est commode et gère le versionnement.
-Si on la reprend un jour, ce doit être **épinglée à un SHA de commit**, jamais à
-`@v1` — la différence entre « ce que le mainteneur publiera » et « ce que j'ai
-lu ». Une ligne d'`apt-get` évite entièrement la question.
+`apt-get update` rafraîchissait tout l'index des paquets pour en installer un —
+9 à 15 secondes — et livrait la version qu'Ubuntu embarque ce mois-ci, donc un
+pipeline qui pouvait changer de comportement parce que l'image du runner avait
+été reconstruite. L'action, elle, met rclone en cache et épingle sa version.
 
-*Écarté* : `curl … | sudo bash`, qui est pire que l'action à tous égards.
+L'objection de départ ne disparaît pas pour autant, elle se traite :
+
+- **Épinglée à un SHA de commit**, jamais à `@v1`. Un tag est mobile : il désigne
+  ce que le mainteneur publiera, un SHA désigne ce qui a été lu.
+- **Installée avant que le mot de passe n'entre dans l'environnement.** L'ordre
+  des étapes n'est pas indifférent — le secret est posé dans `GITHUB_ENV` à
+  l'étape suivante, donc l'action ne l'a jamais à portée.
+- **Version de rclone épinglée** elle aussi, plutôt que le `latest` par défaut.
+
+*Écarté* : `curl … | sudo bash`, pire que l'action à tous égards.
+
+*Écarté, après essai* : télécharger le binaire officiel à la main. Quatre lignes,
+quatre secondes — mais la variable qui portait la version s'appelait
+`RCLONE_VERSION`, or **toute variable `RCLONE_*` est lue par rclone comme un
+drapeau**. Elle devenait `--version="v1.75.0"`, un booléen recevant une chaîne,
+et cassait l'étape. Le piège se contourne en renommant, mais il illustre ce que
+l'action évite : elle connaît ces conventions, nous les redécouvrons.
 
 ### Configuration de rclone par variables d'environnement
 
