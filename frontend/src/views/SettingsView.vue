@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { apiClient } from '@/api/client'
 import { mediaUrl } from '@/utils/media'
 import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
+import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
 import type { UserProfile } from '@/types'
 
 const router = useRouter()
@@ -211,6 +212,27 @@ async function submitDelete() {
             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
           </svg>
           <span class="text-sm text-tambouille-muted">Ton compte Google est associé.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Carte de membre -->
+    <section v-if="authStore.user" class="mb-10">
+      <h2 class="mb-4 text-lg font-semibold">Carte de membre</h2>
+      <div class="rounded-none border border-tambouille-border bg-tambouille-surface p-6">
+        <template v-if="!authStore.user.hasKeycloak">
+          <p class="mb-4 text-sm text-tambouille-muted">
+            Associe ta carte de membre du club pour te connecter en un clic. Ton mot de
+            passe continuera de fonctionner, et l'adresse de ta carte peut être
+            différente de celle de ton compte.
+          </p>
+          <KeycloakSignInButton intent="link" label="Associer ma carte de membre" />
+        </template>
+        <div v-else class="flex items-center gap-3">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 fill-green-500">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+          </svg>
+          <span class="text-sm text-tambouille-muted">Ta carte de membre est associée.</span>
         </div>
       </div>
     </section>

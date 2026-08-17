@@ -59,6 +59,18 @@ const router = createRouter({
       component: () => import('@/views/ResetPasswordView.vue'),
     },
     {
+      // Le chemin enregistré comme URI de redirection sur le realm : il doit
+      // rester identique des deux côtés, une divergence casse l'authentification
+      // sans message exploitable.
+      //
+      // Sans `guestOnly` ni `requiresAuth`, délibérément : il sert la connexion,
+      // où il n'y a pas encore de session, comme le rattachement, où il y en a
+      // une.
+      path: '/auth/callback',
+      name: 'oidc-callback',
+      component: () => import('@/views/OidcCallbackView.vue'),
+    },
+    {
       path: '/upload',
       name: 'upload',
       component: () => import('@/views/UploadView.vue'),
@@ -116,7 +128,12 @@ router.beforeEach((to) => {
     authStore.user &&
     !authStore.user.username &&
     to.name !== 'choose-username' &&
-    to.name !== 'reset-password'
+    to.name !== 'reset-password' &&
+    // Exempté pour la même raison que `reset-password` : cet écran doit pouvoir
+    // exécuter sa logique. Détourné avant d'être monté, le code d'autorisation
+    // ne serait jamais échangé et le rattachement n'aurait pas lieu — en
+    // silence, puisque rien n'aurait échoué.
+    to.name !== 'oidc-callback'
   ) {
     return { name: 'choose-username' }
   }

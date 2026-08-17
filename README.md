@@ -5,13 +5,16 @@ Un site de partage et d'écoute de mixs audio (inspiré de Mixcloud).
 ## Stack
 
 - **Frontend** : Vue 3, TypeScript, Vite, Pinia, Vue Router, Tailwind CSS
-- **Backend** : NestJS, Prisma (driver adapter `@prisma/adapter-pg`), JWT (Passport), Multer
+- **Backend** : NestJS, Prisma (driver adapter `@prisma/adapter-pg`), JWT (Passport), Multer, `jose` (vérification des jetons OIDC du realm)
 - **Base de données** : PostgreSQL (via Docker)
 - **Stockage des fichiers** : Cloudflare R2 (stockage objet compatible S3, via `multer-s3`), fichiers publiquement lisibles, avec support natif des requêtes `Range` par R2 (scrubbing audio)
 
 ## Fonctionnalités (MVP)
 
-- Inscription / connexion (JWT)
+- Inscription / connexion (JWT), avec Google ou la carte de membre du club
+  (realm Keycloak `cartemembre.jeancloude.club`) comme portes supplémentaires.
+  Une carte dont l'adresse a déjà un compte ici ne le prend pas : on se connecte
+  comme d'habitude et elle s'y rattache ensuite.
 - Upload de mixs (audio + pochette optionnelle, titre, description, tags)
 - Écoute en streaming avec lecteur persistant (barre en bas de page)
 - Liste et recherche des mixs (par titre/description, par tag, par utilisateur)
