@@ -302,7 +302,7 @@ jobs:
           rclone sync backend/dist/      o2:backend/dist/      --max-delete=50 $DRY --stats-one-line
           rclone sync backend/generated/ o2:backend/generated/ --max-delete=50 $DRY --stats-one-line
           rclone sync backend/prisma/    o2:backend/prisma/    --max-delete=20 $DRY --stats-one-line
-          rclone sync frontend/dist/     o2:frontend/dist/     --max-delete=1 $DRY --stats-one-line
+          rclone sync frontend/dist/     o2:frontend/dist/     --max-delete=80 $DRY --stats-one-line
           rclone copy backend/package.json      o2:backend/ $DRY
           rclone copy backend/package-lock.json o2:backend/ $DRY
 
