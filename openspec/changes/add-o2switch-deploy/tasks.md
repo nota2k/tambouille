@@ -31,7 +31,7 @@ disparaissent.
 - [x] 2.4 ~~Entrée cron.~~ **Installée et vérifiée**, puis rendue inutile. À retirer du serveur.
 - [x] 2.5 **Le redémarrage est prouvé** — un en-tête déposé dans `main.ts` est apparu en production, ce qu'aucun déploiement frontend n'aurait pu établir. Mais c'était le cron qui touchait `restart.txt` ; **avec `.cpanel.yml` le mécanisme change à nouveau et redevient non éprouvé**. À réexercer avec la même sonde.
 - [x] 2.6 **Fait.** La logique vit dans `deploy/o2switch-deploy.sh` que `.cpanel.yml` appelle en une ligne — même motif que le script du cron, qui fonctionnait, et les règles restent commentées à côté des commandes. Exercé contre une fausse destination : les quatre répertoires nommés sont remplacés, les deux manifestes copiés, rien d'autre touché, et un dépôt sans artefacts est refusé en code 1. Écrire le vrai `.cpanel.yml` : recopier `backend/{dist,generated,prisma}`, `frontend/dist` et les deux manifestes vers `~/tambouille`, **répertoire par répertoire, jamais de joker, jamais `backend/` lui-même** — `.env`, `node_modules`, `tmp/` et les 222 Mo d'`uploads` y vivent. Puis installation conditionnelle, migration, redémarrage. Les raisons écrites à côté des commandes, pas ailleurs.
-- [ ] 2.7 Retirer `deploy/o2switch-cron.sh` du dépôt, l'entrée cron du serveur, et la copie dans `~/bin/`.
+- [x] 2.7 **Fait** — le script est devenu `deploy/o2switch-deploy.sh`. Reste à retirer l'entrée cron du serveur et la copie dans `~/bin/`. Retirer `deploy/o2switch-cron.sh` du dépôt, l'entrée cron du serveur, et la copie dans `~/bin/`.
 
 ## 2bis. La tâche `deploy`
 

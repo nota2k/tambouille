@@ -83,16 +83,49 @@ else
   echo "  verrou inchangé — installation sautée"
 fi
 
-# ── Schéma, puis redémarrage ────────────────────────────────────────────────
+# ── Schéma ──────────────────────────────────────────────────────────────────
 #
-# Migrer AVANT de redémarrer : pendant la fenêtre qui suit, l'ancien code tourne
-# sur le nouveau schéma, ce qui est sûr tant que les migrations sont additives.
-# L'inverse ne l'est jamais.
+# On détermine s'il reste quelque chose à migrer SANS lancer Prisma.
 #
-# `prisma` est une devDependency et le serveur n'installe que ses dépendances
-# d'exécution — d'où `npx --yes`, qui télécharge la CLI le temps de la commande.
-npx --yes prisma@7 migrate deploy || { echo "ERREUR : migration échouée" >&2; exit 1; }
+# La CLI Prisma 7 instancie un module WebAssembly au démarrage — avant même de
+# savoir s'il y a du travail. Sous la limite mémoire que CloudLinux applique aux
+# processus lancés par cPanel, cette allocation échoue :
+#
+#     RangeError: WebAssembly.Instance(): Cannot allocate Wasm memory
+#
+# La même commande passe en session SSH interactive, où la limite est plus
+# large. Le déploiement ne peut donc pas l'invoquer, mais il peut comparer les
+# répertoires de migrations à ce que la base déclare avoir appliqué.
+#
+# Migrer avant de redémarrer reste la règle : pendant la fenêtre qui suit,
+# l'ancien code tourne sur le nouveau schéma, ce qui est sûr tant que les
+# migrations sont additives. L'inverse ne l'est jamais.
+DB_URL=$(grep -E '^DATABASE_URL=' "$BACKEND/.env" | head -1 | cut -d= -f2- | tr -d "\"'")
+[ -n "$DB_URL" ] || { echo "ERREUR : DATABASE_URL introuvable dans .env" >&2; exit 1; }
 
+appliquees=$(psql "$DB_URL" -tAc \
+  "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL" 2>/dev/null | sort)
+if [ -z "$appliquees" ]; then
+  echo "ERREUR : impossible de lire _prisma_migrations — on ne redémarre pas à l'aveugle" >&2
+  exit 1
+fi
+presentes=$(ls -1 "$BACKEND/prisma/migrations" | grep -v migration_lock | sort)
+manquantes=$(comm -13 <(echo "$appliquees") <(echo "$presentes"))
+
+if [ -n "$manquantes" ]; then
+  echo "ERREUR : migrations non appliquées, et ce déploiement ne peut pas les appliquer." >&2
+  echo "$manquantes" | sed 's/^/  - /' >&2
+  echo "" >&2
+  echo "  Prisma 7 ne tient pas dans la limite mémoire des processus cPanel." >&2
+  echo "  À lancer en SSH, où elle fonctionne :" >&2
+  echo "    cd ~/tambouille/backend && source ~/nodevenv/tambouille/backend/22/bin/activate \\" >&2
+  echo "      && npx --yes prisma@7 migrate deploy" >&2
+  echo "  Puis relancer ce déploiement." >&2
+  exit 1
+fi
+echo "  schéma à jour — $(echo "$presentes" | wc -l | tr -d ' ') migrations appliquées"
+
+# ── Redémarrage ─────────────────────────────────────────────────────────────
 /bin/mkdir -p tmp && /bin/touch tmp/restart.txt || { echo "ERREUR : redémarrage impossible" >&2; exit 1; }
 echo "  redémarrage demandé"
 

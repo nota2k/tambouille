@@ -152,6 +152,15 @@ place au moment où elles s'appliquent continue de fonctionner.
 La base MUST NOT être rendue accessible depuis l'extérieur dans le seul but de
 permettre à un déploiement de l'atteindre.
 
+Lorsque le déploiement ne peut pas appliquer une migration lui-même, il MUST
+s'arrêter avant de mettre le nouveau code en service, et MUST nommer les
+migrations en attente. Il MUST NOT redémarrer l'application en laissant croire
+que le déploiement a abouti : l'ancien code servant l'ancien schéma est un état
+cohérent, l'inverse ne l'est pas.
+
+Le déploiement MUST pouvoir déterminer s'il reste des migrations à appliquer sans
+dépendre de l'outil qui les applique.
+
 #### Scenario: Version comportant une migration
 
 - **WHEN** une version comportant une migration est déployée
@@ -161,6 +170,17 @@ permettre à un déploiement de l'atteindre.
 
 - **WHEN** la migration est appliquée et que le code précédent sert encore
 - **THEN** ce code continue de fonctionner
+
+#### Scenario: Une migration est en attente et ne peut pas être appliquée
+
+- **WHEN** le déploiement constate des migrations non appliquées qu'il ne peut pas appliquer
+- **THEN** il échoue en les nommant
+- **AND** l'application n'est pas redémarrée
+
+#### Scenario: L'état des migrations est illisible
+
+- **WHEN** le déploiement ne parvient pas à établir quelles migrations sont appliquées
+- **THEN** il échoue plutôt que de redémarrer sans savoir
 
 ### Requirement: Un déploiement se constate
 
