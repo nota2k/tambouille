@@ -4,5 +4,13 @@
 .superpowers/
 .worktrees/
 
+# Outillage local des agents. Listé pièce par pièce, et non `.claude/` en bloc :
+# .claude/launch.json est suivi, c'est la config du serveur de dev.
+.claude/commands/
+.claude/skills/
+.claude/worktrees/
+.claude/settings.local.json
+.serena/
+
 # Sauvegardes locales : peuvent contenir des secrets
 *.bak
