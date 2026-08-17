@@ -373,6 +373,20 @@ fonctionne toujours. Après la 3, le retour arrière est un redéploiement par
 
 ## Open Questions
 
+- **Remplacer le `sync` fichier par fichier par une archive déballée côté
+  serveur ?** Mesuré : le transfert coûte 141 s sur 248, et presque rien de ce
+  temps ne passe en octets — le FTP n'ayant pas de listage récursif, rclone
+  interroge chaque fichier de `backend/dist`, qui en compte des centaines. Un
+  seul téléversement d'archive, déballée par le script du cron, ramènerait cela
+  à une dizaine de secondes. Ce serait aussi **plus sûr** : le pipeline cesserait
+  de nommer les chemins de destination, et c'est le script hors de portée du
+  compte FTP qui déciderait où va quoi. Cela rendrait même possible un
+  remplacement atomique, que ce design déclare hors de portée.
+  À traiter : la disparition de `--max-delete` comme mécanisme, remplacé par un
+  script ne touchant que des noms en dur ; et la garde contre les chemins `../`
+  dans l'archive. Écarté pour l'instant — le dispositif actuel fonctionne, et ce
+  changement toucherait la spécification, le script et le workflow ensemble.
+
 - Faut-il conserver `frontend/dist` dans l'historique ou le purger ? Le garder
   laisse des mégaoctets de bundles dans les objets git, sans conséquence
   fonctionnelle. Une purge réécrit l'historique de tout le dépôt, ce qui est

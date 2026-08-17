@@ -37,10 +37,10 @@ la raison pour laquelle le script doit être court et lisible.
 
 ## 3. Le premier déploiement piloté
 
-- [ ] 3.1 Déclencher un `workflow_dispatch` sur la référence courante, alors que la production est déjà à jour par la tâche 0.1 : l'écart est nul, donc un échec ne peut venir que du pipeline. Relever la durée.
+- [x] 3.1 **Fait.** Premier déploiement réel de bout en bout en 4 min 07 : construction, transfert, dépôt de la demande, attente du cron, résultat `status=ok` portant le bon SHA, puis vérification HTTP. Déclencher un `workflow_dispatch` sur la référence courante, alors que la production est déjà à jour par la tâche 0.1 : l'écart est nul, donc un échec ne peut venir que du pipeline. Relever la durée.
 - [ ] 3.2 **Vérifier sur le serveur que rien n'a été détruit** : `backend/.env` intact, `backend/uploads` toujours à 222 Mo, `node_modules/` en place, `.htaccess` inchangé. C'est l'exigence « Le transfert ne peut pas détruire ce qu'il ne dépose pas », constatée plutôt que supposée.
-- [ ] 3.3 Faire un déploiement qui **change quelque chose de visible** — une chaîne de l'interface suffit — et le constater en production. Un pipeline qu'on n'a jamais vu livrer n'a rien prouvé.
-- [ ] 3.4 Exercer le retour arrière : redéployer par `workflow_dispatch` la référence précédente et constater que le changement visible a disparu. Puis redéployer la courante.
+- [x] 3.3 **Fait.** Un commentaire HTML déposé dans `index.html` — observable au `curl`, invisible pour les utilisateurs — est apparu en production après déploiement. C'est ce qu'aucun passage précédent ne prouvait : ils déployaient un contenu identique à l'existant, donc un transfert manqué aurait été indiscernable d'un transfert réussi. Faire un déploiement qui **change quelque chose de visible** — une chaîne de l'interface suffit — et le constater en production. Un pipeline qu'on n'a jamais vu livrer n'a rien prouvé.
+- [x] 3.4 **Fait.** `workflow_dispatch` avec `ref` pointant sur le commit précédent : le marqueur a disparu de la production, sans révoquer de commit ni réécrire l'historique. Exercer le retour arrière : redéployer par `workflow_dispatch` la référence précédente et constater que le changement visible a disparu. Puis redéployer la courante.
 
 ## 4. La bascule, première moitié
 
