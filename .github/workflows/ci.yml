@@ -244,9 +244,22 @@ jobs:
       # le veut obscurci. L'obscurcissement est RÉVERSIBLE — ce n'est pas du
       # chiffrement — d'où le masquage explicite du résultat dans les journaux.
       - name: Configurer l'accès FTPS
+        # Le secret passe par l'ENVIRONNEMENT, jamais par interpolation dans le
+        # script. GitHub substitue `${{ }}` littéralement dans le texte du shell :
+        # un mot de passe contenant un guillemet, une barre oblique inverse, un
+        # `$` ou un accent grave serait mangé par le shell avant d'atteindre
+        # rclone — et c'est ce qui a produit trois `530 Login authentication
+        # failed` alors que les mêmes identifiants fonctionnaient en local.
+        #
+        # La même précaution vaut contre l'injection : un secret interpolé dans
+        # un script est du code, pas une donnée.
+        env:
+          FTP_PASS: ${{ secrets.O2SWITCH_FTP_PASS }}
         run: |
           set -euo pipefail
-          OBSCURED=$(rclone obscure "${{ secrets.O2SWITCH_FTP_PASS }}")
+          OBSCURED=$(rclone obscure "$FTP_PASS")
+          # L'obscurcissement est RÉVERSIBLE — ce n'est pas du chiffrement — donc
+          # le résultat est aussi sensible que le mot de passe lui-même.
           echo "::add-mask::$OBSCURED"
           echo "RCLONE_CONFIG_O2_PASS=$OBSCURED" >> "$GITHUB_ENV"
 
