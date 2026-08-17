@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -38,28 +42,38 @@ describe('CommentsService', () => {
 
   describe('create', () => {
     beforeEach(() => {
-      prisma.mix.findUnique.mockResolvedValue({ id: MIX_ID, userId: MIX_OWNER });
-      prisma.comment.create.mockImplementation(({ data }: any) => Promise.resolve({ id: 'new', ...data }));
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: MIX_OWNER,
+      });
+      prisma.comment.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'new', ...data }),
+      );
     });
 
     it('rejects a comment on a mix that does not exist', async () => {
       prisma.mix.findUnique.mockResolvedValue(null);
-      await expect(service.create(MIX_ID, AUTHOR, { body: 'hi', timecodeSec: 10 })).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.create(MIX_ID, AUTHOR, { body: 'hi', timecodeSec: 10 }),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('requires a timecode on a top-level comment', async () => {
-      await expect(service.create(MIX_ID, AUTHOR, { body: 'no timecode' })).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(
+        service.create(MIX_ID, AUTHOR, { body: 'no timecode' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.comment.create).not.toHaveBeenCalled();
     });
 
     it('accepts timecode 0 rather than treating it as missing', async () => {
-      await service.create(MIX_ID, AUTHOR, { body: 'right at the start', timecodeSec: 0 });
+      await service.create(MIX_ID, AUTHOR, {
+        body: 'right at the start',
+        timecodeSec: 0,
+      });
       expect(prisma.comment.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ timecodeSec: 0 }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ timecodeSec: 0 }),
+        }),
       );
     });
 
@@ -70,7 +84,11 @@ describe('CommentsService', () => {
     });
 
     it('refuses to reply to a reply', async () => {
-      prisma.comment.findUnique.mockResolvedValue({ id: 'r1', mixId: MIX_ID, parentId: COMMENT_ID });
+      prisma.comment.findUnique.mockResolvedValue({
+        id: 'r1',
+        mixId: MIX_ID,
+        parentId: COMMENT_ID,
+      });
 
       await expect(
         service.create(MIX_ID, AUTHOR, { body: 'nested', parentId: 'r1' }),
@@ -79,10 +97,17 @@ describe('CommentsService', () => {
     });
 
     it('refuses a parent belonging to another mix', async () => {
-      prisma.comment.findUnique.mockResolvedValue({ id: COMMENT_ID, mixId: 'other-mix', parentId: null });
+      prisma.comment.findUnique.mockResolvedValue({
+        id: COMMENT_ID,
+        mixId: 'other-mix',
+        parentId: null,
+      });
 
       await expect(
-        service.create(MIX_ID, AUTHOR, { body: 'cross-mix', parentId: COMMENT_ID }),
+        service.create(MIX_ID, AUTHOR, {
+          body: 'cross-mix',
+          parentId: COMMENT_ID,
+        }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
@@ -95,12 +120,25 @@ describe('CommentsService', () => {
     });
 
     it('stores a reply without a timecode, inheriting the parent position', async () => {
-      prisma.comment.findUnique.mockResolvedValue({ id: COMMENT_ID, mixId: MIX_ID, parentId: null });
+      prisma.comment.findUnique.mockResolvedValue({
+        id: COMMENT_ID,
+        mixId: MIX_ID,
+        parentId: null,
+      });
 
-      await service.create(MIX_ID, AUTHOR, { body: 'agreed', parentId: COMMENT_ID, timecodeSec: 42 });
+      await service.create(MIX_ID, AUTHOR, {
+        body: 'agreed',
+        parentId: COMMENT_ID,
+        timecodeSec: 42,
+      });
 
       const { data } = prisma.comment.create.mock.calls[0][0];
-      expect(data).toEqual({ body: 'agreed', mixId: MIX_ID, userId: AUTHOR, parentId: COMMENT_ID });
+      expect(data).toEqual({
+        body: 'agreed',
+        mixId: MIX_ID,
+        userId: AUTHOR,
+        parentId: COMMENT_ID,
+      });
       expect(data.timecodeSec).toBeUndefined();
     });
   });
@@ -113,7 +151,9 @@ describe('CommentsService', () => {
     it('lets the comment author delete their own comment', async () => {
       prisma.comment.findUnique.mockResolvedValue(commentOwnedBy(AUTHOR));
       await service.remove(COMMENT_ID, AUTHOR);
-      expect(prisma.comment.delete).toHaveBeenCalledWith({ where: { id: COMMENT_ID } });
+      expect(prisma.comment.delete).toHaveBeenCalledWith({
+        where: { id: COMMENT_ID },
+      });
     });
 
     it("lets the mix owner delete someone else's comment", async () => {
@@ -124,13 +164,17 @@ describe('CommentsService', () => {
 
     it('refuses an unrelated user', async () => {
       prisma.comment.findUnique.mockResolvedValue(commentOwnedBy(AUTHOR));
-      await expect(service.remove(COMMENT_ID, STRANGER)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(service.remove(COMMENT_ID, STRANGER)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
       expect(prisma.comment.delete).not.toHaveBeenCalled();
     });
 
     it('reports a missing comment as not found', async () => {
       prisma.comment.findUnique.mockResolvedValue(null);
-      await expect(service.remove(COMMENT_ID, AUTHOR)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.remove(COMMENT_ID, AUTHOR)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -153,8 +197,15 @@ describe('CommentsService', () => {
 
       const result = await service.list(MIX_ID, { page: 3, limit: 20 });
 
-      expect(result).toMatchObject({ total: 45, page: 3, limit: 20, totalPages: 3 });
-      expect(prisma.comment.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 40, take: 20 }));
+      expect(result).toMatchObject({
+        total: 45,
+        page: 3,
+        limit: 20,
+        totalPages: 3,
+      });
+      expect(prisma.comment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 40, take: 20 }),
+      );
     });
   });
 });

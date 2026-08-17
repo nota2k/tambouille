@@ -72,7 +72,8 @@ export function pickCoverUrl(
   identifier: string,
   payload: unknown,
 ): string | undefined {
-  const files = isRecord(payload) && Array.isArray(payload.files) ? payload.files : [];
+  const files =
+    isRecord(payload) && Array.isArray(payload.files) ? payload.files : [];
 
   const candidates = files.filter(
     (file): file is Record<string, unknown> =>
@@ -133,11 +134,14 @@ export function parseArchiveItem(
   identifier: string,
   payload: unknown,
 ): SourceItem[] {
-  const files = isRecord(payload) && Array.isArray(payload.files) ? payload.files : [];
+  const files =
+    isRecord(payload) && Array.isArray(payload.files) ? payload.files : [];
 
   const audioFiles = files.filter(
     (file): file is Record<string, unknown> =>
-      isRecord(file) && typeof file.name === 'string' && isAudioFormat(file.format),
+      isRecord(file) &&
+      typeof file.name === 'string' &&
+      isAudioFormat(file.format),
   );
   const audioNames = new Set(audioFiles.map((file) => file.name as string));
 
@@ -188,10 +192,15 @@ export class ArchiveImporter implements SourceImporter {
   async resolve(url: URL): Promise<MixImport | SourceItem[]> {
     const identifier = extractIdentifier(url);
     if (!identifier) {
-      throw new NotFoundException('Cette adresse Archive.org ne désigne aucun item');
+      throw new NotFoundException(
+        'Cette adresse Archive.org ne désigne aucun item',
+      );
     }
 
-    const items = parseArchiveItem(identifier, await this.readMetadata(identifier));
+    const items = parseArchiveItem(
+      identifier,
+      await this.readMetadata(identifier),
+    );
     if (items.length === 0) {
       // Archive.org answers an unknown identifier with `200 {}`, not a 404, so
       // this one message covers both "no such item" and "item without audio".
@@ -225,7 +234,8 @@ export class ArchiveImporter implements SourceImporter {
       );
     }
 
-    const creator = typeof metadata.creator === 'string' ? metadata.creator : undefined;
+    const creator =
+      typeof metadata.creator === 'string' ? metadata.creator : undefined;
 
     return {
       title: item.title,

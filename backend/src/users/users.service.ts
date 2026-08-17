@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PaginationDto } from './dto/pagination.dto';
@@ -13,7 +18,7 @@ const userSummarySelect = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async search(dto: SearchUsersDto) {
     const limit = dto.limit ?? 5;
@@ -46,9 +51,13 @@ export class UsersService {
   // account is refused up front instead of after the mutation has already
   // been committed.
   private async requireUsername(userId: string): Promise<string> {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
     if (!user.username) {
-      throw new ConflictException('Choose a username before updating your profile');
+      throw new ConflictException(
+        'Choose a username before updating your profile',
+      );
     }
     return user.username;
   }
@@ -67,7 +76,12 @@ export class UsersService {
     let isFollowing = false;
     if (currentUserId && currentUserId !== user.id) {
       const follow = await this.prisma.follow.findUnique({
-        where: { followerId_followingId: { followerId: currentUserId, followingId: user.id } },
+        where: {
+          followerId_followingId: {
+            followerId: currentUserId,
+            followingId: user.id,
+          },
+        },
       });
       isFollowing = !!follow;
     }
@@ -115,7 +129,9 @@ export class UsersService {
   }
 
   async follow(currentUserId: string, targetUsername: string) {
-    const target = await this.prisma.user.findUnique({ where: { username: targetUsername } });
+    const target = await this.prisma.user.findUnique({
+      where: { username: targetUsername },
+    });
     if (!target) {
       throw new NotFoundException('User not found');
     }
@@ -124,18 +140,27 @@ export class UsersService {
     }
 
     await this.prisma.follow.upsert({
-      where: { followerId_followingId: { followerId: currentUserId, followingId: target.id } },
+      where: {
+        followerId_followingId: {
+          followerId: currentUserId,
+          followingId: target.id,
+        },
+      },
       create: { followerId: currentUserId, followingId: target.id },
       update: {},
     });
   }
 
   async unfollow(currentUserId: string, targetUsername: string) {
-    const target = await this.prisma.user.findUnique({ where: { username: targetUsername } });
+    const target = await this.prisma.user.findUnique({
+      where: { username: targetUsername },
+    });
     if (!target) {
       throw new NotFoundException('User not found');
     }
-    await this.prisma.follow.deleteMany({ where: { followerId: currentUserId, followingId: target.id } });
+    await this.prisma.follow.deleteMany({
+      where: { followerId: currentUserId, followingId: target.id },
+    });
   }
 
   async listFollowers(username: string, query: PaginationDto) {

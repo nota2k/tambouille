@@ -3,7 +3,15 @@
  * pure validation logic can import them without configuring storage.
  */
 
-export const AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/x-m4a', 'audio/aac'];
+export const AUDIO_MIME_TYPES = [
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/ogg',
+  'audio/x-m4a',
+  'audio/aac',
+];
 export const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /** Same ceiling multer enforces on an uploaded cover file. */

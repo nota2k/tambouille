@@ -20,7 +20,10 @@ const sortBy = ref<'recent' | 'plays'>('recent')
 const loading = ref(false)
 const showTagsOverlay = ref(false)
 const selectedTags = ref<string[]>([])
-const isSearching = computed(() => search.value.trim().length > 0 || selectedTags.value.length > 0 || sortBy.value !== 'recent')
+const isSearching = computed(
+  () =>
+    search.value.trim().length > 0 || selectedTags.value.length > 0 || sortBy.value !== 'recent',
+)
 
 function toggleTag(tag: string) {
   const idx = selectedTags.value.indexOf(tag)
@@ -124,9 +127,10 @@ async function loadSearchResults() {
     })
 
     const q = search.value.trim()
-    const usersPromise = q.length >= 2
-      ? apiClient.get<{ items: AuthorSummary[] }>('/users/search', { params: { q, limit: 5 } })
-      : Promise.resolve(null)
+    const usersPromise =
+      q.length >= 2
+        ? apiClient.get<{ items: AuthorSummary[] }>('/users/search', { params: { q, limit: 5 } })
+        : Promise.resolve(null)
 
     const [mixesRes, usersRes] = await Promise.all([mixesPromise, usersPromise])
     searchResults.value = mixesRes.data.items
@@ -150,9 +154,12 @@ watch(search, () => {
   }, 300)
 })
 
-watch(() => route.query.q, (q) => {
-  search.value = typeof q === 'string' ? q : ''
-})
+watch(
+  () => route.query.q,
+  (q) => {
+    search.value = typeof q === 'string' ? q : ''
+  },
+)
 
 watch(sortBy, () => {
   page.value = 1
@@ -170,13 +177,19 @@ onMounted(loadSections)
   <div class="mx-auto max-w-6xl px-4 py-9">
     <!-- Titre et filtres sur une seule ligne, posés sur le filet noir : c'est la
          barre qui donne son échelle à toute la page. -->
-    <div class="flex flex-wrap items-end justify-between gap-4 border-b-2 border-tambouille-rule pb-3">
+    <div
+      class="flex flex-wrap items-end justify-between gap-4 border-b-2 border-tambouille-rule pb-3"
+    >
       <h1 class="text-tambouille-title-big leading-none">Découvrir</h1>
       <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-tambouille-muted">
         <button
           type="button"
           class="pb-2 transition"
-          :class="sortBy === 'recent' ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text' : 'hover:text-tambouille-text'"
+          :class="
+            sortBy === 'recent'
+              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text'
+              : 'hover:text-tambouille-text'
+          "
           @click="sortBy = 'recent'"
         >
           Récents
@@ -184,23 +197,42 @@ onMounted(loadSections)
         <button
           type="button"
           class="pb-2 transition"
-          :class="sortBy === 'plays' ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text' : 'hover:text-tambouille-text'"
+          :class="
+            sortBy === 'plays'
+              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text'
+              : 'hover:text-tambouille-text'
+          "
           @click="sortBy = 'plays'"
         >
           Plus écoutés
         </button>
-        <button type="button" class="pb-2 hover:text-tambouille-text" @click="showTagsOverlay = true">
-          Par tag<span v-if="selectedTags.length" class="text-tambouille-accent"> ({{ selectedTags.length }})</span>
+        <button
+          type="button"
+          class="pb-2 hover:text-tambouille-text"
+          @click="showTagsOverlay = true"
+        >
+          Par tag<span v-if="selectedTags.length" class="text-tambouille-accent">
+            ({{ selectedTags.length }})</span
+          >
         </button>
-        <button type="button" class="pb-2 hover:text-tambouille-text" @click="playRandomMix">Au hasard</button>
+        <button type="button" class="pb-2 hover:text-tambouille-text" @click="playRandomMix">
+          Au hasard
+        </button>
       </div>
     </div>
 
     <div v-if="selectedTags.length" class="mt-4 flex flex-wrap items-center gap-2">
-      <button v-for="tag in selectedTags" :key="tag" class="tb-chip tb-chip-on" @click="toggleTag(tag)">
+      <button
+        v-for="tag in selectedTags"
+        :key="tag"
+        class="tb-chip tb-chip-on"
+        @click="toggleTag(tag)"
+      >
         {{ tag }}
         <svg viewBox="0 0 24 24" class="h-3 w-3 fill-current">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+          <path
+            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+          />
         </svg>
       </button>
     </div>
@@ -212,7 +244,10 @@ onMounted(loadSections)
       @close="showTagsOverlay = false"
     />
 
-    <div v-if="loading && !latestMixes.length && !searchResults.length" class="py-16 text-center text-tambouille-muted">
+    <div
+      v-if="loading && !latestMixes.length && !searchResults.length"
+      class="py-16 text-center text-tambouille-muted"
+    >
       Chargement...
     </div>
 
@@ -239,14 +274,21 @@ onMounted(loadSections)
               {{ user.displayName?.[0]?.toUpperCase() }}
             </div>
             <span class="min-w-0">
-              <span class="block truncate font-display text-[15px] font-bold">{{ user.displayName }}</span>
-              <span class="block truncate text-[13px] text-tambouille-muted">@{{ user.username }}</span>
+              <span class="block truncate font-display text-[15px] font-bold">{{
+                user.displayName
+              }}</span>
+              <span class="block truncate text-[13px] text-tambouille-muted"
+                >@{{ user.username }}</span
+              >
             </span>
           </RouterLink>
         </div>
       </section>
 
-      <div v-if="searchResults.length === 0 && userResults.length === 0" class="py-16 text-center text-tambouille-muted">
+      <div
+        v-if="searchResults.length === 0 && userResults.length === 0"
+        class="py-16 text-center text-tambouille-muted"
+      >
         Aucun résultat trouvé.
       </div>
 
@@ -256,9 +298,13 @@ onMounted(loadSections)
       </div>
 
       <div v-if="totalPages > 1" class="mt-8 flex items-center justify-center gap-4">
-        <button class="tb-btn-outline tb-btn-sm" :disabled="page <= 1" @click="page--">Précédent</button>
+        <button class="tb-btn-outline tb-btn-sm" :disabled="page <= 1" @click="page--">
+          Précédent
+        </button>
         <span class="text-sm text-tambouille-muted">Page {{ page }} / {{ totalPages }}</span>
-        <button class="tb-btn-outline tb-btn-sm" :disabled="page >= totalPages" @click="page++">Suivant</button>
+        <button class="tb-btn-outline tb-btn-sm" :disabled="page >= totalPages" @click="page++">
+          Suivant
+        </button>
       </div>
     </template>
 
@@ -296,9 +342,15 @@ onMounted(loadSections)
                 <p class="flex flex-wrap items-baseline gap-x-2 pb-4 text-sm">
                   <b v-if="featuredDuration">{{ featuredDuration }}</b>
                   <span v-if="featuredDuration" class="text-tambouille-faint">·</span>
-                  <span v-if="featuredMix.tracklist.length">{{ featuredMix.tracklist.length }} morceaux</span>
+                  <span v-if="featuredMix.tracklist.length"
+                    >{{ featuredMix.tracklist.length }} morceaux</span
+                  >
                   <span v-if="featuredMix.tracklist.length" class="text-tambouille-faint">·</span>
-                  <span v-for="tag in featuredMix.tags.slice(0, 3)" :key="tag" class="text-tambouille-accent">
+                  <span
+                    v-for="tag in featuredMix.tags.slice(0, 3)"
+                    :key="tag"
+                    class="text-tambouille-accent"
+                  >
                     {{ tag }}
                   </span>
                 </p>
@@ -347,7 +399,12 @@ onMounted(loadSections)
           <div v-if="trendingTags.length" class="pt-8">
             <p class="tb-eyebrow">Tags du moment</p>
             <div class="flex flex-wrap gap-2 pt-3.5">
-              <button v-for="tag in trendingTags" :key="tag" class="tb-chip" @click="toggleTag(tag)">
+              <button
+                v-for="tag in trendingTags"
+                :key="tag"
+                class="tb-chip"
+                @click="toggleTag(tag)"
+              >
                 {{ tag }}
               </button>
             </div>
@@ -375,8 +432,12 @@ onMounted(loadSections)
                   {{ cook.displayName?.[0]?.toUpperCase() }}
                 </span>
                 <span class="min-w-0">
-                  <span class="block truncate font-display text-[15px] font-bold">{{ cook.displayName }}</span>
-                  <span class="block truncate text-[12.5px] text-tambouille-muted">@{{ cook.username }}</span>
+                  <span class="block truncate font-display text-[15px] font-bold">{{
+                    cook.displayName
+                  }}</span>
+                  <span class="block truncate text-[12.5px] text-tambouille-muted"
+                    >@{{ cook.username }}</span
+                  >
                 </span>
               </RouterLink>
             </div>

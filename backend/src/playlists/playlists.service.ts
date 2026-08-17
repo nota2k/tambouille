@@ -1,11 +1,20 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildMixInclude, toMixResponse } from '../mixes/mixes.service';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { UpdatePlaylistDto } from './dto/update-playlist.dto';
 import { QueryPlaylistsDto } from './dto/query-playlists.dto';
 
-const AUTHOR_SELECT = { id: true, username: true, displayName: true, avatarUrl: true } as const;
+const AUTHOR_SELECT = {
+  id: true,
+  username: true,
+  displayName: true,
+  avatarUrl: true,
+} as const;
 
 /** Summary shape: item count plus the covers of the first few items that have one, for the mosaic. */
 const SUMMARY_INCLUDE = {
@@ -92,7 +101,10 @@ export class PlaylistsService {
     return {
       ...rest,
       mixesCount: _count?.items ?? 0,
-      coverUrls: mixes.map((mix: any) => mix.coverUrl).filter(Boolean).slice(0, 4),
+      coverUrls: mixes
+        .map((mix: any) => mix.coverUrl)
+        .filter(Boolean)
+        .slice(0, 4),
       mixes,
     };
   }
@@ -101,7 +113,10 @@ export class PlaylistsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const user = await this.prisma.user.findUnique({ where: { username }, select: { id: true } });
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      select: { id: true },
+    });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -152,7 +167,10 @@ export class PlaylistsService {
   async addMix(playlistId: string, userId: string, mixId: string) {
     await this.assertOwnership(playlistId, userId, 'edit');
 
-    const mix = await this.prisma.mix.findUnique({ where: { id: mixId }, select: { id: true } });
+    const mix = await this.prisma.mix.findUnique({
+      where: { id: mixId },
+      select: { id: true },
+    });
     if (!mix) {
       throw new NotFoundException('Mix not found');
     }
@@ -177,7 +195,11 @@ export class PlaylistsService {
     await this.prisma.playlistItem.deleteMany({ where: { playlistId, mixId } });
   }
 
-  private async assertOwnership(id: string, userId: string, action: 'edit' | 'delete') {
+  private async assertOwnership(
+    id: string,
+    userId: string,
+    action: 'edit' | 'delete',
+  ) {
     const playlist = await this.prisma.playlist.findUnique({
       where: { id },
       select: { userId: true },

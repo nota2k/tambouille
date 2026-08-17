@@ -26,7 +26,9 @@ defineProps<{ playlist: PlaylistSummary }>()
       </template>
       <div v-else class="flex h-full w-full items-center justify-center text-tambouille-muted">
         <svg viewBox="0 0 24 24" class="h-10 w-10 fill-current opacity-40">
-          <path d="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm13-6v4h-4v2h4v4h2v-4h4v-2h-4v-4h-2z" />
+          <path
+            d="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm13-6v4h-4v2h4v4h2v-4h4v-2h-4v-4h-2z"
+          />
         </svg>
       </div>
     </div>

@@ -32,8 +32,8 @@ function createPrismaMock() {
   // Interactive transaction. The callback receives this same mock, so the
   // assertions below read the writes made inside it; a rejected callback
   // propagates, which is what the rollback relies on.
-  prisma.$transaction.mockImplementation((run: (tx: typeof prisma) => Promise<unknown>) =>
-    run(prisma),
+  prisma.$transaction.mockImplementation(
+    (run: (tx: typeof prisma) => Promise<unknown>) => run(prisma),
   );
   return prisma;
 }
@@ -69,7 +69,9 @@ describe('PasswordResetService', () => {
       prisma as unknown as PrismaService,
       mailer as unknown as MailService,
       {
-        get: jest.fn((key: string) => (key === 'FRONTEND_URL' ? FRONTEND_URL : undefined)),
+        get: jest.fn((key: string) =>
+          key === 'FRONTEND_URL' ? FRONTEND_URL : undefined,
+        ),
       } as unknown as ConfigService,
     );
   });
@@ -88,8 +90,9 @@ describe('PasswordResetService', () => {
     // lives outside this block, on real timers.
     beforeEach(() => {
       jest.useFakeTimers();
-      prisma.passwordResetToken.create.mockImplementation(({ data }: { data: unknown }) =>
-        Promise.resolve({ id: 't1', ...(data as object) }),
+      prisma.passwordResetToken.create.mockImplementation(
+        ({ data }: { data: unknown }) =>
+          Promise.resolve({ id: 't1', ...(data as object) }),
       );
     });
 
@@ -114,7 +117,9 @@ describe('PasswordResetService', () => {
       // `resolves` is the assertion that matters: no thrown 404, no rejection
       // of any kind, so the controller's 204 is the same 204 a registered
       // address gets.
-      await expect(forgotNow('inconnu@example.com', '203.0.113.1')).resolves.toBeUndefined();
+      await expect(
+        forgotNow('inconnu@example.com', '203.0.113.1'),
+      ).resolves.toBeUndefined();
 
       expect(mailer.send).not.toHaveBeenCalled();
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
@@ -168,10 +173,18 @@ describe('PasswordResetService', () => {
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
         where: { email: { equals: 'NELLY@Example.com', mode: 'insensitive' } },
       });
-      const mail = mailer.send.mock.calls[0][0] as { to: string; text: string; html: string };
+      const mail = mailer.send.mock.calls[0][0] as {
+        to: string;
+        text: string;
+        html: string;
+      };
       expect(mail.to).toBe(USER.email);
-      expect(mail.text).toContain(`${FRONTEND_URL}/reinitialiser-mot-de-passe?token=`);
-      expect(mail.html).toContain(`${FRONTEND_URL}/reinitialiser-mot-de-passe?token=`);
+      expect(mail.text).toContain(
+        `${FRONTEND_URL}/reinitialiser-mot-de-passe?token=`,
+      );
+      expect(mail.html).toContain(
+        `${FRONTEND_URL}/reinitialiser-mot-de-passe?token=`,
+      );
       // The one line that tells someone who did not ask that they need do
       // nothing.
       expect(mail.text).toMatch(/ignore ce message/i);
@@ -192,7 +205,9 @@ describe('PasswordResetService', () => {
     it('mints a fresh token on a retry after a failed send', async () => {
       prisma.user.findFirst.mockResolvedValue(USER);
       mailer.send.mockResolvedValueOnce(false);
-      const silenced = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+      const silenced = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
 
       // What the database really holds by the time the retry arrives: the row
       // the first request committed, live and unused. Mocked explicitly so
@@ -252,7 +267,9 @@ describe('PasswordResetService', () => {
       for (let i = 0; i < 6; i += 1) {
         // A different caller each time, so it is the address budget that bites
         // and not the per-caller one.
-        await expect(forgotNow('nelly@example.com', `203.0.113.${i}`)).resolves.toBeUndefined();
+        await expect(
+          forgotNow('nelly@example.com', `203.0.113.${i}`),
+        ).resolves.toBeUndefined();
       }
       await service.flushDeliveries();
 
@@ -265,16 +282,28 @@ describe('PasswordResetService', () => {
     // into a 10/hour limit for the entire site, and ten requests would switch
     // password recovery off for every user while the form kept saying a link
     // had been sent.
-    it.each(['127.0.0.1', '127.0.0.53', '::1', '::ffff:127.0.0.1', '0.0.0.0', '', undefined])(
+    it.each([
+      '127.0.0.1',
+      '127.0.0.53',
+      '::1',
+      '::ffff:127.0.0.1',
+      '0.0.0.0',
+      '',
+      undefined,
+    ])(
       'skips the per-caller budget rather than sharing one bucket when the address is %p',
       async (unusable) => {
-        const silenced = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+        const silenced = jest
+          .spyOn(Logger.prototype, 'warn')
+          .mockImplementation(() => {});
         prisma.user.findFirst.mockResolvedValue(USER);
 
         // Well past the 10/hour per-caller budget, each on a different address
         // so the per-address limit never bites.
         for (let i = 0; i < 14; i += 1) {
-          await expect(forgotNow(`user${i}@example.com`, unusable)).resolves.toBeUndefined();
+          await expect(
+            forgotNow(`user${i}@example.com`, unusable),
+          ).resolves.toBeUndefined();
         }
         await service.flushDeliveries();
 
@@ -293,7 +322,9 @@ describe('PasswordResetService', () => {
     it('stops one caller walking a list of addresses', async () => {
       prisma.user.findFirst.mockResolvedValue(USER);
       for (let i = 0; i < 14; i += 1) {
-        await expect(forgotNow(`user${i}@example.com`, '198.51.100.9')).resolves.toBeUndefined();
+        await expect(
+          forgotNow(`user${i}@example.com`, '198.51.100.9'),
+        ).resolves.toBeUndefined();
       }
       await service.flushDeliveries();
 
@@ -304,7 +335,9 @@ describe('PasswordResetService', () => {
     // be: a 500 that can only happen for a registered address answers the
     // question just as plainly as a 404 would.
     it('still resolves when SMTP is broken or unconfigured, and says so in the log', async () => {
-      const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+      const logged = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
       prisma.user.findFirst.mockResolvedValue(USER);
       // send() never rejects. A broken or unconfigured relay comes back as
       // `false`, having already logged the cause — including the name of a
@@ -313,7 +346,9 @@ describe('PasswordResetService', () => {
       // stays invisible to the caller.
       mailer.send.mockResolvedValue(false);
 
-      await expect(forgotNow('nelly@example.com', '203.0.113.1')).resolves.toBeUndefined();
+      await expect(
+        forgotNow('nelly@example.com', '203.0.113.1'),
+      ).resolves.toBeUndefined();
       await expect(service.flushDeliveries()).resolves.toBeUndefined();
 
       // Still a signal on this side, so a failed delivery is attributable to
@@ -331,8 +366,9 @@ describe('PasswordResetService', () => {
   // pinning the property at all.
   describe('forgot — response time floor (real timers)', () => {
     beforeEach(() => {
-      prisma.passwordResetToken.create.mockImplementation(({ data }: { data: unknown }) =>
-        Promise.resolve({ id: 't1', ...(data as object) }),
+      prisma.passwordResetToken.create.mockImplementation(
+        ({ data }: { data: unknown }) =>
+          Promise.resolve({ id: 't1', ...(data as object) }),
       );
     });
 
@@ -365,9 +401,9 @@ describe('PasswordResetService', () => {
     it('looks the token up by its hash, never by its clear value', async () => {
       prisma.passwordResetToken.findUnique.mockResolvedValue(null);
 
-      await expect(service.reset(TOKEN, 'motdepasse123')).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(
+        service.reset(TOKEN, 'motdepasse123'),
+      ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(prisma.passwordResetToken.findUnique).toHaveBeenCalledWith({
         where: { tokenHash: sha256(TOKEN) },
@@ -386,9 +422,9 @@ describe('PasswordResetService', () => {
         expiresAt: new Date(Date.now() - 1000),
       });
 
-      await expect(service.reset(TOKEN, 'motdepasse123')).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(
+        service.reset(TOKEN, 'motdepasse123'),
+      ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
@@ -401,9 +437,9 @@ describe('PasswordResetService', () => {
         expiresAt: new Date(Date.now() + 30 * 60 * 1000),
       });
 
-      await expect(service.reset(TOKEN, 'motdepasse123')).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(
+        service.reset(TOKEN, 'motdepasse123'),
+      ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
@@ -414,17 +450,29 @@ describe('PasswordResetService', () => {
       allowTheWriteToSucceed();
 
       prisma.passwordResetToken.findUnique.mockResolvedValue(null);
-      const unknown = await service.reset(TOKEN, 'motdepasse123').catch((e: Error) => e);
+      const unknown = await service
+        .reset(TOKEN, 'motdepasse123')
+        .catch((e: Error) => e);
 
       prisma.passwordResetToken.findUnique.mockResolvedValue({
-        id: 't1', userId: USER.id, usedAt: null, expiresAt: new Date(Date.now() - 1000),
+        id: 't1',
+        userId: USER.id,
+        usedAt: null,
+        expiresAt: new Date(Date.now() - 1000),
       });
-      const expired = await service.reset(TOKEN, 'motdepasse123').catch((e: Error) => e);
+      const expired = await service
+        .reset(TOKEN, 'motdepasse123')
+        .catch((e: Error) => e);
 
       prisma.passwordResetToken.findUnique.mockResolvedValue({
-        id: 't1', userId: USER.id, usedAt: new Date(), expiresAt: new Date(Date.now() + 60_000),
+        id: 't1',
+        userId: USER.id,
+        usedAt: new Date(),
+        expiresAt: new Date(Date.now() + 60_000),
       });
-      const used = await service.reset(TOKEN, 'motdepasse123').catch((e: Error) => e);
+      const used = await service
+        .reset(TOKEN, 'motdepasse123')
+        .catch((e: Error) => e);
 
       expect(unknown).toBeInstanceOf(BadRequestException);
       expect((expired as Error).message).toBe((unknown as Error).message);
@@ -494,7 +542,9 @@ describe('PasswordResetService', () => {
         expiresAt: new Date(Date.now() + 30 * 60 * 1000),
       });
 
-      const error = await service.reset(TOKEN, 'motdepasse123').catch((e: Error) => e);
+      const error = await service
+        .reset(TOKEN, 'motdepasse123')
+        .catch((e: Error) => e);
 
       expect(error).toBeInstanceOf(BadRequestException);
       // The refusal is the same one an unknown token gets, and the throw
@@ -509,7 +559,17 @@ describe('callerIdentity', () => {
   // not an identity. Used as one, it converts a per-caller budget into a
   // global one — and a global cap on password recovery is a denial of service
   // on the last door a locked-out user has.
-  it.each([undefined, '', '   ', '127.0.0.1', '127.0.0.53', '::1', '::ffff:127.0.0.1', '0.0.0.0', '::'])(
+  it.each([
+    undefined,
+    '',
+    '   ',
+    '127.0.0.1',
+    '127.0.0.53',
+    '::1',
+    '::ffff:127.0.0.1',
+    '0.0.0.0',
+    '::',
+  ])(
     'refuses %p as an identity, so the limit is skipped rather than shared',
     (input) => {
       expect(callerIdentity(input)).toBeNull();
@@ -520,7 +580,9 @@ describe('callerIdentity', () => {
     expect(callerIdentity('203.0.113.7')).toBe('203.0.113.7');
     expect(callerIdentity('::ffff:203.0.113.7')).toBe('203.0.113.7');
     // Same client whichever form the socket reported.
-    expect(callerIdentity('203.0.113.7')).toBe(callerIdentity('::ffff:203.0.113.7'));
+    expect(callerIdentity('203.0.113.7')).toBe(
+      callerIdentity('::ffff:203.0.113.7'),
+    );
   });
 
   // Deliberately allowed. Behind a reverse proxy on a private network these
@@ -536,9 +598,11 @@ describe('SlidingWindow', () => {
   it('allows the budget and refuses past it', () => {
     const window = new SlidingWindow(3, 60_000, 100);
 
-    expect([window.tryConsume('a'), window.tryConsume('a'), window.tryConsume('a')]).toEqual([
-      true, true, true,
-    ]);
+    expect([
+      window.tryConsume('a'),
+      window.tryConsume('a'),
+      window.tryConsume('a'),
+    ]).toEqual([true, true, true]);
     expect(window.tryConsume('a')).toBe(false);
     // Budgets are per key.
     expect(window.tryConsume('b')).toBe(true);

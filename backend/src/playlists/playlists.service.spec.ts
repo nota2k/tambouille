@@ -60,7 +60,10 @@ describe('PlaylistsService', () => {
     });
 
     it.each([
-      ['update', () => service.update(PLAYLIST_ID, INTRUDER, { title: 'hijacked' })],
+      [
+        'update',
+        () => service.update(PLAYLIST_ID, INTRUDER, { title: 'hijacked' }),
+      ],
       ['remove', () => service.remove(PLAYLIST_ID, INTRUDER)],
       ['addMix', () => service.addMix(PLAYLIST_ID, INTRUDER, MIX_ID)],
       ['removeMix', () => service.removeMix(PLAYLIST_ID, INTRUDER, MIX_ID)],
@@ -69,19 +72,25 @@ describe('PlaylistsService', () => {
     });
 
     it('does not touch the database when ownership fails', async () => {
-      await expect(service.remove(PLAYLIST_ID, INTRUDER)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        service.remove(PLAYLIST_ID, INTRUDER),
+      ).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.playlist.delete).not.toHaveBeenCalled();
     });
 
     it('lets the owner through', async () => {
       prisma.playlist.delete.mockResolvedValue({});
       await service.remove(PLAYLIST_ID, OWNER);
-      expect(prisma.playlist.delete).toHaveBeenCalledWith({ where: { id: PLAYLIST_ID } });
+      expect(prisma.playlist.delete).toHaveBeenCalledWith({
+        where: { id: PLAYLIST_ID },
+      });
     });
 
     it('reports a missing playlist as not found, not forbidden', async () => {
       prisma.playlist.findUnique.mockResolvedValue(null);
-      await expect(service.remove(PLAYLIST_ID, OWNER)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.remove(PLAYLIST_ID, OWNER)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -93,9 +102,9 @@ describe('PlaylistsService', () => {
 
     it('rejects a mix that does not exist', async () => {
       prisma.mix.findUnique.mockResolvedValue(null);
-      await expect(service.addMix(PLAYLIST_ID, OWNER, MIX_ID)).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.addMix(PLAYLIST_ID, OWNER, MIX_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.playlistItem.upsert).not.toHaveBeenCalled();
     });
 
@@ -129,7 +138,9 @@ describe('PlaylistsService', () => {
       await service.addMix(PLAYLIST_ID, OWNER, MIX_ID);
 
       const call = prisma.playlistItem.upsert.mock.calls[0][0];
-      expect(call.where).toEqual({ playlistId_mixId: { playlistId: PLAYLIST_ID, mixId: MIX_ID } });
+      expect(call.where).toEqual({
+        playlistId_mixId: { playlistId: PLAYLIST_ID, mixId: MIX_ID },
+      });
       expect(call.update).toEqual({});
     });
   });
@@ -139,7 +150,9 @@ describe('PlaylistsService', () => {
       prisma.playlist.findUnique.mockResolvedValue({ userId: OWNER });
       prisma.playlistItem.deleteMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.removeMix(PLAYLIST_ID, OWNER, MIX_ID)).resolves.toBeUndefined();
+      await expect(
+        service.removeMix(PLAYLIST_ID, OWNER, MIX_ID),
+      ).resolves.toBeUndefined();
       expect(prisma.playlistItem.deleteMany).toHaveBeenCalledWith({
         where: { playlistId: PLAYLIST_ID, mixId: MIX_ID },
       });
@@ -208,7 +221,9 @@ describe('PlaylistsService', () => {
   describe('findOne', () => {
     it('throws when the playlist is unknown', async () => {
       prisma.playlist.findUnique.mockResolvedValue(null);
-      await expect(service.findOne(PLAYLIST_ID)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.findOne(PLAYLIST_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
     it('returns mixes in stored order', async () => {
@@ -232,7 +247,9 @@ describe('PlaylistsService', () => {
   describe('listByUsername', () => {
     it('throws when the user is unknown', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
-      await expect(service.listByUsername('ghost', {})).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.listByUsername('ghost', {})).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
     it('paginates', async () => {
@@ -240,9 +257,17 @@ describe('PlaylistsService', () => {
       prisma.playlist.findMany.mockResolvedValue([]);
       prisma.playlist.count.mockResolvedValue(45);
 
-      const result = await service.listByUsername('djnelly', { page: 2, limit: 20 });
+      const result = await service.listByUsername('djnelly', {
+        page: 2,
+        limit: 20,
+      });
 
-      expect(result).toMatchObject({ total: 45, page: 2, limit: 20, totalPages: 3 });
+      expect(result).toMatchObject({
+        total: 45,
+        page: 2,
+        limit: 20,
+        totalPages: 3,
+      });
       expect(prisma.playlist.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 20, take: 20 }),
       );

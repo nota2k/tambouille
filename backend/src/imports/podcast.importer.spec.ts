@@ -62,7 +62,8 @@ describe('parseFeed', () => {
   });
 
   it('prefers itunes:author when the feed does have one', () => {
-    const parsed = parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
+    const parsed =
+      parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
       <itunes:author>Radio Canut</itunes:author>
       <dc:creator>ignored</dc:creator>
       <item><title>A</title><enclosure url="https://x.test/a.mp3" type="audio/mpeg"/></item>
@@ -71,7 +72,8 @@ describe('parseFeed', () => {
   });
 
   it('drops items with no enclosure', () => {
-    const parsed = parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
+    const parsed =
+      parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
       <item><title>No audio</title></item>
       <item><title>Has audio</title><enclosure url="https://x.test/a.mp3" type="audio/mpeg"/></item>
     </channel></rss>`);
@@ -80,28 +82,32 @@ describe('parseFeed', () => {
   });
 
   it('drops enclosures that are not audio', () => {
-    const parsed = parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
+    const parsed =
+      parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
       <item><title>Video</title><enclosure url="https://x.test/a.mp4" type="video/mp4"/></item>
     </channel></rss>`);
     expect(parsed.items).toHaveLength(0);
   });
 
   it('keeps a flac enclosure — the fixture has two', () => {
-    const parsed = parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
+    const parsed =
+      parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
       <item><title>A</title><enclosure url="https://x.test/a.flac" type="audio/flac"/></item>
     </channel></rss>`);
     expect(parsed.items).toHaveLength(1);
   });
 
   it('falls back to the enclosure URL when an item has no guid', () => {
-    const parsed = parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
+    const parsed =
+      parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
       <item><title>A</title><enclosure url="https://x.test/a.mp3" type="audio/mpeg"/></item>
     </channel></rss>`);
     expect(parsed.items[0]!.guid).toBe('https://x.test/a.mp3');
   });
 
   it('reads a guid given as an element with attributes', () => {
-    const parsed = parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
+    const parsed =
+      parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
       <item><title>A</title><guid isPermaLink="false">tag:x.test,2026:1</guid>
       <enclosure url="https://x.test/a.mp3" type="audio/mpeg"/></item>
     </channel></rss>`);
@@ -110,14 +116,16 @@ describe('parseFeed', () => {
 
   it('handles a channel holding exactly one item', () => {
     // fast-xml-parser hands back an object, not an array, for a single child.
-    const parsed = parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
+    const parsed =
+      parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
       <item><title>Only</title><enclosure url="https://x.test/a.mp3" type="audio/mpeg"/></item>
     </channel></rss>`);
     expect(parsed.items).toHaveLength(1);
   });
 
   it('keeps a title that looks like a number as text', () => {
-    const parsed = parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
+    const parsed =
+      parseFeed(`<?xml version="1.0"?><rss><channel><title>T</title>
       <item><title>2026</title><enclosure url="https://x.test/a.mp3" type="audio/mpeg"/></item>
     </channel></rss>`);
     expect(parsed.items[0]!.title).toBe('2026');

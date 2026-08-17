@@ -40,6 +40,15 @@ describe('Mail boot (e2e)', () => {
     process.env.R2_ACCESS_KEY_ID ??= 'test';
     process.env.R2_SECRET_ACCESS_KEY ??= 'test';
     process.env.R2_BUCKET_NAME ??= 'test';
+    // Same reasoning, and the one that only CI could reveal. `JwtStrategy`
+    // throws in its constructor when `JWT_SECRET` is absent, so `AppModule`
+    // cannot be built at all without it. On a developer machine the variable
+    // arrives from `backend/.env`, which `ConfigModule` reads off the disk —
+    // so no amount of scrubbing the *environment* locally reproduces a runner,
+    // where that file does not exist and never will, being gitignored.
+    // Setting it here makes the test carry its own configuration instead of
+    // borrowing whatever the machine happens to hold.
+    process.env.JWT_SECRET ??= 'test';
   });
 
   afterAll(async () => {

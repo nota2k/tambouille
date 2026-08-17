@@ -50,7 +50,7 @@ Three blockers, all true today and all independent of this work:
 
 1. `backend/package.json` declares `"postinstall": "prisma generate"` while `prisma` is a devDependency, so `npm ci --omit=dev` invokes a CLI it did not install and fails. `--ignore-scripts` is not a way out: `bcrypt` is a native module that needs its install script. The fix is to drop `prisma generate` from `postinstall` — CI generates the client and rsyncs `generated/` — at the cost of a local `npm install` no longer regenerating it.
 2. Every `lint` script in the repo auto-corrects instead of failing (`eslint --fix`, `oxlint --fix`, `prettier --write`). Wired into CI as-is they go green on anything fixable and the fix is thrown away with the runner. Either add non-fixing variants, or decide lint is not blocking and keep only the tests. **Undecided.**
-3. The scaffolded e2e test must go first — see "Delete or rewrite the scaffolded e2e test" below. While it is there, "blocking tests" means nothing ever deploys.
+3. ~~The scaffolded e2e test must go first.~~ Done as task 1.1 of `add-ci-checks`: `backend/test/app.e2e-spec.ts` is gone and `npm run test:e2e` is green.
 
 **Where the migrations run — settled, see the analysis below.** Migrations go through SSH: `ssh 'cd ~/tambouille/backend && npx --yes prisma@7 migrate deploy'`, and the Postgres port closes. Running `prisma migrate deploy` straight from the CI job is one line shorter and 20-40 s faster per deployment, but it requires the production database to stay reachable from the whole internet — GitHub runners have no fixed IP, so there is no allowlist to write. Either way, migrate *before* the code lands and keep migrations additive; with a single environment that discipline has no safety net.
 
@@ -103,18 +103,58 @@ GitHub secrets needed: an SSH key dedicated to deployment (added under cPanel �
 
 **Effort:** L
 **Priority:** P2
-**Depends on:** `add-keycloak-oidc-login` merged; blocker 3 (the scaffolded e2e test) removed
+**Depends on:** `add-keycloak-oidc-login` merged (done, `5e9686b`); blocker 3 removed (done, `add-ci-checks` task 1.1)
+
+### Require the CI checks on `main`
+
+**What:** In GitHub's *Settings › Branches*, add a ruleset on `main` with "Require status checks to pass", listing `backend`, `frontend` and `e2e`.
+
+**Why:** The workflow added by `add-ci-checks` runs on every pull request and reports its verdict, but nothing consumes that verdict. A red pull request is still mergeable — which is precisely how PR #4 went in with an empty `statusCheckRollup`. Until this setting exists, the pipeline is an opinion, and the whole point of the change was to have something a reviewer can rely on rather than an opinion.
+
+**Context:** Task 3.4 of `add-ci-checks`, the one task that could not be done from the repository. It is a GitHub UI setting and needs admin rights on `nota2k/tambouille`; deferred on 2026-08-17 because those were not available at the time. Everything it depends on is finished: the three checks were observed green, and each was observed red on a deliberate breakage (a falsified assertion, a type error, a misformatted file), so the names above are known to exist and known to fail when they should.
+
+Delete this entry once the ruleset is in place.
+
+**Effort:** S
+**Priority:** P1
+**Depends on:** PR #5 merged; admin rights on the repository
+
+### Clear the static-analysis backlog, then make eslint blocking
+
+**What:** Fix what `eslint` reports on both packages, then move `lint:check` out of `continue-on-error` in `.github/workflows/ci.yml`.
+
+**Why:** CI runs `eslint` today but ignores its verdict. A report nothing is obliged to read is read by nobody, and the decision not to block quietly becomes a decision to abandon. The counts are the reason it was not blocking from the start: **659 problems on the backend** (637 errors across 47 files, of which only 365 are auto-fixable — so ~294 need judgement), and **22 on the frontend**. Requiring all of that before any merge would have meant a refactor of that size landing inside a change whose object was to add one workflow file.
+
+Not all of it is cosmetic. The frontend's 22 break down as 16 `@typescript-eslint/no-explicit-any` and **6 `vue/no-mutating-props`** — a component writing into its own props is a defect, not a style preference: the parent owns that value, the mutation is invisible from where the value is declared, and Vue's reactivity makes the resulting bug non-local. Those six are worth fixing before the other 675.
+
+**Context:** Deliberate carve-out from `add-ci-checks` (2026-08-17), taken after measuring. The user was first offered "lint blocking" on my description of it as "probably some formatting drift"; the measurement showed otherwise and the scope was re-decided with the real numbers. Formatting *was* mechanical and is already done — `prettier --check` blocks on both packages as of that change.
+
+Suggested order: the 6 prop mutations first (real defects, smallest set), then `--fix` the 365 auto-fixable backend errors in an isolated commit, then the remaining ~294 by hand, then flip the two `continue-on-error: true` flags and delete this entry.
+
+**Effort:** L
+**Priority:** P2
+**Depends on:** `add-ci-checks` merged
 
 ## Testing
 
-### Delete or rewrite the scaffolded e2e test
+### Identify the flaky unit tests
 
-**What:** `backend/test/app.e2e-spec.ts` is the file `nest new` generates. Remove it, or replace it with a real health check.
+**What:** Capture the full output the next time `backend` unit tests fail without a code change, and fix whatever it names.
 
-**Why:** It asserts `GET /` returns `"Hello World!"`. There is no `AppController` in the project, and `backend/src/main.ts:20` sets a global `/api` prefix, so the request cannot match. The test fails every run. It is the only file in the e2e suite, which means `npm run test:e2e` is permanently red and the suite carries no signal.
+**Why:** During `add-ci-checks` the suite failed once in eight observed runs — 3 tests across 2 suites, in 25 s against a normal 5 to 15 s. It was never reproduced afterwards, including under a CPU load saturating all eight cores, and the output was not captured, so the failing tests are unknown. GitHub runners are slower and noisier than the machine that measurement was made on, so a timing-sensitive failure will surface there more often than it did locally.
 
-**Context:** Surfaced during `/plan-eng-review` of the transactional-emails spec (2026-08-08). That spec's task T8 adds an e2e regression test (the app must boot with an unreachable SMTP host). It will land in a suite that is already failing, where a genuine regression would be indistinguishable from the existing noise. Fixing this is a one-line `git rm`; replacing it with a real check against `/api` is about ten minutes.
+This matters more than one flake usually would, because the whole change rests on the premise that a red CI means something. A suite that fails at random teaches people to re-run rather than to read, and once that habit exists a genuine regression is indistinguishable from noise — which is exactly the state `app.e2e-spec.ts` had already put the e2e suite in.
 
-**Effort:** S
+**Context:** Observed 2026-08-17 while sizing `add-ci-checks`. The workflow deliberately carries **no automatic retry**: a retry converts a real intermittent defect into invisible noise, which is the opposite of what the pipeline is for. That decision is recorded in the change's `design.md` and should not be revisited without diagnosing this first. The slow runs point at the two heaviest suites — `auth.service.spec.ts` (~9 s) and `mixes.controller.spec.ts` (~7 s) — as the place to look, but that is a hint from timings, not a finding.
+
+**Effort:** M
 **Priority:** P2
-**Depends on:** None
+**Depends on:** Nothing, but it needs a recurrence to act on
+
+<!-- "Delete or rewrite the scaffolded e2e test" was done as task 1.1 of
+     add-ci-checks and removed from this file. Two things it got wrong, worth
+     keeping because both were believed for months: the file did not fail on
+     the `Hello World` assertion — it never reached it, dying at import on a
+     missing `R2_ACCOUNT_ID` — and it was not the only file in the e2e suite.
+     `test/mail-boot.e2e-spec.ts` sat beside it, green, pinning the guarantee
+     that no SMTP fault stops the API from booting. -->

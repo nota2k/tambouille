@@ -79,7 +79,7 @@ export function parseFeed(xml: string): {
   const channel = rss?.channel;
   if (!channel || typeof channel !== 'object') {
     throw new BadRequestException(
-      "Cette adresse ne renvoie pas un flux RSS lisible",
+      'Cette adresse ne renvoie pas un flux RSS lisible',
     );
   }
 
@@ -168,7 +168,8 @@ export class PodcastImporter implements SourceImporter {
 
     const feed = await this.readFeed(feedUrl);
     const entry = feed.items.find((candidate) => candidate.guid === guid);
-    if (!entry) throw new NotFoundException("Cet épisode n'est plus dans le flux");
+    if (!entry)
+      throw new NotFoundException("Cet épisode n'est plus dans le flux");
 
     const author = feed.channelAuthor ?? feed.channelTitle;
 
@@ -186,7 +187,9 @@ export class PodcastImporter implements SourceImporter {
     };
   }
 
-  private async readFeed(rawUrl: string): Promise<ReturnType<typeof parseFeed>> {
+  private async readFeed(
+    rawUrl: string,
+  ): Promise<ReturnType<typeof parseFeed>> {
     const { body } = await safeFetch(rawUrl, {
       maxBytes: FEED_MAX_BYTES,
       timeoutMs: FETCH_TIMEOUT_MS,

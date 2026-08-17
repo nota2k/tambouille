@@ -32,8 +32,15 @@ function onToggle(event: Event) {
     class="group -mx-4 flex items-center gap-4 border-b border-black/12 px-4 py-4 transition sm:gap-5"
     :class="isCurrent ? 'bg-tambouille-accent-wash' : 'hover:bg-tambouille-surface-hover'"
   >
-    <div class="aspect-square w-[72px] shrink-0 overflow-hidden bg-tambouille-surface-hover sm:w-[88px]">
-      <img v-if="mix.coverUrl" :src="mediaUrl(mix.coverUrl)" class="h-full w-full object-cover" alt="" />
+    <div
+      class="aspect-square w-[72px] shrink-0 overflow-hidden bg-tambouille-surface-hover sm:w-[88px]"
+    >
+      <img
+        v-if="mix.coverUrl"
+        :src="mediaUrl(mix.coverUrl)"
+        class="h-full w-full object-cover"
+        alt=""
+      />
       <div v-else class="flex h-full w-full items-center justify-center text-tambouille-faint">
         <svg viewBox="0 0 24 24" class="h-7 w-7 fill-current">
           <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z" />
@@ -59,7 +66,9 @@ function onToggle(event: Event) {
         </template>
         <template v-if="visibleTags.length">
           <span aria-hidden="true">·</span>
-          <span v-for="tag in visibleTags" :key="tag" class="text-tambouille-accent">{{ tag }}</span>
+          <span v-for="tag in visibleTags" :key="tag" class="text-tambouille-accent">{{
+            tag
+          }}</span>
         </template>
       </p>
     </div>

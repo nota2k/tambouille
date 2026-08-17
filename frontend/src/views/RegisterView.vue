@@ -56,12 +56,7 @@ async function onSubmit() {
     <form class="space-y-4" @submit.prevent="onSubmit">
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Nom affiché</label>
-        <input
-          v-model="displayName"
-          type="text"
-          required
-          class="w-full tb-field"
-        />
+        <input v-model="displayName" type="text" required class="w-full tb-field" />
       </div>
 
       <div>
@@ -77,32 +72,17 @@ async function onSubmit() {
 
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Email</label>
-        <input
-          v-model="email"
-          type="email"
-          required
-          class="w-full tb-field"
-        />
+        <input v-model="email" type="email" required class="w-full tb-field" />
       </div>
 
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Mot de passe</label>
-        <input
-          v-model="password"
-          type="password"
-          minlength="8"
-          required
-          class="w-full tb-field"
-        />
+        <input v-model="password" type="password" minlength="8" required class="w-full tb-field" />
       </div>
 
       <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
 
-      <button
-        type="submit"
-        :disabled="loading"
-        class="w-full tb-btn"
-      >
+      <button type="submit" :disabled="loading" class="w-full tb-btn">
         {{ loading ? 'Création...' : "S'inscrire" }}
       </button>
     </form>
@@ -120,7 +100,9 @@ async function onSubmit() {
 
     <p class="mt-4 text-sm text-tambouille-muted">
       Déjà un compte ?
-      <RouterLink to="/login" class="text-tambouille-accent hover:underline">Se connecter</RouterLink>
+      <RouterLink to="/login" class="text-tambouille-accent hover:underline"
+        >Se connecter</RouterLink
+      >
     </p>
   </div>
 </template>

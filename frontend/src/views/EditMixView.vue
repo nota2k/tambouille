@@ -115,27 +115,18 @@ onMounted(load)
     <form v-else class="space-y-5" @submit.prevent="onSubmit">
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Titre</label>
-        <input
-          v-model="title"
-          type="text"
-          required
-          maxlength="120"
-          class="w-full tb-field"
-        />
+        <input v-model="title" type="text" required maxlength="120" class="w-full tb-field" />
       </div>
 
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Description</label>
-        <textarea
-          v-model="description"
-          rows="4"
-          maxlength="2000"
-          class="w-full tb-field"
-        />
+        <textarea v-model="description" rows="4" maxlength="2000" class="w-full tb-field" />
       </div>
 
       <div>
-        <label class="mb-1 block text-sm text-tambouille-muted">Tags (séparés par des virgules)</label>
+        <label class="mb-1 block text-sm text-tambouille-muted"
+          >Tags (séparés par des virgules)</label
+        >
         <input
           v-model="tags"
           type="text"
@@ -158,7 +149,8 @@ onMounted(load)
       <div>
         <label class="mb-2 block text-sm text-tambouille-muted">Tracklist</label>
         <p v-if="previewSrc" class="mb-2 text-xs text-tambouille-muted">
-          Écoutez l'aperçu ci-dessus et cliquez sur « + Ajouter un morceau ici » pour capturer le timecode.
+          Écoutez l'aperçu ci-dessus et cliquez sur « + Ajouter un morceau ici » pour capturer le
+          timecode.
         </p>
         <TracklistEditor v-model="trackRows" />
       </div>
@@ -182,17 +174,10 @@ onMounted(load)
       <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
 
       <div class="flex gap-3">
-        <button
-          type="submit"
-          :disabled="saving"
-          class="flex-1 tb-btn"
-        >
+        <button type="submit" :disabled="saving" class="flex-1 tb-btn">
           {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
         </button>
-        <RouterLink
-          :to="{ name: 'mix-detail', params: { id: mixId } }"
-          class="tb-btn-outline"
-        >
+        <RouterLink :to="{ name: 'mix-detail', params: { id: mixId } }" class="tb-btn-outline">
           Annuler
         </RouterLink>
       </div>

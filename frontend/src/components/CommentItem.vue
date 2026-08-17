@@ -81,7 +81,10 @@ async function deleteReply(reply: CommentReply) {
 <template>
   <li class="p-4">
     <div class="flex items-start gap-3">
-      <RouterLink :to="{ name: 'profile', params: { username: comment.user.username } }" class="shrink-0">
+      <RouterLink
+        :to="{ name: 'profile', params: { username: comment.user.username } }"
+        class="shrink-0"
+      >
         <img
           v-if="comment.user.avatarUrl"
           :src="mediaUrl(comment.user.avatarUrl)"
@@ -133,19 +136,19 @@ async function deleteReply(reply: CommentReply) {
             maxlength="1000"
             class="min-w-0 flex-1 tb-field text-sm"
           />
-          <button
-            type="submit"
-            :disabled="postingReply"
-            class="shrink-0 tb-btn"
-          >
-            Envoyer
-          </button>
+          <button type="submit" :disabled="postingReply" class="shrink-0 tb-btn">Envoyer</button>
         </form>
         <p v-if="error" class="mt-1 text-xs text-red-400">{{ error }}</p>
 
-        <ul v-if="comment.replies.length" class="mt-3 space-y-3 border-l-2 border-tambouille-border pl-4">
+        <ul
+          v-if="comment.replies.length"
+          class="mt-3 space-y-3 border-l-2 border-tambouille-border pl-4"
+        >
           <li v-for="reply in comment.replies" :key="reply.id" class="flex items-start gap-2">
-            <RouterLink :to="{ name: 'profile', params: { username: reply.user.username } }" class="shrink-0">
+            <RouterLink
+              :to="{ name: 'profile', params: { username: reply.user.username } }"
+              class="shrink-0"
+            >
               <img
                 v-if="reply.user.avatarUrl"
                 :src="mediaUrl(reply.user.avatarUrl)"

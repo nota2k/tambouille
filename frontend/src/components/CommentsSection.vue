@@ -110,13 +110,7 @@ onMounted(loadComments)
         maxlength="1000"
         class="min-w-0 flex-1 tb-field text-sm"
       />
-      <button
-        type="submit"
-        :disabled="posting"
-        class="shrink-0 tb-btn"
-      >
-        Commenter
-      </button>
+      <button type="submit" :disabled="posting" class="shrink-0 tb-btn">Commenter</button>
     </form>
     <p v-if="error" class="mb-3 text-sm text-red-400">{{ error }}</p>
 
@@ -124,7 +118,10 @@ onMounted(loadComments)
     <div v-else-if="comments.length === 0" class="py-6 text-center text-sm text-tambouille-muted">
       Aucun commentaire pour l'instant. Soyez le premier à réagir !
     </div>
-    <ul v-else class="divide-y divide-tambouille-border overflow-hidden rounded-none border border-tambouille-border">
+    <ul
+      v-else
+      class="divide-y divide-tambouille-border overflow-hidden rounded-none border border-tambouille-border"
+    >
       <CommentItem
         v-for="comment in comments"
         :key="comment.id"

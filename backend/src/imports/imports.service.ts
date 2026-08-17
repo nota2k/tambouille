@@ -52,8 +52,11 @@ export class ImportsService {
 
   async importItem(ref: string): Promise<MixImport> {
     const { importer: name, value } = decodeRef(ref);
-    const importer = this.importers.find((candidate) => candidate.name === name);
-    if (!importer) throw new BadRequestException('Référence de source invalide');
+    const importer = this.importers.find(
+      (candidate) => candidate.name === name,
+    );
+    if (!importer)
+      throw new BadRequestException('Référence de source invalide');
     return importer.importItem(value);
   }
 }

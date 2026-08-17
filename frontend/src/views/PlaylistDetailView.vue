@@ -5,7 +5,12 @@ import { useAuthStore } from '@/stores/auth'
 import { mediaUrl } from '@/utils/media'
 import { formatDate } from '@/utils/date'
 import { playlistShareUrl } from '@/utils/share'
-import { deletePlaylist, fetchPlaylist, removeMixFromPlaylist, updatePlaylist } from '@/utils/playlists'
+import {
+  deletePlaylist,
+  fetchPlaylist,
+  removeMixFromPlaylist,
+  updatePlaylist,
+} from '@/utils/playlists'
 import MixListItem from '@/components/MixListItem.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import type { Playlist } from '@/types'
@@ -121,9 +126,14 @@ watch(() => route.params.id, loadPlaylist)
                 alt=""
               />
             </template>
-            <div v-else class="flex h-full w-full items-center justify-center text-tambouille-muted">
+            <div
+              v-else
+              class="flex h-full w-full items-center justify-center text-tambouille-muted"
+            >
               <svg viewBox="0 0 24 24" class="h-16 w-16 fill-current opacity-40">
-                <path d="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm13-6v4h-4v2h4v4h2v-4h4v-2h-4v-4h-2z" />
+                <path
+                  d="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm13-6v4h-4v2h4v4h2v-4h4v-2h-4v-4h-2z"
+                />
               </svg>
             </div>
           </div>
@@ -145,14 +155,14 @@ watch(() => route.params.id, loadPlaylist)
               class="w-full tb-field text-sm"
             />
             <div class="flex items-center gap-3">
-              <button
-                type="submit"
-                :disabled="savingEdit || !editTitle.trim()"
-                class="tb-btn"
-              >
+              <button type="submit" :disabled="savingEdit || !editTitle.trim()" class="tb-btn">
                 {{ savingEdit ? 'Enregistrement...' : 'Enregistrer' }}
               </button>
-              <button type="button" class="text-sm text-tambouille-muted hover:underline" @click="editing = false">
+              <button
+                type="button"
+                class="text-sm text-tambouille-muted hover:underline"
+                @click="editing = false"
+              >
                 Annuler
               </button>
             </div>
@@ -175,11 +185,16 @@ watch(() => route.params.id, loadPlaylist)
               <ShareButton :url="playlistShareUrl(playlist.id)" />
             </div>
 
-            <p v-if="playlist.description" class="mt-4 whitespace-pre-line text-sm text-tambouille-text/90">
+            <p
+              v-if="playlist.description"
+              class="mt-4 whitespace-pre-line text-sm text-tambouille-text/90"
+            >
               {{ playlist.description }}
             </p>
 
-            <p class="mt-4 text-xs text-tambouille-muted">Créée le {{ formatDate(playlist.createdAt) }}</p>
+            <p class="mt-4 text-xs text-tambouille-muted">
+              Créée le {{ formatDate(playlist.createdAt) }}
+            </p>
 
             <div v-if="isOwner" class="mt-6 flex items-center gap-4">
               <button class="text-sm text-tambouille-muted hover:underline" @click="startEditing">
@@ -198,7 +213,10 @@ watch(() => route.params.id, loadPlaylist)
       </div>
 
       <div class="mt-10">
-        <p v-if="!playlist.mixes.length" class="rounded-none border border-tambouille-border p-8 text-center text-sm text-tambouille-muted">
+        <p
+          v-if="!playlist.mixes.length"
+          class="rounded-none border border-tambouille-border p-8 text-center text-sm text-tambouille-muted"
+        >
           Cette playlist est vide.
           <template v-if="isOwner">
             Ajoutez-y des mixs depuis leur page ou depuis les cartes de la page d'accueil.

@@ -2,10 +2,9 @@
 import { onUnmounted, ref } from 'vue'
 import { copyLink } from '@/utils/share'
 
-const props = withDefaults(
-  defineProps<{ url: string; variant?: 'overlay' | 'pill' }>(),
-  { variant: 'pill' },
-)
+const props = withDefaults(defineProps<{ url: string; variant?: 'overlay' | 'pill' }>(), {
+  variant: 'pill',
+})
 
 const copied = ref(false)
 let resetTimer: ReturnType<typeof setTimeout> | undefined

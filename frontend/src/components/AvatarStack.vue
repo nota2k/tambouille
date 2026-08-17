@@ -24,7 +24,11 @@ const visible = computed(() => props.users.slice(0, props.max))
   <section>
     <div class="mb-3 flex items-baseline justify-between gap-4">
       <h2 class="text-xl font-semibold">{{ title }} ({{ count }})</h2>
-      <RouterLink v-if="count > 0" :to="seeAllTo" class="shrink-0 text-sm text-tambouille-muted hover:underline">
+      <RouterLink
+        v-if="count > 0"
+        :to="seeAllTo"
+        class="shrink-0 text-sm text-tambouille-muted hover:underline"
+      >
         Voir tout
       </RouterLink>
     </div>

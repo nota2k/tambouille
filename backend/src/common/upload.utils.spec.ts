@@ -13,7 +13,9 @@ const send = jest.fn();
 
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn().mockImplementation(() => ({ send })),
-  PutObjectCommand: jest.fn().mockImplementation((input: unknown) => ({ input })),
+  PutObjectCommand: jest
+    .fn()
+    .mockImplementation((input: unknown) => ({ input })),
   DeleteObjectsCommand: jest
     .fn()
     .mockImplementation((input: unknown) => ({ input })),
@@ -23,7 +25,8 @@ jest.mock('@aws-sdk/client-s3', () => ({
 // and `upload.utils` reads those variables in its module body. The project is
 // on typescript-eslint v8, where the rule is `no-require-imports`.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { deleteFromR2 } = require('./upload.utils') as typeof import('./upload.utils');
+const { deleteFromR2 } =
+  require('./upload.utils') as typeof import('./upload.utils');
 
 describe('deleteFromR2', () => {
   beforeEach(() => {

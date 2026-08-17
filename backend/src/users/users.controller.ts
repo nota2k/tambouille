@@ -22,8 +22,16 @@ import { PaginationDto } from './dto/pagination.dto';
 import { SearchUsersDto } from './dto/search-users.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
-import { CurrentUserId, OptionalUserId } from '../auth/decorators/current-user.decorator';
-import { r2StorageFor, fileFilterFor, IMAGE_MIME_TYPES, type UploadedFile as R2File } from '../common/upload.utils';
+import {
+  CurrentUserId,
+  OptionalUserId,
+} from '../auth/decorators/current-user.decorator';
+import {
+  r2StorageFor,
+  fileFilterFor,
+  IMAGE_MIME_TYPES,
+  type UploadedFile as R2File,
+} from '../common/upload.utils';
 
 @Controller('users')
 export class UsersController {
@@ -39,22 +47,34 @@ export class UsersController {
 
   @Get(':username')
   @UseGuards(OptionalJwtAuthGuard)
-  getProfile(@Param('username') username: string, @OptionalUserId() currentUserId?: string) {
+  getProfile(
+    @Param('username') username: string,
+    @OptionalUserId() currentUserId?: string,
+  ) {
     return this.usersService.getPublicProfile(username, currentUserId);
   }
 
   @Get(':username/followers')
-  listFollowers(@Param('username') username: string, @Query() query: PaginationDto) {
+  listFollowers(
+    @Param('username') username: string,
+    @Query() query: PaginationDto,
+  ) {
     return this.usersService.listFollowers(username, query);
   }
 
   @Get(':username/following')
-  listFollowing(@Param('username') username: string, @Query() query: PaginationDto) {
+  listFollowing(
+    @Param('username') username: string,
+    @Query() query: PaginationDto,
+  ) {
     return this.usersService.listFollowing(username, query);
   }
 
   @Get(':username/playlists')
-  listPlaylists(@Param('username') username: string, @Query() query: PaginationDto) {
+  listPlaylists(
+    @Param('username') username: string,
+    @Query() query: PaginationDto,
+  ) {
     return this.playlistsService.listByUsername(username, query);
   }
 
@@ -68,13 +88,19 @@ export class UsersController {
   @Delete(':username/follow')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  unfollow(@Param('username') username: string, @CurrentUserId() userId: string) {
+  unfollow(
+    @Param('username') username: string,
+    @CurrentUserId() userId: string,
+  ) {
     return this.usersService.unfollow(userId, username);
   }
 
   @Patch('me')
   @UseGuards(JwtAuthGuard)
-  updateProfile(@CurrentUserId() userId: string, @Body() dto: UpdateProfileDto) {
+  updateProfile(
+    @CurrentUserId() userId: string,
+    @Body() dto: UpdateProfileDto,
+  ) {
     return this.usersService.updateProfile(userId, dto);
   }
 

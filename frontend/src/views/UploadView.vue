@@ -58,7 +58,11 @@ function applyImport(mix: MixImport) {
   tags.value = mix.tags.join(', ')
   trackRows.value =
     mix.tracklist.length > 0
-      ? mix.tracklist.map((entry) => ({ timecode: formatTime(entry.timecodeSec), artist: entry.artist, title: entry.title }))
+      ? mix.tracklist.map((entry) => ({
+          timecode: formatTime(entry.timecodeSec),
+          artist: entry.artist,
+          title: entry.title,
+        }))
       : [{ timecode: '', artist: '', title: '' }]
   coverSourceUrl.value = mix.coverSourceUrl ?? null
   importedDurationSec.value = mix.durationSec ?? null
@@ -239,13 +243,16 @@ async function onSubmit() {
 
         <p class="mt-3 max-w-[640px] text-[13.5px] leading-relaxed text-tambouille-muted">
           On récupère le titre, la description, les tags, la tracklist et la pochette. L'audio n'est
-          jamais copié&nbsp;: soit tu envoies le fichier ensuite, soit on lit depuis la source d'origine.
-          Un mot seul est compris comme un compte Mixcloud.
+          jamais copié&nbsp;: soit tu envoies le fichier ensuite, soit on lit depuis la source
+          d'origine. Un mot seul est compris comme un compte Mixcloud.
         </p>
 
         <p v-if="sourceError" class="mt-2 text-sm text-tambouille-accent">{{ sourceError }}</p>
 
-        <ul v-if="sourceItems.length > 0" class="mt-5 max-h-96 overflow-y-auto border-t border-black/12">
+        <ul
+          v-if="sourceItems.length > 0"
+          class="mt-5 max-h-96 overflow-y-auto border-t border-black/12"
+        >
           <li v-for="item in sourceItems" :key="item.ref">
             <button
               type="button"
@@ -253,10 +260,17 @@ async function onSubmit() {
               class="flex w-full items-center gap-4 border-b border-black/12 px-2 py-3 text-left transition hover:bg-tambouille-surface-hover disabled:opacity-50"
               @click="importItem(item)"
             >
-              <img v-if="item.coverUrl" :src="item.coverUrl" class="h-14 w-14 shrink-0 object-cover" alt="" />
+              <img
+                v-if="item.coverUrl"
+                :src="item.coverUrl"
+                class="h-14 w-14 shrink-0 object-cover"
+                alt=""
+              />
               <div v-else class="h-14 w-14 shrink-0 bg-tambouille-surface-hover" />
               <span class="min-w-0 flex-1">
-                <span class="block truncate font-display text-[15px] font-bold">{{ item.title }}</span>
+                <span class="block truncate font-display text-[15px] font-bold">{{
+                  item.title
+                }}</span>
                 <span class="block truncate text-[13px] text-tambouille-muted">
                   {{ formatDuration(item.durationSec) ?? 'durée inconnue' }}
                 </span>
@@ -271,7 +285,10 @@ async function onSubmit() {
         <form class="mt-10" @submit.prevent="onSubmit">
           <!-- Le mix sera publié sous le compte Tambouille qui l'importe : afficher ici d'où
                il vient évite de confondre la source d'origine et l'importateur. -->
-          <p v-if="importedSource" class="mb-6 border-l-2 border-tambouille-accent py-1 pl-4 text-sm">
+          <p
+            v-if="importedSource"
+            class="mb-6 border-l-2 border-tambouille-accent py-1 pl-4 text-sm"
+          >
             <span class="text-tambouille-muted">Importé depuis</span>
             <a
               v-if="importedSource.pageUrl"
@@ -298,8 +315,15 @@ async function onSubmit() {
           </div>
 
           <div class="pt-5">
-            <label class="mb-1.5 block text-sm text-tambouille-muted">Tags (séparés par des virgules)</label>
-            <input v-model="tags" type="text" placeholder="house, deep-house, live" class="tb-field" />
+            <label class="mb-1.5 block text-sm text-tambouille-muted"
+              >Tags (séparés par des virgules)</label
+            >
+            <input
+              v-model="tags"
+              type="text"
+              placeholder="house, deep-house, live"
+              class="tb-field"
+            />
             <!-- Sans cette ligne, un tag apparaîtrait dans le champ sans que rien n'explique
                  d'où il vient. Le champ reste éditable : c'est une proposition, pas un verrou. -->
             <p v-if="importedSource" class="mt-1.5 text-xs text-tambouille-muted">
@@ -339,11 +363,13 @@ async function onSubmit() {
               <span class="min-w-0">
                 <span class="block text-sm font-bold">Laisser l'audio à sa source</span>
                 <span class="block text-xs leading-relaxed text-tambouille-muted">
-                  Aucun fichier audio à fournir&nbsp;: la lecture se fait depuis {{ importedSource.label }}, via les
-                  commandes de Tambouille. L'audio <strong>n'est pas copié</strong>&nbsp;: s'il disparaît ou passe en
-                  privé sur {{ importedSource.label }}, le mix cesse de fonctionner ici.
+                  Aucun fichier audio à fournir&nbsp;: la lecture se fait depuis
+                  {{ importedSource.label }}, via les commandes de Tambouille. L'audio
+                  <strong>n'est pas copié</strong>&nbsp;: s'il disparaît ou passe en privé sur
+                  {{ importedSource.label }}, le mix cesse de fonctionner ici.
                   <template v-if="importedSource.type === 'mixcloud'">
-                    Les écoutes sont comptées par Mixcloud et ne sont donc pas affichées sur Tambouille.
+                    Les écoutes sont comptées par Mixcloud et ne sont donc pas affichées sur
+                    Tambouille.
                   </template>
                   La pochette, elle, est bien importée.
                 </span>
@@ -363,15 +389,17 @@ async function onSubmit() {
             <MixAudioPreview :src="audioPreviewUrl" class="mt-4" @capture="onCapture" />
           </div>
           <p v-else-if="importedSource" class="pt-6 text-sm text-tambouille-muted">
-            L'audio reste hébergé sur {{ importedSource.label }}
-            (<span class="font-mono text-xs break-all">{{ importedSource.ref }}</span>).
-            Aucun fichier à envoyer.
+            L'audio reste hébergé sur {{ importedSource.label }} (<span
+              class="font-mono text-xs break-all"
+              >{{ importedSource.ref }}</span
+            >). Aucun fichier à envoyer.
           </p>
 
           <div class="pt-8">
             <p class="tb-eyebrow">Tracklist — colle-la telle quelle, on découpe</p>
             <p v-if="audioPreviewUrl" class="pt-3 text-xs text-tambouille-muted">
-              Écoute l'aperçu ci-dessus et clique sur «&nbsp;+ Ajouter un morceau ici&nbsp;» pour capturer le timecode.
+              Écoute l'aperçu ci-dessus et clique sur «&nbsp;+ Ajouter un morceau ici&nbsp;» pour
+              capturer le timecode.
             </p>
             <div class="pt-3">
               <TracklistEditor v-model="trackRows" />
@@ -388,10 +416,14 @@ async function onSubmit() {
             />
             <div v-if="!coverPreview && coverSourceUrl" class="mt-3">
               <p class="text-xs text-tambouille-muted">
-                Pochette importée depuis {{ importedSource?.label ?? 'la source' }}. Choisis un fichier
-                ci-dessus pour la remplacer.
+                Pochette importée depuis {{ importedSource?.label ?? 'la source' }}. Choisis un
+                fichier ci-dessus pour la remplacer.
               </p>
-              <button type="button" class="tb-btn-outline tb-btn-sm mt-2" @click="removeImportedCover">
+              <button
+                type="button"
+                class="tb-btn-outline tb-btn-sm mt-2"
+                @click="removeImportedCover"
+              >
                 Retirer la pochette importée
               </button>
             </div>
@@ -402,9 +434,14 @@ async function onSubmit() {
           <!-- Un mix de 2 h ne s'envoie pas en trente secondes : la barre dit où on en est. -->
           <div v-if="uploading" class="flex items-center gap-4 pt-8">
             <span class="h-1.5 flex-1 bg-tambouille-surface-hover">
-              <span class="block h-full bg-tambouille-accent transition-all" :style="{ width: `${progress}%` }" />
+              <span
+                class="block h-full bg-tambouille-accent transition-all"
+                :style="{ width: `${progress}%` }"
+              />
             </span>
-            <span class="shrink-0 text-[13px] text-tambouille-muted">envoi {{ progress }}&nbsp;%</span>
+            <span class="shrink-0 text-[13px] text-tambouille-muted"
+              >envoi {{ progress }}&nbsp;%</span
+            >
           </div>
 
           <div class="pt-8">
@@ -422,7 +459,9 @@ async function onSubmit() {
       -->
       <aside class="min-w-0">
         <div class="tb-panel-dark lg:sticky lg:top-24">
-          <p class="tb-eyebrow-plain border-b border-white pb-2.5 text-neutral-400">Aperçu en direct</p>
+          <p class="tb-eyebrow-plain border-b border-white pb-2.5 text-neutral-400">
+            Aperçu en direct
+          </p>
 
           <div class="mt-4 aspect-square w-full bg-neutral-800">
             <img
@@ -436,13 +475,14 @@ async function onSubmit() {
           <p class="mt-4 font-display text-xl font-bold leading-tight">
             {{ title || 'Sans titre pour l’instant' }}
           </p>
-          <p class="mt-2 text-[13px] text-neutral-400">
-            {{ trackRows.length }} morceaux
-          </p>
+          <p class="mt-2 text-[13px] text-neutral-400">{{ trackRows.length }} morceaux</p>
 
           <div v-if="tags.trim()" class="mt-3 flex flex-wrap gap-2">
             <span
-              v-for="tag in tags.split(',').map((t) => t.trim()).filter(Boolean)"
+              v-for="tag in tags
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)"
               :key="tag"
               class="border border-white px-2.5 py-1 text-[13px]"
             >

@@ -1,4 +1,9 @@
-import { BadGatewayException, BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  HttpException,
+  NotFoundException,
+} from '@nestjs/common';
 import { MockAgent } from 'undici';
 import {
   BLOCKED_ADDRESS_MESSAGE,
@@ -13,19 +18,36 @@ import {
 
 describe('isBlockedAddress', () => {
   it.each([
-    '127.0.0.1', '127.9.9.9', '10.0.0.1', '10.255.255.254',
-    '172.16.0.1', '172.31.255.255', '192.168.1.1',
-    '169.254.169.254', '100.64.0.1', '0.0.0.0',
-    '::1', '::', 'fc00::1', 'fd12:3456::1', 'fe80::1',
-    '::ffff:127.0.0.1', '::ffff:10.0.0.1',
+    '127.0.0.1',
+    '127.9.9.9',
+    '10.0.0.1',
+    '10.255.255.254',
+    '172.16.0.1',
+    '172.31.255.255',
+    '192.168.1.1',
+    '169.254.169.254',
+    '100.64.0.1',
+    '0.0.0.0',
+    '::1',
+    '::',
+    'fc00::1',
+    'fd12:3456::1',
+    'fe80::1',
+    '::ffff:127.0.0.1',
+    '::ffff:10.0.0.1',
     'not-an-ip',
   ])('blocks %s', (ip) => {
     expect(isBlockedAddress(ip)).toBe(true);
   });
 
   it.each([
-    '8.8.8.8', '1.1.1.1', '172.32.0.1', '172.15.255.255',
-    '193.51.196.1', '2001:4860:4860::8888', '::ffff:8.8.8.8',
+    '8.8.8.8',
+    '1.1.1.1',
+    '172.32.0.1',
+    '172.15.255.255',
+    '193.51.196.1',
+    '2001:4860:4860::8888',
+    '::ffff:8.8.8.8',
   ])('allows %s', (ip) => {
     expect(isBlockedAddress(ip)).toBe(false);
   });
@@ -74,12 +96,16 @@ describe('isBlockedAddress', () => {
     expect(isBlockedAddress(ip)).toBe(true);
   });
 
-  it.each(['224.0.0.1', '239.255.255.250', '240.0.0.1', '255.255.255.255', '198.18.0.1', '192.0.0.1'])(
-    'blocks the non-unicast v4 address %s',
-    (ip) => {
-      expect(isBlockedAddress(ip)).toBe(true);
-    },
-  );
+  it.each([
+    '224.0.0.1',
+    '239.255.255.250',
+    '240.0.0.1',
+    '255.255.255.255',
+    '198.18.0.1',
+    '192.0.0.1',
+  ])('blocks the non-unicast v4 address %s', (ip) => {
+    expect(isBlockedAddress(ip)).toBe(true);
+  });
 
   // The decisive form of the assertion. Testing a hand-written string proves
   // only that the hand-written string is handled; `assertFetchableUrl` never
@@ -96,12 +122,17 @@ describe('isBlockedAddress', () => {
     'fe80::1',
     '::1',
   ])('blocks %s in the form the URL parser actually produces', (ip) => {
-    const hostname = new URL(`https://[${ip}]/`).hostname.replace(/^\[|\]$/g, '');
+    const hostname = new URL(`https://[${ip}]/`).hostname.replace(
+      /^\[|\]$/g,
+      '',
+    );
     expect(isBlockedAddress(hostname)).toBe(true);
   });
 
   it('still allows a public address after the same round-trip', () => {
-    const hostname = new URL('https://[2001:4860:4860::8888]/').hostname.replace(/^\[|\]$/g, '');
+    const hostname = new URL(
+      'https://[2001:4860:4860::8888]/',
+    ).hostname.replace(/^\[|\]$/g, '');
     expect(isBlockedAddress(hostname)).toBe(false);
   });
 });
@@ -112,9 +143,9 @@ describe('filterSafeAddresses', () => {
   // 1 test below proves the connector calls it; these say what it does once
   // called, on address sets no offline resolver would ever hand back.
   it('throws the shared sentinel message when every candidate is blocked', () => {
-    expect(() => filterSafeAddresses([{ address: '127.0.0.1' }, { address: '10.0.0.1' }])).toThrow(
-      BLOCKED_ADDRESS_MESSAGE,
-    );
+    expect(() =>
+      filterSafeAddresses([{ address: '127.0.0.1' }, { address: '10.0.0.1' }]),
+    ).toThrow(BLOCKED_ADDRESS_MESSAGE);
   });
 
   it('keeps only the public address of a dual-stack host (MINOR 6)', () => {
@@ -122,9 +153,12 @@ describe('filterSafeAddresses', () => {
     // tries the returned candidates in order until one connects, so leaving
     // the public one in the list is what lets a legitimate dual-stack host
     // through instead of being refused outright.
-    expect(filterSafeAddresses([{ address: '169.254.169.254' }, { address: '8.8.8.8' }])).toEqual([
-      { address: '8.8.8.8' },
-    ]);
+    expect(
+      filterSafeAddresses([
+        { address: '169.254.169.254' },
+        { address: '8.8.8.8' },
+      ]),
+    ).toEqual([{ address: '8.8.8.8' }]);
   });
 
   it('passes every candidate through when all are public', () => {
@@ -142,15 +176,19 @@ describe('rethrowBodyReadError', () => {
   // the function's own doc comment) and a real stalled socket would not be
   // offline.
   it('passes an HttpException through unchanged', () => {
-    const capError = new BadRequestException('La réponse de la source dépasse la taille autorisée');
+    const capError = new BadRequestException(
+      'La réponse de la source dépasse la taille autorisée',
+    );
     expect(() => rethrowBodyReadError(capError)).toThrow(capError);
   });
 
   it('wraps anything else as a 502 with the generic message', () => {
-    expect(() => rethrowBodyReadError(new Error('AbortError: The operation was aborted'))).toThrow(
-      BadGatewayException,
+    expect(() =>
+      rethrowBodyReadError(new Error('AbortError: The operation was aborted')),
+    ).toThrow(BadGatewayException);
+    expect(() => rethrowBodyReadError(new Error('boom'))).toThrow(
+      'La source est injoignable',
     );
-    expect(() => rethrowBodyReadError(new Error('boom'))).toThrow('La source est injoignable');
   });
 });
 
@@ -169,7 +207,10 @@ async function expectRejection(
 describe('safeFetch — static checks (offline, fail before any socket opens)', () => {
   it('refuses http', async () => {
     await expectRejection(
-      safeFetch('http://example.org/feed.xml', { maxBytes: 1000, timeoutMs: 100 }),
+      safeFetch('http://example.org/feed.xml', {
+        maxBytes: 1000,
+        timeoutMs: 100,
+      }),
       BadRequestException,
       'La source doit être en https',
     );
@@ -177,7 +218,10 @@ describe('safeFetch — static checks (offline, fail before any socket opens)', 
 
   it('refuses a literal private address', async () => {
     await expectRejection(
-      safeFetch('https://169.254.169.254/latest/meta-data/', { maxBytes: 1000, timeoutMs: 100 }),
+      safeFetch('https://169.254.169.254/latest/meta-data/', {
+        maxBytes: 1000,
+        timeoutMs: 100,
+      }),
       BadRequestException,
       BLOCKED_ADDRESS_MESSAGE,
     );
@@ -195,7 +239,10 @@ describe('safeFetch — static checks (offline, fail before any socket opens)', 
     // `[::ffff:169.254.169.254]` is the metadata service, spelled so the text
     // regex the original implementation used could never match it.
     await expectRejection(
-      safeFetch('https://[::ffff:169.254.169.254]/latest/meta-data/', { maxBytes: 1000, timeoutMs: 100 }),
+      safeFetch('https://[::ffff:169.254.169.254]/latest/meta-data/', {
+        maxBytes: 1000,
+        timeoutMs: 100,
+      }),
       BadRequestException,
       BLOCKED_ADDRESS_MESSAGE,
     );
@@ -245,10 +292,15 @@ describe('safeFetch — blocked and unreachable stay indistinguishable (IMPORTAN
   // the cause breaks this test, which is exactly what it is here for.
   const refuseWith = async (error: Error) => {
     const restore = useDispatcherForTests(
-      createGuardedAgent((_hostname, _options, callback) => callback(error, '', 0)),
+      createGuardedAgent((_hostname, _options, callback) =>
+        callback(error, '', 0),
+      ),
     );
     try {
-      await safeFetch('https://private.test/feed.xml', { maxBytes: 1000, timeoutMs: 1000 });
+      await safeFetch('https://private.test/feed.xml', {
+        maxBytes: 1000,
+        timeoutMs: 1000,
+      });
     } catch (err) {
       const httpError = err as HttpException;
       return { status: httpError.getStatus(), message: httpError.message };
@@ -261,11 +313,16 @@ describe('safeFetch — blocked and unreachable stay indistinguishable (IMPORTAN
   it('answers identically for a host the guard refused and a host that does not exist', async () => {
     const blocked = await refuseWith(new Error(BLOCKED_ADDRESS_MESSAGE));
     const missing = await refuseWith(
-      Object.assign(new Error('getaddrinfo ENOTFOUND private.test'), { code: 'ENOTFOUND' }),
+      Object.assign(new Error('getaddrinfo ENOTFOUND private.test'), {
+        code: 'ENOTFOUND',
+      }),
     );
 
     expect(blocked).toEqual(missing);
-    expect(blocked).toEqual({ status: 502, message: 'La source est injoignable' });
+    expect(blocked).toEqual({
+      status: 502,
+      message: 'La source est injoignable',
+    });
   });
 });
 
@@ -292,9 +349,14 @@ describe('safeFetch — via MockAgent (offline, no socket, no DNS)', () => {
     mockAgent
       .get(ORIGIN)
       .intercept({ path: '/mix.mp3', method: 'GET' })
-      .reply(200, Buffer.from('id3-ish-bytes'), { headers: { 'content-type': 'audio/mpeg; charset=binary' } });
+      .reply(200, Buffer.from('id3-ish-bytes'), {
+        headers: { 'content-type': 'audio/mpeg; charset=binary' },
+      });
 
-    const result = await safeFetch(`${ORIGIN}/mix.mp3`, { maxBytes: 1000, timeoutMs: 1000 });
+    const result = await safeFetch(`${ORIGIN}/mix.mp3`, {
+      maxBytes: 1000,
+      timeoutMs: 1000,
+    });
 
     expect(result.url.toString()).toBe(`${ORIGIN}/mix.mp3`);
     expect(result.contentType).toBe('audio/mpeg');
@@ -309,9 +371,14 @@ describe('safeFetch — via MockAgent (offline, no socket, no DNS)', () => {
     mockAgent
       .get(ORIGIN)
       .intercept({ path: '/new.xml', method: 'GET' })
-      .reply(200, '<rss></rss>', { headers: { 'content-type': 'application/rss+xml' } });
+      .reply(200, '<rss></rss>', {
+        headers: { 'content-type': 'application/rss+xml' },
+      });
 
-    const result = await safeFetch(`${ORIGIN}/old.xml`, { maxBytes: 1000, timeoutMs: 1000 });
+    const result = await safeFetch(`${ORIGIN}/old.xml`, {
+      maxBytes: 1000,
+      timeoutMs: 1000,
+    });
 
     expect(result.url.toString()).toBe(`${ORIGIN}/new.xml`);
     expect(result.body.toString()).toBe('<rss></rss>');
@@ -335,7 +402,9 @@ describe('safeFetch — via MockAgent (offline, no socket, no DNS)', () => {
     mockAgent
       .get(ORIGIN)
       .intercept({ path: '/to-http.xml', method: 'GET' })
-      .reply(302, '', { headers: { location: 'http://insecure.example/feed.xml' } });
+      .reply(302, '', {
+        headers: { location: 'http://insecure.example/feed.xml' },
+      });
 
     await expectRejection(
       safeFetch(`${ORIGIN}/to-http.xml`, { maxBytes: 1000, timeoutMs: 1000 }),
@@ -348,20 +417,31 @@ describe('safeFetch — via MockAgent (offline, no socket, no DNS)', () => {
     mockAgent
       .get(ORIGIN)
       .intercept({ path: '/to-metadata.xml', method: 'GET' })
-      .reply(302, '', { headers: { location: 'https://169.254.169.254/latest/meta-data/' } });
+      .reply(302, '', {
+        headers: { location: 'https://169.254.169.254/latest/meta-data/' },
+      });
 
     await expectRejection(
-      safeFetch(`${ORIGIN}/to-metadata.xml`, { maxBytes: 1000, timeoutMs: 1000 }),
+      safeFetch(`${ORIGIN}/to-metadata.xml`, {
+        maxBytes: 1000,
+        timeoutMs: 1000,
+      }),
       BadRequestException,
       BLOCKED_ADDRESS_MESSAGE,
     );
   });
 
   it('refuses a redirect with no Location header', async () => {
-    mockAgent.get(ORIGIN).intercept({ path: '/empty-redirect.xml', method: 'GET' }).reply(302, '');
+    mockAgent
+      .get(ORIGIN)
+      .intercept({ path: '/empty-redirect.xml', method: 'GET' })
+      .reply(302, '');
 
     await expectRejection(
-      safeFetch(`${ORIGIN}/empty-redirect.xml`, { maxBytes: 1000, timeoutMs: 1000 }),
+      safeFetch(`${ORIGIN}/empty-redirect.xml`, {
+        maxBytes: 1000,
+        timeoutMs: 1000,
+      }),
       BadGatewayException,
       'La source a renvoyé une redirection vide',
     );
@@ -374,7 +454,10 @@ describe('safeFetch — via MockAgent (offline, no socket, no DNS)', () => {
       .reply(302, '', { headers: { location: 'https://[not-a-valid-host]/' } });
 
     await expectRejection(
-      safeFetch(`${ORIGIN}/bad-redirect.xml`, { maxBytes: 1000, timeoutMs: 1000 }),
+      safeFetch(`${ORIGIN}/bad-redirect.xml`, {
+        maxBytes: 1000,
+        timeoutMs: 1000,
+      }),
       BadGatewayException,
       'La source a renvoyé une redirection invalide',
     );
@@ -389,7 +472,10 @@ describe('safeFetch — via MockAgent (offline, no socket, no DNS)', () => {
       });
 
     await expectRejection(
-      safeFetch(`${ORIGIN}/huge-declared.mp3`, { maxBytes: 10, timeoutMs: 1000 }),
+      safeFetch(`${ORIGIN}/huge-declared.mp3`, {
+        maxBytes: 10,
+        timeoutMs: 1000,
+      }),
       BadRequestException,
       'La réponse de la source dépasse la taille autorisée',
     );
@@ -406,14 +492,20 @@ describe('safeFetch — via MockAgent (offline, no socket, no DNS)', () => {
       });
 
     await expectRejection(
-      safeFetch(`${ORIGIN}/lying-length.mp3`, { maxBytes: 50, timeoutMs: 1000 }),
+      safeFetch(`${ORIGIN}/lying-length.mp3`, {
+        maxBytes: 50,
+        timeoutMs: 1000,
+      }),
       BadRequestException,
       'La réponse de la source dépasse la taille autorisée',
     );
   });
 
   it('turns 404 into NotFoundException, distinct from other upstream failures', async () => {
-    mockAgent.get(ORIGIN).intercept({ path: '/missing.xml', method: 'GET' }).reply(404, '');
+    mockAgent
+      .get(ORIGIN)
+      .intercept({ path: '/missing.xml', method: 'GET' })
+      .reply(404, '');
 
     await expectRejection(
       safeFetch(`${ORIGIN}/missing.xml`, { maxBytes: 1000, timeoutMs: 1000 }),
@@ -423,7 +515,10 @@ describe('safeFetch — via MockAgent (offline, no socket, no DNS)', () => {
   });
 
   it('turns a non-404 error status into BadGatewayException', async () => {
-    mockAgent.get(ORIGIN).intercept({ path: '/broken.xml', method: 'GET' }).reply(500, '');
+    mockAgent
+      .get(ORIGIN)
+      .intercept({ path: '/broken.xml', method: 'GET' })
+      .reply(500, '');
 
     await expectRejection(
       safeFetch(`${ORIGIN}/broken.xml`, { maxBytes: 1000, timeoutMs: 1000 }),
@@ -446,13 +541,21 @@ describe('safeFetch — sanity: the guards do not block everything', () => {
     mockAgent
       .get('https://example.test')
       .intercept({ path: '/ok.mp3', method: 'GET' })
-      .reply(200, Buffer.from('ok'), { headers: { 'content-type': 'audio/mpeg' } });
+      .reply(200, Buffer.from('ok'), {
+        headers: { 'content-type': 'audio/mpeg' },
+      });
     const restore = useDispatcherForTests(mockAgent);
 
     try {
       await expect(
-        safeFetch('https://example.test/ok.mp3', { maxBytes: 1000, timeoutMs: 1000 }),
-      ).resolves.toMatchObject({ contentType: 'audio/mpeg', body: Buffer.from('ok') });
+        safeFetch('https://example.test/ok.mp3', {
+          maxBytes: 1000,
+          timeoutMs: 1000,
+        }),
+      ).resolves.toMatchObject({
+        contentType: 'audio/mpeg',
+        body: Buffer.from('ok'),
+      });
     } finally {
       restore();
       await mockAgent.close();
@@ -469,7 +572,9 @@ describe('assertFetchableUrl error types (via safeFetch, exception-class only)',
       'https://[::ffff:169.254.169.254]/',
     ];
     for (const rawUrl of rejectionCases) {
-      await expect(safeFetch(rawUrl, { maxBytes: 1000, timeoutMs: 100 })).rejects.toBeInstanceOf(HttpException);
+      await expect(
+        safeFetch(rawUrl, { maxBytes: 1000, timeoutMs: 100 }),
+      ).rejects.toBeInstanceOf(HttpException);
     }
   });
 });

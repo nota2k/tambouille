@@ -47,7 +47,9 @@ watch(() => [route.params.username, route.name], load)
 
     <div v-if="loading" class="py-12 text-center text-tambouille-muted">Chargement...</div>
     <div v-else-if="!users.length" class="py-12 text-center text-tambouille-muted">
-      {{ kind === 'following' ? 'Aucun abonnement pour l’instant.' : 'Aucun abonné pour l’instant.' }}
+      {{
+        kind === 'following' ? 'Aucun abonnement pour l’instant.' : 'Aucun abonné pour l’instant.'
+      }}
     </div>
     <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <UserListItem v-for="user in users" :key="user.id" :user="user" />

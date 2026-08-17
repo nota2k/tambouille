@@ -59,7 +59,10 @@ describe('fetchCover', () => {
       const mixcloudOrigin = 'https://thumbnailer.mixcloud.com';
       mockAgent
         .get(mixcloudOrigin)
-        .intercept({ path: '/unsafe/1024x1024/extaudio/7/5/6/a', method: 'GET' })
+        .intercept({
+          path: '/unsafe/1024x1024/extaudio/7/5/6/a',
+          method: 'GET',
+        })
         .reply(200, Buffer.from('jpegbytes'), {
           headers: { 'content-type': 'image/jpeg' },
         });
@@ -125,7 +128,9 @@ describe('fetchCover', () => {
     });
 
     it('ignores the parameters a server appends to the type', async () => {
-      replyWith(Buffer.from('bytes'), { 'content-type': 'image/JPEG; charset=binary' });
+      replyWith(Buffer.from('bytes'), {
+        'content-type': 'image/JPEG; charset=binary',
+      });
 
       await expect(fetchCover(COVER_URL)).resolves.toMatchObject({
         contentType: 'image/jpeg',
@@ -192,9 +197,13 @@ describe('fetchCover', () => {
       mockAgent
         .get(ORIGIN)
         .intercept({ path: '/cover.jpg', method: 'GET' })
-        .reply(302, '', { headers: { location: 'https://10.0.0.1/cover.jpg' } });
+        .reply(302, '', {
+          headers: { location: 'https://10.0.0.1/cover.jpg' },
+        });
 
-      await expect(fetchCover(COVER_URL)).rejects.toThrow(BLOCKED_ADDRESS_MESSAGE);
+      await expect(fetchCover(COVER_URL)).rejects.toThrow(
+        BLOCKED_ADDRESS_MESSAGE,
+      );
     });
   });
 });

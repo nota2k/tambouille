@@ -11,7 +11,12 @@ import { r2KeysOnly } from './r2-keys';
 import multerS3 from 'multer-s3';
 import type { Request } from 'express';
 
-export { AUDIO_MIME_TYPES, IMAGE_MIME_TYPES, COVER_MAX_BYTES, IMAGE_EXTENSIONS } from './mime.constants';
+export {
+  AUDIO_MIME_TYPES,
+  IMAGE_MIME_TYPES,
+  COVER_MAX_BYTES,
+  IMAGE_EXTENSIONS,
+} from './mime.constants';
 
 /** A file uploaded through r2StorageFor/r2StorageByField carries its R2 object key instead of a local filename. */
 export interface UploadedFile extends Express.Multer.File {
@@ -21,7 +26,9 @@ export interface UploadedFile extends Express.Multer.File {
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name} (needed to configure R2 storage)`);
+    throw new Error(
+      `Missing required environment variable: ${name} (needed to configure R2 storage)`,
+    );
   }
   return value;
 }
@@ -49,7 +56,12 @@ function objectKey(subdir: string, originalname: string): string {
  * in the same bucket and under the same key scheme as an uploaded file, so the
  * resulting object key is indistinguishable downstream.
  */
-export async function putBufferToR2(subdir: string, body: Buffer, contentType: string, extension: string): Promise<string> {
+export async function putBufferToR2(
+  subdir: string,
+  body: Buffer,
+  contentType: string,
+  extension: string,
+): Promise<string> {
   const key = `${subdir}/${randomUUID()}${extension}`;
   await r2Client.send(
     new PutObjectCommand({
@@ -129,9 +141,16 @@ export function r2StorageByField(fieldToSubdir: Record<string, string>) {
 }
 
 export function fileFilterFor(allowedMimeTypes: string[]) {
-  return (_req: Request, file: Express.Multer.File, callback: (error: Error | null, acceptFile: boolean) => void) => {
+  return (
+    _req: Request,
+    file: Express.Multer.File,
+    callback: (error: Error | null, acceptFile: boolean) => void,
+  ) => {
     if (!allowedMimeTypes.includes(file.mimetype)) {
-      callback(new BadRequestException(`Unsupported file type: ${file.mimetype}`), false);
+      callback(
+        new BadRequestException(`Unsupported file type: ${file.mimetype}`),
+        false,
+      );
       return;
     }
     callback(null, true);
@@ -139,11 +158,22 @@ export function fileFilterFor(allowedMimeTypes: string[]) {
 }
 
 /** Validates each uploaded file's mime type against the allowed list for its form field name. */
-export function fileFilterByField(fieldToAllowedMimeTypes: Record<string, string[]>) {
-  return (_req: Request, file: Express.Multer.File, callback: (error: Error | null, acceptFile: boolean) => void) => {
+export function fileFilterByField(
+  fieldToAllowedMimeTypes: Record<string, string[]>,
+) {
+  return (
+    _req: Request,
+    file: Express.Multer.File,
+    callback: (error: Error | null, acceptFile: boolean) => void,
+  ) => {
     const allowed = fieldToAllowedMimeTypes[file.fieldname] ?? [];
     if (!allowed.includes(file.mimetype)) {
-      callback(new BadRequestException(`Unsupported file type for ${file.fieldname}: ${file.mimetype}`), false);
+      callback(
+        new BadRequestException(
+          `Unsupported file type for ${file.fieldname}: ${file.mimetype}`,
+        ),
+        false,
+      );
       return;
     }
     callback(null, true);
