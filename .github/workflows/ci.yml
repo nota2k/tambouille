@@ -222,23 +222,29 @@ jobs:
       # Les constructions sont donc commitées sur une branche dédiée, jamais sur
       # `main`.
       #
+      # Elle s'appelle `production` et non `deploy` : le dépôt porte un
+      # répertoire `deploy/`, et `git checkout deploy` devient alors ambigu —
+      # « could be both a local file and a tracking branch ». Le nom dit aussi
+      # mieux ce qu'elle contient : non pas le déploiement, mais ce qui est en
+      # production.
+      #
       # Le commit est fabriqué par `commit-tree` plutôt que par une gymnastique
       # de checkout : l'arbre est celui de l'index (sources + artefacts), le
       # parent est la pointe précédente de `deploy`. L'historique reste donc
       # linéaire et la poussée reste en avance rapide — ce qui compte, car
       # cPanel met à jour par un `git pull` qu'une réécriture ferait échouer.
-      - name: Publier les artefacts sur la branche deploy
+      - name: Publier les artefacts sur la branche production
         id: publier
         run: |
           set -euo pipefail
           git add -f backend/dist backend/generated frontend/dist
           git add -A
           TREE=$(git write-tree)
-          PARENT=$(git rev-parse --verify --quiet origin/deploy || true)
+          PARENT=$(git rev-parse --verify --quiet origin/production || true)
           COMMIT=$(git -c user.name='github-actions' -c user.email='github-actions@users.noreply.github.com' \
             commit-tree "$TREE" ${PARENT:+-p "$PARENT"} \
             -m "deploy: ${GITHUB_SHA:0:7}" -m "Artefacts construits depuis $GITHUB_SHA.")
-          git push origin "$COMMIT:refs/heads/deploy"
+          git push origin "$COMMIT:refs/heads/production"
           echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
           echo "publié : ${COMMIT:0:7} (parent ${PARENT:-aucun})"
 
@@ -258,7 +264,7 @@ jobs:
           }
           call VersionControl/update \
             --data-urlencode "repository_root=$REPO_ROOT" \
-            --data-urlencode "branch=deploy" > update.json
+            --data-urlencode "branch=production" > update.json
           # L'ÉCHEC EST FATAL. Une première version se contentait d'afficher le
           # statut : `update` a échoué en silence, et le déploiement est parti
           # sur la branche que cPanel avait extraite au lieu de `deploy`. Un
