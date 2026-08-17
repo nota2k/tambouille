@@ -29,6 +29,24 @@ async function bootstrap() {
   // nothing: `req.ip` stays the loopback socket address.
   app.set('trust proxy', 1);
 
+  // SONDE-REDEMARRAGE-2.5 — temporaire, retirée au commit suivant.
+  //
+  // Le `touch tmp/restart.txt` du script de déploiement n'a jamais été vu
+  // provoquer un rechargement : tous les déploiements observés jusqu'ici ne
+  // changeaient que le frontend, servi par Apache sans passer par Passenger.
+  // Cet en-tête ne peut apparaître que si ce fichier a été recompilé ET si le
+  // processus a redémarré.
+  app.use(
+    (
+      _req: unknown,
+      res: { setHeader: (k: string, v: string) => void },
+      next: () => void,
+    ) => {
+      res.setHeader('X-Deploy-Probe', 'sonde-2.5');
+      next();
+    },
+  );
+
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
   });
