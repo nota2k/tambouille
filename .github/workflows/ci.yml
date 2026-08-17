@@ -17,15 +17,6 @@ on:
         description: "Référence à déployer (défaut : la branche courante)"
         required: false
         type: string
-      # Exercer le transfert sans rien écrire : rclone liste la destination et
-      # simule la synchronisation, les étapes qui modifient le serveur sont
-      # sautées. C'est ce qui permet de voir ce qu'un déploiement effacerait
-      # AVANT de lui faire confiance, et de valider l'accès sans risque.
-      dry_run:
-        description: "Ne rien écrire : lister et simuler le transfert"
-        required: false
-        default: false
-        type: boolean
 
 # Une nouvelle poussée sur une proposition de fusion annule l'exécution en cours
 # pour cette même référence : seul le dernier état compte. Les exécutions sur
@@ -169,166 +160,53 @@ jobs:
           DATABASE_URL: postgresql://tambouille:tambouille@localhost:5432/tambouille?schema=public
 
   # ─────────────────────────────────────────────────────────────────────────
-  # Déploiement vers o2switch.
+  # Déploiement vers o2switch, par le déploiement git de cPanel.
   #
   # `needs` sur les trois vérifications : déployer sans qu'elles soient vertes
-  # est impossible, et c'est une propriété du graphe des tâches, pas une
-  # consigne. La condition `workflow_dispatch` garantit qu'aucune
-  # `pull_request` ne peut atteindre cette tâche, donc les secrets ci-dessous ne
-  # sont jamais exposés à du code venu d'un fork.
+  # est impossible, et c'est une propriété du graphe des tâches. La condition
+  # `workflow_dispatch` garantit qu'aucune `pull_request` ne l'atteint, donc les
+  # secrets ne sont jamais exposés à du code venu d'un fork.
   #
-  # TRANSPORT : FTPS, et non SSH. Le port 22 est filtré par le pare-feu du
-  # mutualisé, dont la liste blanche compte cinq emplacements quand les plages
-  # de sortie des runners GitHub se comptent en milliers de blocs CIDR. Ce n'est
-  # pas une adresse à trouver, c'est une impossibilité de structure — mesurée le
-  # 17 août 2026. Le port 21 répond.
-  #
-  # Le FTP transfère des fichiers et n'exécute rien. Migrations, installation et
-  # redémarrage sont donc délégués à un cron du serveur : ce workflow dépose une
-  # demande et attend le résultat. Voir deploy/o2switch-cron.sh.
+  # POURQUOI PAS SSH : le port 22 est filtré depuis un runner, et la liste
+  # blanche du mutualisé compte cinq emplacements quand les runners GitHub
+  # sortent de milliers de blocs CIDR. Mesuré le 17 août 2026.
+  # POURQUOI PAS FTP : il a fonctionné, mais sans listage récursif la seule
+  # comparaison coûtait 141 s sur 248, et demandait un cron hors du dépôt.
+  # Le port 2083 répond, et un déploiement déclenché par l'API exécute
+  # réellement `.cpanel.yml`. Mesuré aussi.
   # ─────────────────────────────────────────────────────────────────────────
   deploy:
     name: deploy
     needs: [backend, frontend, e2e]
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    # Un déploiement qui pend est pire qu'un déploiement qui échoue : il ne dit
-    # rien et consomme. Le 17 août, un transfert bloqué sur une connexion filtrée
-    # a tourné jusqu'à l'annulation manuelle.
-    timeout-minutes: 30
+    timeout-minutes: 20
     # Deux déploiements ne se chevauchent jamais, et aucun n'est annulé en cours
-    # de route : interrompre un transfert laisserait le serveur mi-ancien
-    # mi-neuf, ce qu'aucune étape ultérieure ne rattraperait.
+    # de route : interrompre celui-ci laisserait le serveur mi-ancien mi-neuf.
     concurrency:
       group: deploy-production
       cancel-in-progress: false
+    # Élargi pour cette tâche SEULE : elle pousse la branche `deploy`. Les trois
+    # tâches de vérification restent en lecture seule, ce que leur spécification
+    # exige.
+    permissions:
+      contents: write
 
     env:
-      # Le compte FTP est cantonné à ~/tambouille : sa racine EST le répertoire
-      # de l'application. Les chemins ci-dessous sont donc relatifs à elle, et
-      # aucun d'eux ne peut désigner quoi que ce soit hors du cantonnement.
-      RCLONE_CONFIG_O2_TYPE: ftp
-      # Le NOM, jamais l'adresse IP : en FTPS explicite rclone valide le
-      # certificat du serveur contre le nom employé pour se connecter. Par l'IP,
-      # la validation échouerait, et le seul contournement serait de la
-      # désactiver — soit garder le chiffrement en perdant l'authentification du
-      # serveur, ce qui laisse la porte ouverte à un intermédiaire.
-      RCLONE_CONFIG_O2_HOST: ${{ secrets.O2SWITCH_FTP_HOST }}
-      RCLONE_CONFIG_O2_USER: ${{ secrets.O2SWITCH_FTP_USER }}
-      # AUTH TLS sur le port 21. Jamais de FTP nu : sans TLS le mot de passe et
-      # l'intégralité des fichiers traverseraient internet en clair à chaque
-      # livraison. Le 990 (TLS implicite) est filtré, mesuré le 17 août.
-      RCLONE_CONFIG_O2_EXPLICIT_TLS: "true"
-      # Ne jamais demander de mot de passe : sur un runner, une invite attend une
-      # saisie qui ne viendra jamais et la tâche pend au lieu d'échouer.
-      RCLONE_CONFIG_O2_ASK_PASSWORD: "false"
-      RCLONE_CONTIMEOUT: 15s
-      RCLONE_TIMEOUT: 60s
-      RCLONE_LOW_LEVEL_RETRIES: "2"
+      CP_HOST: ${{ secrets.O2SWITCH_CPANEL_HOST }}
+      REPO_ROOT: /home/bane2718/repositories/tambouille
 
     steps:
       - uses: actions/checkout@v7
         with:
-          # Vide sur un déclenchement ordinaire : actions/checkout retombe alors
-          # sur la référence courante.
           ref: ${{ inputs.ref }}
+          # L'historique complet : la branche `deploy` est construite par
+          # plomberie git, qui a besoin de savoir d'où elle vient.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-
-      # Action épinglée à un SHA DE COMMIT, jamais à `@v1`.
-      #
-      # Ce workflow porte les identifiants FTP de production. Un tag est mobile :
-      # `@v1` désigne ce que le mainteneur publiera, un SHA désigne ce qui a été
-      # lu. La différence n'a d'importance que le jour où elle en a beaucoup.
-      #
-      # Le commentaire porte la version lisible, sans quoi le SHA seul rend
-      # impossible de savoir de quoi on est en retard.
-      #
-      # Cette étape précède délibérément « Configurer l'accès FTPS » : le mot de
-      # passe n'entre dans l'environnement qu'après, donc l'action ne l'a jamais
-      # à portée. Ne pas réordonner.
-      #
-      # `version` est épinglée elle aussi — par défaut l'action prend `latest`,
-      # ce qui ferait changer rclone sous nos pieds sans qu'aucun commit ne
-      # l'explique.
-      - name: Installer rclone
-        uses: AnimMouse/setup-rclone@26ef2133e09fd383329a1d4c1fbe6a71db1976c9 # v1.12.0
-        with:
-          version: v1.75.0
-
-      # rclone n'accepte pas un mot de passe en clair dans sa configuration : il
-      # le veut obscurci. L'obscurcissement est RÉVERSIBLE — ce n'est pas du
-      # chiffrement — d'où le masquage explicite du résultat dans les journaux.
-      - name: Configurer l'accès FTPS
-        # Le secret passe par l'ENVIRONNEMENT, jamais par interpolation dans le
-        # script. GitHub substitue `${{ }}` littéralement dans le texte du shell :
-        # un mot de passe contenant un guillemet, une barre oblique inverse, un
-        # `$` ou un accent grave serait mangé par le shell avant d'atteindre
-        # rclone — et c'est ce qui a produit trois `530 Login authentication
-        # failed` alors que les mêmes identifiants fonctionnaient en local.
-        #
-        # La même précaution vaut contre l'injection : un secret interpolé dans
-        # un script est du code, pas une donnée.
-        env:
-          FTP_PASS: ${{ secrets.O2SWITCH_FTP_PASS }}
-        run: |
-          set -euo pipefail
-          OBSCURED=$(rclone obscure "$FTP_PASS")
-          # L'obscurcissement est RÉVERSIBLE — ce n'est pas du chiffrement — donc
-          # le résultat est aussi sensible que le mot de passe lui-même.
-          echo "::add-mask::$OBSCURED"
-          echo "RCLONE_CONFIG_O2_PASS=$OBSCURED" >> "$GITHUB_ENV"
-
-      # Exercer l'accès avant d'en dépendre. Cette étape échoue en quelques
-      # secondes là où le transfert, lui, pendait — c'est ce qui est arrivé au
-      # premier essai, avant qu'on sache le port 22 filtré.
-      # SONDE TEMPORAIRE — le déclenchement depuis un runner fonctionne-t-il ?
-      #
-      # C'est le seul maillon de la voie cPanel qui n'a jamais été exercé. Elle
-      # enchaîne les deux appels que le pipeline réel devra faire : tirer depuis
-      # GitHub, puis déployer. Le `.cpanel.yml` déployé n'écrit qu'un horodatage
-      # hors du dépôt et hors des chemins servis — un échec ne peut rien casser.
-      - name: Sonde — déclencher un déploiement cPanel
-        continue-on-error: true
-        env:
-          CP_USER: ${{ secrets.O2SWITCH_CPANEL_USER }}
-          CP_TOKEN: ${{ secrets.O2SWITCH_CPANEL_TOKEN }}
-          CP_HOST: ${{ secrets.O2SWITCH_FTP_HOST }}
-          REPO: /home/bane2718/repositories/tambouille
-        run: |
-          set -uo pipefail
-          call() {
-            local ep="$1"; shift
-            curl -sS --max-time 60 -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
-              --get "https://$CP_HOST:2083/execute/$ep" "$@"
-          }
-          show() { python3 -c "
-          import json,sys
-          d=json.load(sys.stdin)
-          print('   status', d.get('status'), '| erreurs', d.get('errors'))
-          print('   data  ', json.dumps(d.get('data'))[:400])
-          "; }
-
-          echo "── 1. update (tirer depuis GitHub) ──"
-          call VersionControl/update --data-urlencode "repository_root=$REPO" \
-               --data-urlencode "branch=o2switch-deploy" | show
-
-          echo "── 2. deployment create ──"
-          call VersionControlDeployment/create --data-urlencode "repository_root=$REPO" | show
-
-          echo "── 3. état des déploiements DE CE DÉPÔT ──"
-          # Sans `repository_root`, cet appel renvoie les déploiements de TOUS
-          # les dépôts du compte — ce qui m'a fait prendre le déploiement d'un
-          # autre projet pour le nôtre.
-          call VersionControlDeployment/retrieve --data-urlencode "repository_root=$REPO" | show
-
-      - name: Vérifier l'accès FTPS
-        run: |
-          set -euo pipefail
-          echo "Racine du compte FTP :"
-          rclone lsd o2: --max-depth 1
 
       - name: Construire le backend
         working-directory: backend
@@ -338,92 +216,102 @@ jobs:
         working-directory: frontend
         run: npm ci && npm run build
 
-      # ── Transfert ────────────────────────────────────────────────────────
+      # ── La branche `deploy` ──────────────────────────────────────────────
       #
-      # `sync` (miroir, supprime les fichiers surnuméraires) par SOUS-RÉPERTOIRE,
-      # jamais sur `backend/` lui-même. `.env`, `node_modules/`, `tmp/`,
-      # `.htaccess` et les 222 Mo d'`uploads/` vivent à la racine de `backend/` :
-      # ils sont hors de portée par construction.
+      # cPanel déploie le CONTENU du dépôt, pas des artefacts produits ailleurs.
+      # Les constructions sont donc commitées sur une branche dédiée, jamais sur
+      # `main`.
       #
-      # `--max-delete` est la seconde protection, indépendante de la première :
-      # elle tient même si quelqu'un réécrit un chemin de travers. Un échec sur
-      # cette garde se LIT, il ne se relève pas par réflexe.
-      - name: Transférer les artefacts
-        # `sync` compare les deux côtés avant de transférer, et le FTP n'a pas de
-        # listage récursif : rclone descend répertoire par répertoire et demande
-        # la date de chaque fichier séparément. `backend/dist` en compte des
-        # centaines — un .js, un .d.ts et un .js.map par module — d'où trois
-        # minutes de comparaison pour un seul fichier à livrer.
-        #
-        # `--checkers` et `--ftp-concurrency` répartissent cette comparaison sur
-        # plusieurs connexions. 8 reste sous les limites habituelles d'un
-        # mutualisé ; au-delà, l'hébergeur refuserait des connexions et ce serait
-        # visible.
-        #
-        # `--stats` donne un battement de cœur : sans lui l'étape reste muette
-        # pendant des minutes et paraît bloquée — on ne distingue plus une
-        # comparaison lente d'un transfert qui pend, ce qui est arrivé.
+      # Le commit est fabriqué par `commit-tree` plutôt que par une gymnastique
+      # de checkout : l'arbre est celui de l'index (sources + artefacts), le
+      # parent est la pointe précédente de `deploy`. L'historique reste donc
+      # linéaire et la poussée reste en avance rapide — ce qui compte, car
+      # cPanel met à jour par un `git pull` qu'une réécriture ferait échouer.
+      - name: Publier les artefacts sur la branche deploy
+        id: publier
+        run: |
+          set -euo pipefail
+          git add -f backend/dist backend/generated frontend/dist
+          git add -A
+          TREE=$(git write-tree)
+          PARENT=$(git rev-parse --verify --quiet origin/deploy || true)
+          COMMIT=$(git -c user.name='github-actions' -c user.email='github-actions@users.noreply.github.com' \
+            commit-tree "$TREE" ${PARENT:+-p "$PARENT"} \
+            -m "deploy: ${GITHUB_SHA:0:7}" -m "Artefacts construits depuis $GITHUB_SHA.")
+          git push origin "$COMMIT:refs/heads/deploy"
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "publié : ${COMMIT:0:7} (parent ${PARENT:-aucun})"
+
+      # ── Déclenchement ────────────────────────────────────────────────────
+      - name: Déclencher le déploiement cPanel
+        id: declencher
         env:
-          RCLONE_CHECKERS: "8"
-          RCLONE_TRANSFERS: "4"
-          RCLONE_FTP_CONCURRENCY: "8"
-          RCLONE_STATS: 20s
+          CP_USER: ${{ secrets.O2SWITCH_CPANEL_USER }}
+          CP_TOKEN: ${{ secrets.O2SWITCH_CPANEL_TOKEN }}
         run: |
           set -euo pipefail
-          DRY=""
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            DRY="--dry-run"
-            echo "── MODE SIMULATION : rien ne sera écrit ──"
-            rclone lsd o2:backend || true
-          fi
-          rclone sync backend/dist/      o2:backend/dist/      --max-delete=50 $DRY --stats-one-line
-          rclone sync backend/generated/ o2:backend/generated/ --max-delete=50 $DRY --stats-one-line
-          rclone sync backend/prisma/    o2:backend/prisma/    --max-delete=20 $DRY --stats-one-line
-          rclone sync frontend/dist/     o2:frontend/dist/     --max-delete=80 $DRY --stats-one-line
-          rclone copy backend/package.json      o2:backend/ $DRY
-          rclone copy backend/package-lock.json o2:backend/ $DRY
+          call() {
+            local ep="$1"; shift
+            curl -sS --fail-with-body --max-time 60 \
+              -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
+              --get "https://$CP_HOST:2083/execute/$ep" "$@"
+          }
+          call VersionControl/update \
+            --data-urlencode "repository_root=$REPO_ROOT" \
+            --data-urlencode "branch=deploy" > update.json
+          python3 -c "import json;d=json.load(open('update.json'));print('  update  status',d['status'],d.get('errors') or '')"
+          call VersionControlDeployment/create \
+            --data-urlencode "repository_root=$REPO_ROOT" > create.json
+          python3 - <<'EOPY'
+          import json
+          d = json.load(open('create.json'))
+          assert d['status'] == 1, d.get('errors')
+          print('  déploiement', d['data']['deploy_id'], 'mis en file')
+          EOPY
 
-      # ── Demande, puis attente ────────────────────────────────────────────
+      # ── Attendre un résultat TERMINAL ────────────────────────────────────
       #
-      # Le FTP n'exécute rien. Le pipeline dépose une DEMANDE portant son SHA ;
-      # le script du serveur — qui vit dans ~/bin/, hors de portée de ce compte
-      # FTP — l'exécute et écrit un résultat.
+      # `create` répond « mis en file », jamais « exécuté ». Un pipeline qui s'en
+      # contenterait annoncerait des déploiements qui n'ont pas eu lieu.
       #
-      # Le SHA circule dans les deux sens pour que le pipeline ne puisse pas lire
-      # le résultat d'un déploiement antérieur et le prendre pour le sien.
-      - name: Demander l'exécution au serveur
-        if: ${{ !inputs.dry_run }}
-        run: |
-          set -euo pipefail
-          echo "${{ github.sha }}" > pending
-          rclone copyto pending o2:deploy/pending
-          echo "demande déposée pour ${{ github.sha }}"
-
-      # Un déploiement qui dépose une demande et se déclare réussi n'annonce que
-      # son propre envoi. Le résultat qui compte est celui de l'opération.
+      # `repository_root` est OBLIGATOIRE ici : sans lui, l'appel renvoie les
+      # déploiements de TOUS les dépôts du compte, et on lit le résultat d'un
+      # autre projet en croyant lire le sien. C'est arrivé.
       - name: Attendre le résultat du serveur
-        if: ${{ !inputs.dry_run }}
-        timeout-minutes: 15
+        env:
+          CP_USER: ${{ secrets.O2SWITCH_CPANEL_USER }}
+          CP_TOKEN: ${{ secrets.O2SWITCH_CPANEL_TOKEN }}
         run: |
           set -uo pipefail
-          SHA="${{ github.sha }}"
-          for i in $(seq 1 45); do
-            if rclone cat o2:deploy/result > result 2>/dev/null; then
-              if grep -q "^sha=$SHA$" result; then
-                echo "── résultat du serveur ──"; cat result
-                grep -q '^status=ok$' result && exit 0
-                echo "::error::le serveur a signalé un échec"; exit 1
-              fi
-            fi
-            sleep 20
+          for i in $(seq 1 40); do
+            curl -sS --max-time 30 -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
+              --get "https://$CP_HOST:2083/execute/VersionControlDeployment/retrieve" \
+              --data-urlencode "repository_root=$REPO_ROOT" > etat.json || true
+            python3 - <<'EOPY' && exit 0
+          import json, sys
+          try:
+              d = json.load(open('etat.json'))
+          except Exception:
+              sys.exit(1)
+          for dep in (d.get('data') or []):
+              ts = dep.get('timestamps') or {}
+              if 'successful' in ts:
+                  print('  déploiement réussi'); raise SystemExit(0)
+              if 'failed' in ts:
+                  print('::error::le serveur signale un échec —', dep.get('log_path'))
+                  raise SystemExit(2)
+          sys.exit(1)
+          EOPY
+            code=$?
+            [ $code = 2 ] && exit 1
+            sleep 15
           done
-          echo "::error::aucun résultat du serveur après 15 minutes — le cron tourne-t-il ?"
+          echo "::error::aucun résultat terminal après 10 minutes"
           exit 1
 
       # Constater plutôt que supposer : un redémarrage réussi n'exclut pas que
       # les deux moitiés du site soient désaccordées. C'est arrivé le 17 août.
       - name: Vérifier que le site répond
-        if: ${{ !inputs.dry_run }}
         run: |
           set -euo pipefail
           sleep 5

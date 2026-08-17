@@ -30,7 +30,7 @@ disparaissent.
 - [x] 2.3 ~~`flock` contre le recouvrement.~~ **Sans objet** : cPanel sérialise ses propres déploiements.
 - [x] 2.4 ~~Entrée cron.~~ **Installée et vérifiée**, puis rendue inutile. À retirer du serveur.
 - [x] 2.5 **Le redémarrage est prouvé** — un en-tête déposé dans `main.ts` est apparu en production, ce qu'aucun déploiement frontend n'aurait pu établir. Mais c'était le cron qui touchait `restart.txt` ; **avec `.cpanel.yml` le mécanisme change à nouveau et redevient non éprouvé**. À réexercer avec la même sonde.
-- [ ] 2.6 Écrire le vrai `.cpanel.yml` : recopier `backend/{dist,generated,prisma}`, `frontend/dist` et les deux manifestes vers `~/tambouille`, **répertoire par répertoire, jamais de joker, jamais `backend/` lui-même** — `.env`, `node_modules`, `tmp/` et les 222 Mo d'`uploads` y vivent. Puis installation conditionnelle, migration, redémarrage. Les raisons écrites à côté des commandes, pas ailleurs.
+- [x] 2.6 **Fait.** La logique vit dans `deploy/o2switch-deploy.sh` que `.cpanel.yml` appelle en une ligne — même motif que le script du cron, qui fonctionnait, et les règles restent commentées à côté des commandes. Exercé contre une fausse destination : les quatre répertoires nommés sont remplacés, les deux manifestes copiés, rien d'autre touché, et un dépôt sans artefacts est refusé en code 1. Écrire le vrai `.cpanel.yml` : recopier `backend/{dist,generated,prisma}`, `frontend/dist` et les deux manifestes vers `~/tambouille`, **répertoire par répertoire, jamais de joker, jamais `backend/` lui-même** — `.env`, `node_modules`, `tmp/` et les 222 Mo d'`uploads` y vivent. Puis installation conditionnelle, migration, redémarrage. Les raisons écrites à côté des commandes, pas ailleurs.
 - [ ] 2.7 Retirer `deploy/o2switch-cron.sh` du dépôt, l'entrée cron du serveur, et la copie dans `~/bin/`.
 
 ## 2bis. La tâche `deploy`
@@ -40,10 +40,10 @@ disparaissent.
 - [x] 2b.3 ~~Transfert FTPS par rclone.~~ **Écrit, éprouvé, sans objet.**
 - [x] 2b.4 ~~Exercer la garde `--max-delete`.~~ **Faite, et elle a mordu** : 20 suppressions annoncées sous `frontend/dist/assets` et aucune sous `backend/`, puis seuil abaissé à 1 et `Got fatal error on delete`. Sans objet désormais — il n'y a plus de `sync`, et la protection devient le cadrage des copies dans `.cpanel.yml`.
 - [x] 2b.5 ~~Protocole témoin/résultat.~~ **Écrit, éprouvé, sans objet.** Son exigence lui survit : le déclenchement cPanel répond « mis en file », pas « exécuté ».
-- [ ] 2b.6 Réécrire la tâche : construire, commiter les artefacts sur la branche `deploy`, pousser, puis déclencher `VersionControl::update` et `VersionControlDeployment::create`. La tâche aura besoin de `contents: write`, à cantonner à elle seule.
-- [ ] 2b.7 **Attendre un résultat terminal** en interrogeant `VersionControlDeployment::retrieve` **filtré par `repository_root`** — sans ce filtre l'appel renvoie les déploiements de tout le compte, ce qui m'a déjà fait lire le résultat d'un autre projet comme s'il était le nôtre. Échouer si rien n'arrive.
+- [x] 2b.6 **Fait.** Le commit de la branche `deploy` est fabriqué par `git commit-tree` plutôt que par une gymnastique de checkout : arbre de l'index, parent la pointe précédente. L'historique reste linéaire et la poussée en avance rapide — ce qui compte, puisque cPanel met à jour par un `git pull` qu'une réécriture ferait échouer. `contents: write` est cantonné à cette seule tâche. Réécrire la tâche : construire, commiter les artefacts sur la branche `deploy`, pousser, puis déclencher `VersionControl::update` et `VersionControlDeployment::create`. La tâche aura besoin de `contents: write`, à cantonner à elle seule.
+- [x] 2b.7 **Fait**, avec le filtre `repository_root` obligatoire et un commentaire disant pourquoi. **Attendre un résultat terminal** en interrogeant `VersionControlDeployment::retrieve` **filtré par `repository_root`** — sans ce filtre l'appel renvoie les déploiements de tout le compte, ce qui m'a déjà fait lire le résultat d'un autre projet comme s'il était le nôtre. Échouer si rien n'arrive.
 - [x] 2b.8 Vérification d'après déploiement : une requête sur l'API, une sur le site, l'échec de l'une faisant échouer la tâche.
-- [ ] 2b.9 Retirer les sondes temporaires et les trois secrets FTP.
+- [x] 2b.9 **Sondes retirées**, ainsi que l'entrée `dry_run` dont l'objet était propre au FTP. L'hôte porte enfin son nom (`O2SWITCH_CPANEL_HOST`) au lieu d'emprunter celui du FTP. Les trois secrets FTP restent à supprimer du dépôt.
 
 ## 3. Le premier déploiement piloté
 
