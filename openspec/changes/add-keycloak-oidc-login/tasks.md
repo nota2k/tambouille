@@ -4,7 +4,7 @@ Rien d'autre ne commence avant que ces trois points soient constatés. Un échec
 arrête le changement plutôt que de le contourner (voir `design.md` — Migration Plan).
 
 - [x] 1.1 Vérifier qu'un SMTP fonctionnel est configuré dans Realm settings → Email, et utiliser le bouton **Test connection** de Keycloak, qui envoie un message à l'adresse du compte admin. C'est l'envoi réel qui compte : la configuration peut être remplie et l'expédition échouer. Sans lui, la vérification du courriel activée bloque les membres sur l'action requise `VERIFY_EMAIL` à leur prochaine connexion, y compris sur `vip.jeancloude.club`.
-- [ ] 1.2 Créer le client public sur le realm : PKCE S256 obligatoire, pas de secret, URIs de redirection de `localhost:5173` et du site de production. Noter le `client_id`, qui sera l'audience attendue. **Ne pas activer le chiffrement de l'`id_token`** : le realm publie une clé `RSA-OAEP` (`use: enc`), donc il sait émettre du JWE, et un jeton chiffré ferait échouer une vérification par signature seule — il faudrait le déchiffrer d'abord.
+- [ ] 1.2 Créer le client public `tambouille` sur le realm, avec les valeurs de `design.md` décision 7 : Client authentication **Off**, Standard flow seul (ni implicite, ni service accounts), URIs de redirection **exactes** `https://tambouille.pantagruweb.club/auth/callback` et `http://localhost:5173/auth/callback` sans aucun joker, post logout redirect URIs **vide**, Web origins `+`. Puis, dans l'onglet **Advanced** que l'assistant de création n'expose pas : *Proof Key for Code Exchange Code Challenge Method* → **`S256`**, sans quoi PKCE reste facultatif et un code s'échange sans verifier. Toujours dans Advanced, **ne pas activer le chiffrement de l'`id_token`** : le realm publie une clé `RSA-OAEP` (`use: enc`), donc il sait émettre du JWE, et un jeton chiffré ferait échouer une vérification par signature seule. Vérifier enfin dans l'onglet **Client scopes** que `email` est présent en *Default* — c'est lui qui porte `email_verified`.
 - [ ] 1.3 Obtenir un `id_token` réel de ce client avec le scope `email` et constater que `email_verified` y figure, ainsi que sa valeur. Le document de découverte ne l'annonce pas dans `claims_supported` et toute la garde de création en dépend. S'il est absent, arrêter et revenir sur le périmètre. Le plus simple est de faire le flux réel dans un navigateur et de lire la réponse du `token_endpoint` dans les outils de développement ; à défaut, activer « Direct access grants » le temps d'un appel, puis le remettre à Off.
 - [x] 1.4 Constater les clés publiées par le realm : `RS256` (`use: sig`) et `RSA-OAEP` (`use: enc`), une seule clé de signature. À noter que l'absence de clé symétrique dans le JWKS ne diminue pas l'exigence de la tâche 3.3 mais la confirme : la confusion d'algorithme consiste précisément à reprendre la clé publique publiée comme secret HMAC.
 
@@ -34,7 +34,7 @@ arrête le changement plutôt que de le contourner (voir `design.md` — Migrati
 ## 5. Front — flux PKCE
 
 - [ ] 5.1 Écrire le flux d'autorisation sur les primitives de la plateforme, sans bibliothèque OIDC : `crypto.getRandomValues` pour le verifier et le `state`, `crypto.subtle.digest` pour le S256, `sessionStorage` pour les conserver le temps de l'aller-retour, `URLSearchParams` pour l'URL d'autorisation.
-- [ ] 5.2 Ajouter la route de retour et sa vue : vérifier le `state`, échanger le code contre les jetons au `token_endpoint`, puis POSTer l'`id_token` sur `/auth/oidc`. Nettoyer `sessionStorage` dans tous les cas, y compris en erreur.
+- [ ] 5.2 Ajouter la route de retour sur **`/auth/callback`** — exactement le chemin enregistré auprès du realm, toute divergence casse l'authentification — et sa vue : vérifier le `state`, échanger le code contre les jetons au `token_endpoint`, puis POSTer l'`id_token` sur `/auth/oidc`. Nettoyer `sessionStorage` dans tous les cas, y compris en erreur et en abandon.
 - [ ] 5.3 Ajouter `loginWithKeycloak` et `linkKeycloak` au store `auth`, sur le modèle exact des actions Google : la première pose une session, la seconde ne met à jour que `user`.
 - [ ] 5.4 Ajouter le bouton sur `LoginView` et `RegisterView`, et une section « carte de membre » dans `SettingsView` affichant l'état d'après `hasKeycloak`.
 - [ ] 5.5 Vérifier qu'un compte créé par une carte atterrit bien sur `ChooseUsernameView`, sans traitement particulier — le parcours de complétion existant doit s'appliquer tel quel.
@@ -47,8 +47,8 @@ arrête le changement plutôt que de le contourner (voir `design.md` — Migrati
 
 ## 7. Configuration et documentation
 
-- [ ] 7.1 Ajouter `KEYCLOAK_ISSUER` et `KEYCLOAK_CLIENT_ID` à `backend/.env.example`, avec le commentaire d'usage en français comme les autres entrées, et la mention que ces variables sont lues au premier usage donc leur absence ne casse que ce flux.
-- [ ] 7.2 Ajouter `VITE_KEYCLOAK_ISSUER` et `VITE_KEYCLOAK_CLIENT_ID` à `frontend/.env.example` et `frontend/.env.production`.
+- [ ] 7.1 Ajouter `KEYCLOAK_ISSUER="https://cartemembre.jeancloude.club/realms/jeancloude.club"` et `KEYCLOAK_CLIENT_ID="tambouille"` à `backend/.env.example`, avec le commentaire d'usage en français comme les autres entrées, et la mention que ces variables sont lues au premier usage donc leur absence ne casse que ce flux.
+- [ ] 7.2 Ajouter `VITE_KEYCLOAK_ISSUER` et `VITE_KEYCLOAK_CLIENT_ID` (mêmes valeurs, le client est public et son identifiant n'est pas un secret) à `frontend/.env.example` et `frontend/.env.production`.
 - [ ] 7.3 Mentionner la connexion par carte de membre dans la liste des fonctionnalités du `README.md`.
 
 ## 8. Vérification de bout en bout

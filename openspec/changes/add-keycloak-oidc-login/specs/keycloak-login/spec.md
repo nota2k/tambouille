@@ -204,6 +204,35 @@ il en obtient un nouveau après la connexion.
 - **WHEN** l'utilisateur quitte le parcours avant d'ouvrir une session
 - **THEN** aucun rattachement n'a lieu et aucun compte n'est modifié
 
+### Requirement: Chemin de retour unique
+
+Le site MUST exposer le retour du fournisseur sur `/auth/callback`, et ce chemin
+MUST être le seul enregistré comme URI de redirection auprès du realm. Les URIs
+enregistrées MUST être exactes, une par environnement ; aucun joker MUST être
+enregistré, car tout chemin couvert par un joker devient une cible où le code
+d'autorisation peut être renvoyé.
+
+Le site MUST rejeter un retour dont l'`state` ne correspond pas à celui qu'il a
+émis, et MUST effacer les valeurs conservées le temps de l'aller-retour dans tous
+les cas, y compris en erreur et en abandon.
+
+#### Scenario: Retour nominal
+
+- **WHEN** le fournisseur renvoie sur `/auth/callback` avec un code et l'`state` émis
+- **THEN** le site échange le code et poursuit l'authentification
+- **AND** les valeurs conservées pour l'aller-retour sont effacées
+
+#### Scenario: `state` non concordant
+
+- **WHEN** le retour porte un `state` différent de celui émis, ou aucun
+- **THEN** le site n'échange pas le code et n'ouvre aucune session
+
+#### Scenario: Retour en erreur
+
+- **WHEN** le fournisseur renvoie une erreur au lieu d'un code
+- **THEN** le site l'affiche sans ouvrir de session
+- **AND** les valeurs conservées pour l'aller-retour sont effacées
+
 ### Requirement: Le sujet OIDC ne sort pas de l'API
 
 Le sujet porté par le realm MUST NOT figurer dans aucune réponse de l'API : il est

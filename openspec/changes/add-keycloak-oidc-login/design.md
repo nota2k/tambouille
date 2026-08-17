@@ -151,7 +151,32 @@ les gardes de Google visent une menace propre à Google (un domaine Workspace no
 vérifié permet d'émettre des jetons en série), et rien ne garantit que les deux
 politiques évoluent ensemble.
 
-### 7. L'espace d'états des comptes ne grandit pas
+### 7. Un seul chemin de retour, enregistré à l'identique des deux côtés
+
+Le retour du fournisseur arrive sur `/auth/callback`, et ce chemin est le seul
+enregistré auprès du realm. Le routeur du front est en `createWebHistory`, donc le
+chemin s'écrit tel quel, sans fragment.
+
+Configuration du client public, `client_id: tambouille` :
+
+| Champ | Valeur | Raison |
+|---|---|---|
+| Valid redirect URIs | `https://tambouille.pantagruweb.club/auth/callback` et `http://localhost:5173/auth/callback` | exactes, une par environnement |
+| Valid post logout redirect URIs | vide | la déconnexion globale est hors périmètre ; une liste vide la refuse |
+| Web origins | `+` | origines déduites des URIs de redirection, et elles restent synchronisées |
+| PKCE Code Challenge Method | `S256` | onglet Advanced ; sans ce réglage, PKCE reste facultatif et un code s'échange sans verifier |
+| Chiffrement de l'`id_token` | désactivé | le realm publie une clé `RSA-OAEP` (`use: enc`), donc un jeton chiffré ferait échouer une vérification par signature seule |
+
+*Alternative écartée* : un joker, `https://tambouille.pantagruweb.club/*`. Tout
+chemin du site devient alors une cible de renvoi du code, et une redirection
+ouverte ou un XSS sur n'importe quelle page suffit à l'intercepter. Le gain — ne
+pas éditer le realm quand le chemin change — ne vaut pas cette surface.
+
+`Web origins` n'est pas optionnel : le navigateur appelle le `token_endpoint`
+directement, donc en requête croisée, et sans origine autorisée l'échange du code
+est bloqué avant d'atteindre Keycloak.
+
+### 8. L'espace d'états des comptes ne grandit pas
 
 Un compte né d'une carte a `username: null` et `password: null` : exactement l'état
 d'un compte né de Google. Le parcours de complétion existant (`setUsername`,
