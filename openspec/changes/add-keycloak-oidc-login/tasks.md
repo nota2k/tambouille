@@ -33,11 +33,11 @@ arrête le changement plutôt que de le contourner (voir `design.md` — Migrati
 
 ## 5. Front — flux PKCE
 
-- [ ] 5.1 Écrire le flux d'autorisation sur les primitives de la plateforme, sans bibliothèque OIDC : `crypto.getRandomValues` pour le verifier et le `state`, `crypto.subtle.digest` pour le S256, `sessionStorage` pour les conserver le temps de l'aller-retour, `URLSearchParams` pour l'URL d'autorisation.
-- [ ] 5.2 Ajouter la route de retour sur **`/auth/callback`** — exactement le chemin enregistré auprès du realm, toute divergence casse l'authentification — et sa vue : vérifier le `state`, échanger le code contre les jetons au `token_endpoint`, puis POSTer l'`id_token` sur `/auth/oidc`. Nettoyer `sessionStorage` dans tous les cas, y compris en erreur et en abandon.
-- [ ] 5.3 Ajouter `loginWithKeycloak` et `linkKeycloak` au store `auth`, sur le modèle exact des actions Google : la première pose une session, la seconde ne met à jour que `user`.
-- [ ] 5.4 Ajouter le bouton sur `LoginView` et `RegisterView`, et une section « carte de membre » dans `SettingsView` affichant l'état d'après `hasKeycloak`.
-- [ ] 5.5 Vérifier qu'un compte créé par une carte atterrit bien sur `ChooseUsernameView`, sans traitement particulier — le parcours de complétion existant doit s'appliquer tel quel.
+- [x] 5.1 **Vérifié contre le realm réel** : le clic mène à `.../protocol/openid-connect/auth` avec `client_id=tambouille`, `response_type=code`, `redirect_uri=http://localhost:5173/auth/callback`, `scope=openid email profile`, `code_challenge_method=S256`, un challenge de 43 caractères (SHA-256 sur 32 octets) et un `state` de 22 — et le realm rend son écran de connexion, pas une page d'erreur, ce qui atteste au passage que l'URI de redirection est bien enregistrée. Écrire le flux d'autorisation sur les primitives de la plateforme, sans bibliothèque OIDC : `crypto.getRandomValues` pour le verifier et le `state`, `crypto.subtle.digest` pour le S256, `sessionStorage` pour les conserver le temps de l'aller-retour, `URLSearchParams` pour l'URL d'autorisation.
+- [x] 5.2 **Vérifié** : un `state` qui ne correspond à rien est refusé sans qu'aucun code ne soit échangé (« Cette réponse ne correspond à aucune demande partie d'ici. »), et une erreur du fournisseur est affichée telle qu'il l'a formulée. La garde du routeur qui renvoie vers `/bienvenue` les comptes sans nom d'utilisateur a dû exempter cette route, comme elle exempte déjà `reset-password` : détournée avant d'être montée, elle n'échangerait jamais le code et le rattachement n'aurait pas lieu, en silence. Ajouter la route de retour sur **`/auth/callback`** — exactement le chemin enregistré auprès du realm, toute divergence casse l'authentification — et sa vue : vérifier le `state`, échanger le code contre les jetons au `token_endpoint`, puis POSTer l'`id_token` sur `/auth/oidc`. Nettoyer `sessionStorage` dans tous les cas, y compris en erreur et en abandon.
+- [x] 5.3 Ajouter `loginWithKeycloak` et `linkKeycloak` au store `auth`, sur le modèle exact des actions Google : la première pose une session, la seconde ne met à jour que `user`.
+- [x] 5.4 Ajouter le bouton sur `LoginView` et `RegisterView`, et une section « carte de membre » dans `SettingsView` affichant l'état d'après `hasKeycloak`.
+- [x] 5.5 Vérifier qu'un compte créé par une carte atterrit bien sur `ChooseUsernameView`, sans traitement particulier — le parcours de complétion existant doit s'appliquer tel quel.
 
 ## 6. Front — reprise après refus
 
@@ -47,8 +47,8 @@ arrête le changement plutôt que de le contourner (voir `design.md` — Migrati
 
 ## 7. Configuration et documentation
 
-- [ ] 7.1 Ajouter `KEYCLOAK_ISSUER="https://cartemembre.jeancloude.club/realms/jeancloude.club"` et `KEYCLOAK_CLIENT_ID="tambouille"` à `backend/.env.example`, avec le commentaire d'usage en français comme les autres entrées, et la mention que ces variables sont lues au premier usage donc leur absence ne casse que ce flux.
-- [ ] 7.2 Ajouter `VITE_KEYCLOAK_ISSUER` et `VITE_KEYCLOAK_CLIENT_ID` (mêmes valeurs, le client est public et son identifiant n'est pas un secret) à `frontend/.env.example` et `frontend/.env.production`.
+- [x] 7.1 Ajouter `KEYCLOAK_ISSUER="https://cartemembre.jeancloude.club/realms/jeancloude.club"` et `KEYCLOAK_CLIENT_ID="tambouille"` à `backend/.env.example`, avec le commentaire d'usage en français comme les autres entrées, et la mention que ces variables sont lues au premier usage donc leur absence ne casse que ce flux.
+- [x] 7.2 Ajouter `VITE_KEYCLOAK_ISSUER` et `VITE_KEYCLOAK_CLIENT_ID` (mêmes valeurs, le client est public et son identifiant n'est pas un secret) à `frontend/.env.example` et `frontend/.env.production`.
 - [ ] 7.3 Mentionner la connexion par carte de membre dans la liste des fonctionnalités du `README.md`.
 
 ## 8. Vérification de bout en bout

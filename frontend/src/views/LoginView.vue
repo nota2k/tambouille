@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
+import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -102,6 +103,9 @@ async function onSubmit() {
     </div>
     <GoogleSignInButton @credential="onGoogleCredential" />
     <p v-if="googleError" class="mt-2 text-sm text-red-500">{{ googleError }}</p>
+    <div class="mt-3">
+      <KeycloakSignInButton />
+    </div>
 
     <p class="mt-4 text-sm text-tambouille-muted">
       Pas de compte ?

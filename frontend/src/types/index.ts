@@ -123,6 +123,8 @@ export interface AuthUser {
   hasPassword: boolean
   /** Whether a Google account is attached. The identifier itself is never sent. */
   hasGoogle: boolean
+  /** Idem pour la carte de membre du club : jamais le sujet, seulement s'il y en a une. */
+  hasKeycloak: boolean
 }
 
 export interface AuthResponse {

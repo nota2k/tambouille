@@ -3,6 +3,8 @@
   "configurations": [
     {
       "name": "tambouille-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
       "url": "http://localhost:5173",
       "port": 5173
     }

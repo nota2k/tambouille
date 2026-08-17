@@ -42,6 +42,20 @@ export const useAuthStore = defineStore('auth', {
       this.user = data
     },
 
+    async loginWithKeycloak(idToken: string) {
+      const { data } = await apiClient.post<AuthResponse>('/auth/oidc', { idToken })
+      this.setSession(data)
+    },
+    /**
+     * Rattache une carte de membre à la session déjà ouverte. Rend le compte mis
+     * à jour et non une session, pour la même raison que `linkGoogle` : l'appelant
+     * reste connecté en tant que qui il était, il n'y a pas de nouveau jeton.
+     */
+    async linkKeycloak(idToken: string) {
+      const { data } = await apiClient.post<AuthUser>('/auth/oidc/link', { idToken })
+      this.user = data
+    },
+
     async setUsername(username: string) {
       const { data } = await apiClient.post<AuthUser>('/auth/username', { username })
       this.user = data
