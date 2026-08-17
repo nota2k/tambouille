@@ -179,6 +179,10 @@ jobs:
     needs: [backend, frontend, e2e]
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # Un déploiement qui pend est pire qu'un déploiement qui échoue : il ne dit
+    # rien et consomme. Le 17 août, un rclone bloqué sur une invite
+    # d'authentification a tourné jusqu'à l'annulation manuelle.
+    timeout-minutes: 20
     # Deux déploiements ne se chevauchent jamais, et aucun n'est annulé en
     # cours de route : interrompre un transfert laisserait le serveur mi-ancien
     # mi-neuf, ce qu'aucune étape ultérieure ne rattraperait.
@@ -192,6 +196,13 @@ jobs:
       RCLONE_CONFIG_O2_HOST: ${{ secrets.O2SWITCH_HOST }}
       RCLONE_CONFIG_O2_USER: ${{ secrets.O2SWITCH_USER }}
       RCLONE_CONFIG_O2_KEY_FILE: /home/runner/.ssh/deploy_key
+      # Ne jamais demander de mot de passe : sans cela rclone attend une saisie
+      # sur un runner qui n'en fournira jamais.
+      RCLONE_CONFIG_O2_ASK_PASSWORD: "false"
+      # Bornes de temps : un transfert qui n'aboutit pas doit échouer, pas pendre.
+      RCLONE_CONTIMEOUT: 15s
+      RCLONE_TIMEOUT: 60s
+      RCLONE_LOW_LEVEL_RETRIES: "2"
 
     steps:
       - uses: actions/checkout@v7
@@ -218,6 +229,17 @@ jobs:
       # apt-get plutôt qu'une action tierce : ce workflow porte la clé SSH de
       # production, et une action tierce épinglée sur un tag mobile pourrait la
       # lire. Voir design.md, Decisions.
+      # Exercer l'accès avant d'en dépendre. `BatchMode=yes` interdit toute
+      # invite interactive : sans lui, une clé non autorisée fait attendre une
+      # saisie qui ne viendra jamais, et l'étape suivante pend au lieu
+      # d'échouer. C'est ce qui est arrivé au premier essai.
+      - name: Vérifier l'accès SSH
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key \
+            ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} \
+            'echo "acces SSH ok depuis $(hostname)"'
+
       - name: Installer rclone
         run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone
 
@@ -276,13 +298,13 @@ jobs:
         run: |
           set -euo pipefail
           LOCAL=$(sha256sum backend/package-lock.json | cut -d' ' -f1)
-          REMOTE_SUM=$(ssh -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} \
+          REMOTE_SUM=$(ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} \
             "sha256sum $REMOTE/backend/package-lock.json.deployed 2>/dev/null | cut -d' ' -f1" || true)
           if [ "$LOCAL" = "$REMOTE_SUM" ]; then
             echo "Verrou inchangé — pas d'installation."
             exit 0
           fi
-          ssh -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} bash -euo pipefail <<EOSSH
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} bash -euo pipefail <<EOSSH
             source ~/nodevenv/tambouille/backend/22/bin/activate
             cd $REMOTE/backend
             npm install --omit=dev
@@ -302,7 +324,7 @@ jobs:
       - name: Migrer et redémarrer
         if: ${{ !inputs.dry_run }}
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} bash -euo pipefail <<EOSSH
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} bash -euo pipefail <<EOSSH
             source ~/nodevenv/tambouille/backend/22/bin/activate
             # Le PATH du serveur porte un node 24.11.x qui ne satisfait pas le
             # \`engines\` du projet et n'est pas celui que Passenger exécute.
