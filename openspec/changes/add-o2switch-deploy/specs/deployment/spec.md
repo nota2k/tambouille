@@ -109,15 +109,63 @@ discipline, et une discipline se défait à la première réécriture distraite.
 - **WHEN** une opération de transfert viserait un répertoire contenant des données absentes du dépôt
 - **THEN** elle s'interrompt avant d'effacer, plutôt que d'aboutir
 
+### Requirement: Le canal de déploiement ne décide pas de ce qui s'exécute
+
+L'identifiant qui dépose les fichiers MUST NOT pouvoir modifier ce que le
+serveur exécute. Toute opération qui exige une exécution sur le serveur —
+installation de dépendances, migration, redémarrage — MUST être déclenchée par
+un mécanisme dont le contenu échappe à cet identifiant, celui-ci ne pouvant que
+demander son déclenchement.
+
+Sans cette séparation, un identifiant de dépôt de fichiers vaut exécution de
+code arbitraire sur le serveur : il suffirait de réécrire le script déclenché.
+Le périmètre de l'identifiant MUST donc exclure l'emplacement de ce script.
+
+#### Scenario: L'identifiant de déploiement est compromis
+
+- **WHEN** quelqu'un dispose de l'identifiant qui dépose les fichiers
+- **THEN** il peut remplacer les fichiers de l'application
+- **AND** il ne peut pas modifier les commandes que le serveur exécutera
+
+#### Scenario: Demande de déclenchement
+
+- **WHEN** le déploiement doit faire exécuter une opération sur le serveur
+- **THEN** il en dépose la demande
+- **AND** le contenu de l'opération est déterminé par le serveur, pas par la demande
+
+### Requirement: Une opération déléguée au serveur est constatée, pas supposée
+
+Lorsqu'une opération est déléguée à un mécanisme du serveur, le déploiement
+MUST attendre son résultat et MUST échouer si ce résultat est un échec ou
+n'arrive pas dans un délai borné.
+
+Un déploiement qui dépose une demande et se déclare réussi n'annonce que son
+propre envoi. Le résultat qui compte est celui de l'opération, et il n'est
+connu que du serveur tant que personne ne va le chercher.
+
+#### Scenario: L'opération déléguée réussit
+
+- **WHEN** le serveur a exécuté l'opération demandée avec succès
+- **THEN** le déploiement lit ce résultat et se poursuit
+
+#### Scenario: L'opération déléguée échoue
+
+- **WHEN** le serveur signale un échec
+- **THEN** le déploiement échoue en rapportant ce que le serveur a rapporté
+
+#### Scenario: Aucun résultat n'arrive
+
+- **WHEN** aucun résultat n'est disponible au terme du délai imparti
+- **THEN** le déploiement échoue plutôt que de supposer que l'opération a eu lieu
+
 ### Requirement: Le schéma change avant le code
 
 Une migration de base MUST être appliquée avant que le code qui en dépend ne
 soit servi. Les migrations MUST être additives, de sorte que le code encore en
 place au moment où elles s'appliquent continue de fonctionner.
 
-Les migrations MUST emprunter le même canal authentifié que les autres
-opérations sur le serveur. La base MUST NOT être rendue accessible depuis
-l'extérieur dans le seul but de permettre à un déploiement de l'atteindre.
+La base MUST NOT être rendue accessible depuis l'extérieur dans le seul but de
+permettre à un déploiement de l'atteindre.
 
 #### Scenario: Version comportant une migration
 

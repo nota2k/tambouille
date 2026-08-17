@@ -64,33 +64,85 @@ production n'est pas l'octet exact de ce qui a été testé, mais le même commi
 reconstruit. Pour un projet dont les constructions sont déterministes à ce
 niveau, l'échange est favorable.
 
-### rclone en SFTP pour le transfert, SSH pour le reste
+### FTPS pour le transfert, un cron du serveur pour l'exécution
 
-Le transfert passe par rclone ; les migrations et le redémarrage par une
-commande SSH ordinaire. Deux outils, mais un seul secret : la clé.
+**Le port 22 est inatteignable depuis un runner, et le restera.** Mesuré le
+17 août : depuis un poste de développement il répond, depuis un runner GitHub la
+connexion expire — le pare-feu du mutualisé jette les paquets des adresses
+inconnues. La liste blanche de l'hébergeur compte **cinq emplacements** ; les
+plages de sortie des runners GitHub se comptent en milliers de blocs CIDR et
+changent. Ce n'est pas une adresse à trouver, c'est une impossibilité de
+structure.
 
-Ce qui décide en faveur de rclone n'est pas l'absence de dépendance à un binaire
-distant — `rsync` est très probablement présent — mais **`--max-delete`**. La
-spécification exige deux protections indépendantes autour de la suppression
-distante ; le cadrage des chemins en est une, et c'est une discipline. `--max-delete`
-en est une seconde, qui tient même si le cadrage est réécrit de travers.
+La même sonde a établi que **le port 21 est ouvert** depuis un runner.
+
+Le transfert passe donc par **FTPS explicite** — AUTH TLS sur le 21, le 990
+étant filtré lui aussi. Jamais FTP nu : sans TLS, le mot de passe et
+l'intégralité des fichiers traversent internet en clair à chaque livraison, ce
+qui serait un recul considérable par rapport à une clé SSH.
+
+L'identifiant est un **compte FTP dédié**, créé dans cPanel et cantonné à
+`/home/<compte>/tambouille`. Comme la clé dédiée qu'il remplace : révocable
+sans rien casser d'autre, et son cantonnement fait une partie du travail de
+sûreté décrit plus bas.
+
+Mais le FTP transfère des fichiers et **n'exécute rien**. Trois opérations en
+avaient besoin :
+
+| | par FTP |
+|---|---|
+| déposer `dist/`, `generated/`, `prisma/`, les manifestes | oui |
+| `touch tmp/restart.txt` | oui — téléverser un fichier vide à ce chemin suffit, Passenger ne regarde que la date |
+| `prisma migrate deploy` | non |
+| `npm install --omit=dev` | non |
+
+Les deux dernières sont déléguées à un **cron du serveur**.
+
+*Écarté* : ouvrir SSH aux plages GitHub — impossible à cinq emplacements.
+*Écarté* : laisser migrations et installation entièrement manuelles — le
+déploiement redeviendrait un geste qu'on peut omettre, ce que ce chantier
+existe pour supprimer.
+
+### Le script du cron vit hors de portée du compte FTP
+
+C'est la décision qui rend le reste sûr, et elle tient en une phrase : **le
+script exécuté par le cron est dans `~/bin/`, le compte FTP est cantonné à
+`~/tambouille`.**
+
+Sans cette séparation, un identifiant censé ne déposer que des fichiers vaudrait
+exécution de code arbitraire sur le serveur — il suffirait de réécrire le script
+que le cron lance. Le pipeline ne peut donc déposer qu'une **demande** ; ce qui
+s'exécute est déterminé par le serveur seul.
+
+Le protocole, en trois fichiers sous `~/tambouille/deploy/` :
 
 ```
-rclone sync   backend/dist/       →  ~/tambouille/backend/dist/       --max-delete=50
-rclone sync   backend/generated/  →  ~/tambouille/backend/generated/  --max-delete=50
-rclone sync   backend/prisma/     →  ~/tambouille/backend/prisma/     --max-delete=20
-rclone sync   frontend/dist/      →  ~/tambouille/frontend/dist/      --max-delete=80
-rclone copy   backend/package.json backend/package-lock.json  →  ~/tambouille/backend/
+pipeline dépose   deploy/pending      contient le SHA déployé
+cron lit          deploy/pending      sous flock, toutes les 5 minutes
+cron écrit        deploy/result       SHA + statut + horodatage
+cron supprime     deploy/pending
+pipeline lit      deploy/result       et échoue si le statut n'est pas ok
 ```
 
-`sync` par sous-répertoire, `copy` pour les deux manifestes, **jamais rien qui
-vise `backend/` lui-même**. `.env`, `node_modules/`, `tmp/`, `.htaccess` et les
-222 Mo d'`uploads` vivent à la racine de `backend/` : ils sont hors de portée par
-construction, et `--max-delete` couvre le cas où cette construction serait
-défaite.
+Le SHA circule dans les deux sens pour que le pipeline ne puisse pas lire le
+résultat d'un déploiement antérieur et le prendre pour le sien.
 
-*Écarté* : `rclone sync` sur `backend/` avec une liste d'exclusions. Une liste
-s'oublie ; une portée qui ne contient pas la chose ne s'oublie pas.
+*Écarté* : un cron qui déploie tout, sans demande. Il tournerait à vide la
+plupart du temps et rendrait le moment de la mise en ligne imprévisible.
+*Écarté* : un point d'entrée HTTP dans l'application pour déclencher les
+migrations. Cela ajoute une surface d'attaque à l'application elle-même pour
+une opération qui a lieu deux fois par mois.
+
+### Le pipeline attend le résultat, il ne le suppose pas
+
+Après avoir déposé `deploy/pending`, le pipeline interroge `deploy/result` par
+FTP jusqu'à y trouver son propre SHA, avec un délai maximal. S'il expire, ou si
+le statut n'est pas `ok`, le déploiement échoue.
+
+Un déploiement qui dépose une demande et se déclare réussi n'annonce que son
+propre envoi. Coût assumé : la latence du cron s'ajoute à celle du pipeline —
+cinq minutes au pire, davantage si l'installation des dépendances est
+déclenchée.
 
 ### rclone installé par `apt-get`, pas par une action tierce
 
