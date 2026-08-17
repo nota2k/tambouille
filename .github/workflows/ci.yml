@@ -205,7 +205,12 @@ jobs:
       # de l'application. Les chemins ci-dessous sont donc relatifs à elle, et
       # aucun d'eux ne peut désigner quoi que ce soit hors du cantonnement.
       RCLONE_CONFIG_O2_TYPE: ftp
-      RCLONE_CONFIG_O2_HOST: ${{ secrets.O2SWITCH_HOST }}
+      # Le NOM, jamais l'adresse IP : en FTPS explicite rclone valide le
+      # certificat du serveur contre le nom employé pour se connecter. Par l'IP,
+      # la validation échouerait, et le seul contournement serait de la
+      # désactiver — soit garder le chiffrement en perdant l'authentification du
+      # serveur, ce qui laisse la porte ouverte à un intermédiaire.
+      RCLONE_CONFIG_O2_HOST: ${{ secrets.O2SWITCH_FTP_HOST }}
       RCLONE_CONFIG_O2_USER: ${{ secrets.O2SWITCH_FTP_USER }}
       # AUTH TLS sur le port 21. Jamais de FTP nu : sans TLS le mot de passe et
       # l'intégralité des fichiers traverseraient internet en clair à chaque
