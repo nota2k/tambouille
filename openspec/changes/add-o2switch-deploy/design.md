@@ -64,135 +64,101 @@ production n'est pas l'octet exact de ce qui a été testé, mais le même commi
 reconstruit. Pour un projet dont les constructions sont déterministes à ce
 niveau, l'échange est favorable.
 
-### FTPS pour le transfert, un cron du serveur pour l'exécution
+### Le déploiement git de cPanel, déclenché par son API
 
-**Le port 22 est inatteignable depuis un runner, et le restera.** Mesuré le
-17 août : depuis un poste de développement il répond, depuis un runner GitHub la
-connexion expire — le pare-feu du mutualisé jette les paquets des adresses
-inconnues. La liste blanche de l'hébergeur compte **cinq emplacements** ; les
-plages de sortie des runners GitHub se comptent en milliers de blocs CIDR et
-changent. Ce n'est pas une adresse à trouver, c'est une impossibilité de
-structure.
+**Troisième transport, et cette fois par mesure plutôt que par déduction.**
 
-La même sonde a établi que **le port 21 est ouvert** depuis un runner.
+SSH est fermé : le port 22 est filtré depuis un runner, et la liste blanche de
+l'hébergeur compte cinq emplacements quand les plages de sortie des runners se
+comptent en milliers de blocs CIDR. FTPS fonctionnait — le pipeline a livré, est
+revenu en arrière, a redémarré Passenger — mais payait une taxe : le FTP n'a pas
+de listage récursif, donc `rclone sync` interrogeait des centaines de fichiers
+un par un, 141 secondes sur 248 pour quelques centaines de kilooctets.
 
-Le transfert passe donc par **FTPS explicite** — AUTH TLS sur le 21, le 990
-étant filtré lui aussi. Jamais FTP nu : sans TLS, le mot de passe et
-l'intégralité des fichiers traversent internet en clair à chaque livraison, ce
-qui serait un recul considérable par rapport à une clé SSH.
+Le port **2083** répond depuis un runner. L'UAPI de cPanel y est joignable, un
+jeton y est accepté, et — mesuré, pas supposé — un déploiement déclenché depuis
+un runner exécute réellement les tâches de `.cpanel.yml` sur le serveur :
+six commandes, toutes en code de sortie 0, marqueur écrit, `Build completed with
+exit code 0`.
 
-L'identifiant est un **compte FTP dédié**, créé dans cPanel et cantonné à
-`/home/<compte>/tambouille`. Comme la clé dédiée qu'il remplace : révocable
-sans rien casser d'autre, et son cantonnement fait une partie du travail de
-sûreté décrit plus bas.
-
-Mais le FTP transfère des fichiers et **n'exécute rien**. Trois opérations en
-avaient besoin :
-
-| | par FTP |
-|---|---|
-| déposer `dist/`, `generated/`, `prisma/`, les manifestes | oui |
-| `touch tmp/restart.txt` | oui — téléverser un fichier vide à ce chemin suffit, Passenger ne regarde que la date |
-| `prisma migrate deploy` | non |
-| `npm install --omit=dev` | non |
-
-Les deux dernières sont déléguées à un **cron du serveur**.
-
-*Écarté* : ouvrir SSH aux plages GitHub — impossible à cinq emplacements.
-*Écarté* : laisser migrations et installation entièrement manuelles — le
-déploiement redeviendrait un geste qu'on peut omettre, ce que ce chantier
-existe pour supprimer.
-
-### Le script du cron vit hors de portée du compte FTP
-
-C'est la décision qui rend le reste sûr, et elle tient en une phrase : **le
-script exécuté par le cron est dans `~/bin/`, le compte FTP est cantonné à
-`~/tambouille`.**
-
-Sans cette séparation, un identifiant censé ne déposer que des fichiers vaudrait
-exécution de code arbitraire sur le serveur — il suffirait de réécrire le script
-que le cron lance. Le pipeline ne peut donc déposer qu'une **demande** ; ce qui
-s'exécute est déterminé par le serveur seul.
-
-Le protocole, en trois fichiers sous `~/tambouille/deploy/` :
+Cela remplace **trois mécanismes d'un coup** : le transport rclone, le protocole
+témoin/résultat, et le cron du serveur. Le FTP n'exécutait rien, d'où le détour ;
+cPanel exécute, donc le détour disparaît.
 
 ```
-pipeline dépose   deploy/pending      contient le SHA déployé
-cron lit          deploy/pending      sous flock, toutes les 5 minutes
-cron écrit        deploy/result       SHA + statut + horodatage
-cron supprime     deploy/pending
-pipeline lit      deploy/result       et échoue si le statut n'est pas ok
+CI construit  ──▶ commite les artefacts sur la branche `deploy` ──▶ pousse
+                                                                    │
+     UAPI /execute/VersionControl/update  ◀──────────────────────────┘
+     UAPI /execute/VersionControlDeployment/create
+                                          │
+                        cPanel tire, puis exécute .cpanel.yml
+                          copie vers ~/tambouille, migre, redémarre
 ```
 
-Le SHA circule dans les deux sens pour que le pipeline ne puisse pas lire le
-résultat d'un déploiement antérieur et le prendre pour le sien.
+*Écarté* : garder FTPS. Il fonctionne, mais coûte un cron hors du dépôt, un
+compte et un mot de passe de plus, et deux minutes de comparaison par
+déploiement.
 
-*Écarté* : un cron qui déploie tout, sans demande. Il tournerait à vide la
-plupart du temps et rendrait le moment de la mise en ligne imprévisible.
-*Écarté* : un point d'entrée HTTP dans l'application pour déclencher les
-migrations. Cela ajoute une surface d'attaque à l'application elle-même pour
-une opération qui a lieu deux fois par mois.
+*Écarté* : construire sur le serveur via `.cpanel.yml`, ce que cPanel rend
+facile. Ce serait revenir exactement au point de départ — `nest build` et
+`vite build` sur un mutualisé bridé, ce que ce chantier existe pour supprimer,
+et ce qui a échoué trois fois le 17 août.
 
-### Le pipeline attend le résultat, il ne le suppose pas
+### Les artefacts voyagent par une branche `deploy`
 
-Après avoir déposé `deploy/pending`, le pipeline interroge `deploy/result` par
-FTP jusqu'à y trouver son propre SHA, avec un délai maximal. S'il expire, ou si
-le statut n'est pas `ok`, le déploiement échoue.
+cPanel déploie le **contenu du dépôt**, pas des artefacts produits ailleurs. Le
+CI construit donc, commite `dist/` et `generated/` sur une branche `deploy`
+dédiée, et pousse. `main` reste propre.
 
-Un déploiement qui dépose une demande et se déclare réussi n'annonce que son
-propre envoi. Coût assumé : la latence du cron s'ajoute à celle du pipeline —
-cinq minutes au pire, davantage si l'installation des dépendances est
-déclenchée.
+Effet secondaire favorable : ce qui est déployé devient un commit — donc
+inspectable, comparable, et désignable pour un retour arrière.
 
-### rclone installé par l'action officielle, épinglée à un SHA de commit
+Coût : la tâche de déploiement a besoin de `contents: write`, là où tout le
+workflow est en lecture seule. À cantonner à cette seule tâche.
 
-Décision révisée. Le design retenait d'abord `apt-get`, pour ne pas faire entrer
-un dépôt tiers dans un workflow qui porte les identifiants de production. Deux
-mesures ont fait pencher autrement :
+### Deux concessions de sûreté, écrites parce qu'elles sont réelles
 
-`apt-get update` rafraîchissait tout l'index des paquets pour en installer un —
-9 à 15 secondes — et livrait la version qu'Ubuntu embarque ce mois-ci, donc un
-pipeline qui pouvait changer de comportement parce que l'image du runner avait
-été reconstruite. L'action, elle, met rclone en cache et épingle sa version.
+**La propriété que le dispositif FTP tenait, celui-ci ne la tient pas.** Avec le
+cron, le script exécuté vivait dans `~/bin/`, hors de portée du compte de
+déploiement : un identifiant volé permettait de déposer des fichiers, jamais de
+choisir ce qui s'exécute. Ici `.cpanel.yml` est dans le dépôt — qui peut y
+pousser peut faire exécuter n'importe quoi sur le serveur.
 
-L'objection de départ ne disparaît pas pour autant, elle se traite :
+Ce n'est pas absurde : c'est le niveau de confiance qu'on accorde déjà au code
+applicatif, qui s'exécute aussi. Mais l'exigence correspondante a été **retirée**
+de la spécification plutôt que maquillée, parce qu'une exigence qu'on ne tient
+plus vaut moins que pas d'exigence.
 
-- **Épinglée à un SHA de commit**, jamais à `@v1`. Un tag est mobile : il désigne
-  ce que le mainteneur publiera, un SHA désigne ce qui a été lu.
-- **Installée avant que le mot de passe n'entre dans l'environnement.** L'ordre
-  des étapes n'est pas indifférent — le secret est posé dans `GITHUB_ENV` à
-  l'étape suivante, donc l'action ne l'a jamais à portée.
-- **Version de rclone épinglée** elle aussi, plutôt que le `latest` par défaut.
+**Le jeton est plus large que ce qu'il remplace.** `Tokens::create_full_access`
+donne accès à toute l'API cPanel du compte, quand le compte FTP était cantonné à
+`~/tambouille`. Compensé par la révocabilité et par un nom explicite —
+`github-deploy` — qui permettra de savoir ce qu'on révoque dans six mois.
 
-*Écarté* : `curl … | sudo bash`, pire que l'action à tous égards.
+### Le déclenchement dit « mis en file », pas « fait »
 
-*Écarté, après essai* : télécharger le binaire officiel à la main. Quatre lignes,
-quatre secondes — mais la variable qui portait la version s'appelait
-`RCLONE_VERSION`, or **toute variable `RCLONE_*` est lue par rclone comme un
-drapeau**. Elle devenait `--version="v1.75.0"`, un booléen recevant une chaîne,
-et cassait l'étape. Le piège se contourne en renommant, mais il illustre ce que
-l'action évite : elle connaît ces conventions, nous les redécouvrons.
+`VersionControlDeployment::create` répond `status 1` avec un `deploy_id` et un
+horodatage `queued`. C'est un accusé de réception, pas un résultat. La preuve
+d'exécution est venue du marqueur écrit par les tâches, jamais de la réponse.
 
-### Configuration de rclone par variables d'environnement
+Le pipeline doit donc interroger `VersionControlDeployment::retrieve` jusqu'à
+voir un horodatage `successful` ou `failed` pour son propre déploiement, et
+échouer si rien n'arrive. C'est exactement ce que la version FTP faisait avec
+`deploy/result` — l'exigence a survécu au changement de mécanisme, ce qui est
+plutôt bon signe pour elle.
 
-`RCLONE_CONFIG_O2_*` posées dans l'environnement de la tâche, plutôt qu'un
-fichier de configuration encodé en base64 déposé dans un secret. Le mot de passe
-FTP reste ainsi **le seul élément sensible**, et il n'existe qu'à un endroit.
+Attention à un piège rencontré : `retrieve` sans `repository_root` renvoie les
+déploiements de **tous** les dépôts du compte. Un filtre qu'on n'a pas vu
+filtrer ne filtre pas — celui-ci m'a fait prendre le déploiement d'un autre
+projet pour le nôtre.
 
-rclone n'accepte pas un mot de passe en clair dans sa configuration : il le veut
-obscurci. L'obscurcissement se fait donc dans la tâche, `rclone obscure` prenant
-le secret en entrée — ce qui évite d'avoir à stocker une valeur transformée que
-personne ne saurait relire ni faire tourner.
+### Les migrations tournent dans les tâches de `.cpanel.yml`
 
-### Les migrations tournent dans le script du cron
-
-`npx --yes prisma@7 migrate deploy`, lancé par le script de `~/bin/` et non par
-le pipeline.
+`npx --yes prisma@7 migrate deploy`, exécuté par cPanel au déploiement.
 
 La base n'écoute que sur `localhost` : elle n'est atteignable que depuis le
 serveur lui-même, quel que soit le transport choisi pour les fichiers. Ce point
-n'a pas bougé avec le passage au FTP — c'est même la raison pour laquelle le
-détour par un cron était inévitable dès qu'SSH est tombé.
+n'a bougé à aucun des trois virages — c'est lui qui a rendu inévitable, à chaque
+fois, un mécanisme d'exécution côté serveur.
 
 L'analyse des quatre modalités inscrite dans `TODOS.md` raisonnait sur une base
 joignable depuis l'extérieur ; la reconnaissance a montré que cette prémisse
@@ -220,14 +186,16 @@ manuel, et il a fallu rétablir le lien à la main pour en sortir. `npm install`
 complète sans jamais vider — et cela supprime au passage la fenêtre pendant
 laquelle un respawn de Passenger trouverait une application sans dépendances.
 
-**Seulement quand le verrou a changé.** Le script du cron compare le
-`package-lock.json` qu'il vient de recevoir à celui de la dernière installation
-réussie, gardé à côté sous un autre nom. Deux fichiers, une comparaison locale,
-et une installation évitée sur la grande majorité des déploiements.
+**Seulement quand le verrou a changé.** Une tâche de `.cpanel.yml` compare le
+`package-lock.json` qu'elle vient de recevoir à celui de la dernière
+installation réussie, gardé à côté sous un autre nom. Deux fichiers, une
+comparaison locale, et une installation évitée sur la grande majorité des
+déploiements.
 
-Le passage au cron simplifie ce point : la comparaison se fait entièrement sur
-le serveur, là où les deux fichiers sont, au lieu d'un aller-retour depuis le
-runner.
+Ces deux règles sont les seules choses que le script du cron lègue au nouveau
+mécanisme. Elles ont été payées cher — un `npm ci` a cassé la production le
+17 août — et elles doivent voyager avec les commandes, pas rester dans un
+document que personne ne relit en modifiant une ligne.
 
 *Écarté* : installer à chaque fois. Sur un mutualisé, c'est une à deux minutes
 ajoutées à chaque livraison pour un résultat presque toujours identique.
@@ -303,21 +271,28 @@ où l'automatisme prend la main.
 **La bascule peut faire tomber le site si l'ordre est inversé** → Traité dans
 le plan de migration ci-dessous. C'est le risque le plus concret du chantier.
 
-**Le redémarrage n'a jamais été exercé, et le mécanisme a encore changé** →
-Pendant le rattrapage du 17 août, la chaîne s'est interrompue avant le `touch`,
-et Passenger a rechargé de lui-même : on a constaté que le nouveau code servait,
-jamais que le geste qui le provoque fonctionne. Depuis, ce geste n'est même plus
-le même — c'est le script du cron qui touche le fichier, et le pipeline ne fait
-que demander. Un mécanisme non éprouvé en a remplacé un autre.
-*Atténuation* : une tâche dédiée l'exerce seul, avant de l'inscrire dans une
-séquence où son échec passerait inaperçu.
+**Le redémarrage est prouvé, mais sur le mécanisme précédent** → Le
+`touch tmp/restart.txt` a été vu provoquer un rechargement : un en-tête déposé
+dans `main.ts` est apparu en production, ce qu'aucun déploiement frontend
+n'aurait pu établir puisque Apache sert ces fichiers sans passer par Passenger.
+Mais c'était le script du cron qui touchait le fichier. Avec cPanel c'est une
+tâche de `.cpanel.yml`, donc **un mécanisme non éprouvé remplace un mécanisme
+éprouvé** — pour la deuxième fois sur ce point précis. *Atténuation* : le
+réexercer isolément, avec la même sonde, avant d'en dépendre.
 
-**Le cron introduit un second acteur, invisible depuis le pipeline** → Un script
-qui tourne toutes les cinq minutes sur le serveur peut échouer, se bloquer, ou
-ne pas être installé du tout, et rien dans GitHub ne le dirait si le pipeline ne
-lisait pas son résultat. *Atténuation* : c'est précisément l'objet de l'exigence
-« Une opération déléguée est constatée, pas supposée » — et du délai maximal
-au-delà duquel le pipeline échoue plutôt que d'espérer.
+**Le déploiement s'exécute avec les droits du compte, sur ordre du dépôt** →
+`.cpanel.yml` est du shell versionné : qui peut pousser peut faire exécuter. Et
+le jeton, en `full_access`, dépasse largement le besoin. *Atténuation* : aucune
+qui rétablisse la propriété perdue — elle est retirée de la spécification plutôt
+que maquillée. Reste la révocabilité du jeton et le fait que pousser sur ce
+dépôt suppose déjà d'y être autorisé.
+
+**cPanel accepte un déclenchement sans garantir l'exécution** → `create` répond
+« mis en file ». Un pipeline qui s'en contenterait annoncerait des déploiements
+qui n'ont pas eu lieu. *Atténuation* : interroger `retrieve` jusqu'à un
+horodatage terminal, **en filtrant par dépôt** — sans ce filtre l'appel renvoie
+les déploiements de tout le compte, ce qui m'a déjà fait lire le résultat d'un
+autre projet comme s'il était le nôtre.
 
 ## Migration Plan
 
@@ -328,21 +303,21 @@ tomber le site**.
 0.  PRÉREQUIS, hors périmètre — rattrapage manuel en SSH        ✅ FAIT le 17 août
         │   5 commits, migration keycloak_login, 2 variables dans .env
         ▼
-0bis. TROIS GESTES SUR LE SERVEUR, préalables et manuels
-        │   compte FTP dédié, cantonné à ~/tambouille
-        │   script de déploiement déposé dans ~/bin/, hors de sa portée
-        │   entrée cron qui l'appelle toutes les 5 minutes
+0bis. CÔTÉ SERVEUR, manuel et déjà fait
+        │   dépôt cPanel cloné dans ~/repositories/tambouille   ✅
+        │   jeton d'API nommé github-deploy                      ✅
+        │   — distinct de ~/tambouille, qui reste la cible servie
         ▼
-1.  le pipeline transfère, demande, attend   dist encore versionné : doublon inoffensif
-        │   le cron migre, installe, redémarre  filet : le clone sert toujours
+1.  le CI construit, commite sur `deploy`, déclenche, attend
+        │   dist encore versionné sur main : doublon inoffensif
         ▼
 2.  un déploiement vérifié de bout en bout
         │
         ▼
-3.  suppression du .git de ~/tambouille      plus aucun pull ne peut rien effacer
-        │
+3.  suppression du .git de ~/tambouille      la cible servie cesse d'être un dépôt
+        │                                     (celui de cPanel est ailleurs)
         ▼
-4.  git rm -r --cached frontend/dist         maintenant seulement
+4.  git rm -r --cached frontend/dist sur main   le CI le remet sur `deploy`
         │
         ▼
 5.  suppression de la branche o2switch-db
@@ -373,19 +348,11 @@ fonctionne toujours. Après la 3, le retour arrière est un redéploiement par
 
 ## Open Questions
 
-- **Remplacer le `sync` fichier par fichier par une archive déballée côté
-  serveur ?** Mesuré : le transfert coûte 141 s sur 248, et presque rien de ce
-  temps ne passe en octets — le FTP n'ayant pas de listage récursif, rclone
-  interroge chaque fichier de `backend/dist`, qui en compte des centaines. Un
-  seul téléversement d'archive, déballée par le script du cron, ramènerait cela
-  à une dizaine de secondes. Ce serait aussi **plus sûr** : le pipeline cesserait
-  de nommer les chemins de destination, et c'est le script hors de portée du
-  compte FTP qui déciderait où va quoi. Cela rendrait même possible un
-  remplacement atomique, que ce design déclare hors de portée.
-  À traiter : la disparition de `--max-delete` comme mécanisme, remplacé par un
-  script ne touchant que des noms en dur ; et la garde contre les chemins `../`
-  dans l'archive. Écarté pour l'instant — le dispositif actuel fonctionne, et ce
-  changement toucherait la spécification, le script et le workflow ensemble.
+- ~~Remplacer le `sync` fichier par fichier par une archive déballée côté
+  serveur ?~~ **Sans objet** : il n'y a plus de `sync`. La question naissait du
+  coût de comparaison du FTP — 141 secondes sur 248 — et cPanel le supprime en
+  faisant tirer le serveur lui-même par git. La bonne idée a été rendue inutile
+  par un changement plus profond, ce qui vaut mieux que de l'avoir implémentée.
 
 - Faut-il conserver `frontend/dist` dans l'historique ou le purger ? Le garder
   laisse des mégaoctets de bundles dans les objets git, sans conséquence
