@@ -105,7 +105,37 @@ GitHub secrets needed: an SSH key dedicated to deployment (added under cPanel �
 **Priority:** P2
 **Depends on:** `add-keycloak-oidc-login` merged (done, `5e9686b`); blocker 3 removed (done, `add-ci-checks` task 1.1)
 
+### Clear the static-analysis backlog, then make eslint blocking
+
+**What:** Fix what `eslint` reports on both packages, then move `lint:check` out of `continue-on-error` in `.github/workflows/ci.yml`.
+
+**Why:** CI runs `eslint` today but ignores its verdict. A report nothing is obliged to read is read by nobody, and the decision not to block quietly becomes a decision to abandon. The counts are the reason it was not blocking from the start: **659 problems on the backend** (637 errors across 47 files, of which only 365 are auto-fixable — so ~294 need judgement), and **22 on the frontend**. Requiring all of that before any merge would have meant a refactor of that size landing inside a change whose object was to add one workflow file.
+
+Not all of it is cosmetic. The frontend's 22 break down as 16 `@typescript-eslint/no-explicit-any` and **6 `vue/no-mutating-props`** — a component writing into its own props is a defect, not a style preference: the parent owns that value, the mutation is invisible from where the value is declared, and Vue's reactivity makes the resulting bug non-local. Those six are worth fixing before the other 675.
+
+**Context:** Deliberate carve-out from `add-ci-checks` (2026-08-17), taken after measuring. The user was first offered "lint blocking" on my description of it as "probably some formatting drift"; the measurement showed otherwise and the scope was re-decided with the real numbers. Formatting *was* mechanical and is already done — `prettier --check` blocks on both packages as of that change.
+
+Suggested order: the 6 prop mutations first (real defects, smallest set), then `--fix` the 365 auto-fixable backend errors in an isolated commit, then the remaining ~294 by hand, then flip the two `continue-on-error: true` flags and delete this entry.
+
+**Effort:** L
+**Priority:** P2
+**Depends on:** `add-ci-checks` merged
+
 ## Testing
+
+### Identify the flaky unit tests
+
+**What:** Capture the full output the next time `backend` unit tests fail without a code change, and fix whatever it names.
+
+**Why:** During `add-ci-checks` the suite failed once in eight observed runs — 3 tests across 2 suites, in 25 s against a normal 5 to 15 s. It was never reproduced afterwards, including under a CPU load saturating all eight cores, and the output was not captured, so the failing tests are unknown. GitHub runners are slower and noisier than the machine that measurement was made on, so a timing-sensitive failure will surface there more often than it did locally.
+
+This matters more than one flake usually would, because the whole change rests on the premise that a red CI means something. A suite that fails at random teaches people to re-run rather than to read, and once that habit exists a genuine regression is indistinguishable from noise — which is exactly the state `app.e2e-spec.ts` had already put the e2e suite in.
+
+**Context:** Observed 2026-08-17 while sizing `add-ci-checks`. The workflow deliberately carries **no automatic retry**: a retry converts a real intermittent defect into invisible noise, which is the opposite of what the pipeline is for. That decision is recorded in the change's `design.md` and should not be revisited without diagnosing this first. The slow runs point at the two heaviest suites — `auth.service.spec.ts` (~9 s) and `mixes.controller.spec.ts` (~7 s) — as the place to look, but that is a hint from timings, not a finding.
+
+**Effort:** M
+**Priority:** P2
+**Depends on:** Nothing, but it needs a recurrence to act on
 
 <!-- "Delete or rewrite the scaffolded e2e test" was done as task 1.1 of
      add-ci-checks and removed from this file. Two things it got wrong, worth
