@@ -1,0 +1,26 @@
+---
+# VERSION D'ESSAI — ne déploie rien.
+#
+# Elle n'existe que pour établir le seul maillon jamais exercé de cette voie :
+# qu'un runner GitHub peut déclencher un déploiement cPanel par l'UAPI, et que
+# les tâches ci-dessous s'exécutent réellement sur le serveur.
+#
+# Elle écrit un horodatage dans le répertoire personnel — hors du dépôt, hors
+# des chemins servis, hors de tout ce que la production utilise. Un échec ici ne
+# peut donc rien casser.
+#
+# La version réelle recopiera les artefacts vers ~/tambouille, migrera et
+# redémarrera. Elle ne sera écrite qu'une fois celle-ci vue fonctionner : hier,
+# chaque maillon supposé plutôt que constaté cachait un défaut.
+#
+# Les tâches sont entre apostrophes, et ce n'est pas décoratif : une commande
+# contenant « : » suivi d'un espace est lue par YAML comme une paire
+# clé-valeur, et devient un dictionnaire au lieu d'une commande.
+deployment:
+  tasks:
+    - 'export MARQUEUR=/home/bane2718/.cpanel-deploy-probe'
+    - '/bin/date -u "+%Y-%m-%dT%H:%M:%SZ" > $MARQUEUR'
+    - '/bin/echo "branche = $(/usr/bin/git rev-parse --abbrev-ref HEAD)" >> $MARQUEUR'
+    - '/bin/echo "commit = $(/usr/bin/git rev-parse --short HEAD)" >> $MARQUEUR'
+    - '/bin/echo "repertoire = $(/bin/pwd)" >> $MARQUEUR'
+    - '/bin/cat $MARQUEUR'

@@ -284,40 +284,42 @@ jobs:
       # Exercer l'accès avant d'en dépendre. Cette étape échoue en quelques
       # secondes là où le transfert, lui, pendait — c'est ce qui est arrivé au
       # premier essai, avant qu'on sache le port 22 filtré.
-      # SONDE TEMPORAIRE — la voie cPanel Git est-elle exploitable ?
+      # SONDE TEMPORAIRE — le déclenchement depuis un runner fonctionne-t-il ?
       #
-      # Le port 2083 répond depuis un runner, mesuré. Reste à établir que l'UAPI
-      # existe sur cPanel 134, que le jeton est accepté, et que le dépôt géré est
-      # enregistré. Cet appel est en LECTURE SEULE : il liste, il n'écrit rien.
-      #
-      # Le jeton passe par l'environnement, jamais par interpolation dans le
-      # script — un secret interpolé est du code, pas une donnée. Cette leçon a
-      # coûté trois échecs hier.
-      - name: Sonde — UAPI cPanel depuis le runner
+      # C'est le seul maillon de la voie cPanel qui n'a jamais été exercé. Elle
+      # enchaîne les deux appels que le pipeline réel devra faire : tirer depuis
+      # GitHub, puis déployer. Le `.cpanel.yml` déployé n'écrit qu'un horodatage
+      # hors du dépôt et hors des chemins servis — un échec ne peut rien casser.
+      - name: Sonde — déclencher un déploiement cPanel
         continue-on-error: true
         env:
           CP_USER: ${{ secrets.O2SWITCH_CPANEL_USER }}
           CP_TOKEN: ${{ secrets.O2SWITCH_CPANEL_TOKEN }}
           CP_HOST: ${{ secrets.O2SWITCH_FTP_HOST }}
+          REPO: /home/bane2718/repositories/tambouille
         run: |
           set -uo pipefail
-          echo "── VersionControl::retrieve (lecture seule) ──"
-          code=$(curl -sS -o /tmp/uapi.json -w '%{http_code}' --max-time 25 \
-            -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
-            "https://$CP_HOST:2083/execute/VersionControl/retrieve" || echo "000")
-          echo "  HTTP $code"
-          python3 - <<'EOPY'
-          import json
-          try:
-              d = json.load(open('/tmp/uapi.json'))
-          except Exception as e:
-              print("  réponse illisible :", e)
-              print("  début brut :", open('/tmp/uapi.json').read()[:200])
-              raise SystemExit(0)
-          print("  status :", d.get('status'), " erreurs :", d.get('errors'))
-          for r in (d.get('data') or []):
-              print(f"    dépôt : {r.get('name')!r}  chemin : {r.get('repository_root')!r}  branche : {(r.get('branch') or {})}")
-          EOPY
+          call() {
+            local ep="$1"; shift
+            curl -sS --max-time 60 -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
+              --get "https://$CP_HOST:2083/execute/$ep" "$@"
+          }
+          show() { python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          print('   status', d.get('status'), '| erreurs', d.get('errors'))
+          print('   data  ', json.dumps(d.get('data'))[:400])
+          "; }
+
+          echo "── 1. update (tirer depuis GitHub) ──"
+          call VersionControl/update --data-urlencode "repository_root=$REPO" \
+               --data-urlencode "branch=o2switch-deploy" | show
+
+          echo "── 2. deployment create ──"
+          call VersionControlDeployment/create --data-urlencode "repository_root=$REPO" | show
+
+          echo "── 3. état des déploiements ──"
+          call VersionControlDeployment/retrieve | show
 
       - name: Vérifier l'accès FTPS
         run: |
