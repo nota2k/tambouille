@@ -294,6 +294,25 @@ jobs:
       # elle tient même si quelqu'un réécrit un chemin de travers. Un échec sur
       # cette garde se LIT, il ne se relève pas par réflexe.
       - name: Transférer les artefacts
+        # `sync` compare les deux côtés avant de transférer, et le FTP n'a pas de
+        # listage récursif : rclone descend répertoire par répertoire et demande
+        # la date de chaque fichier séparément. `backend/dist` en compte des
+        # centaines — un .js, un .d.ts et un .js.map par module — d'où trois
+        # minutes de comparaison pour un seul fichier à livrer.
+        #
+        # `--checkers` et `--ftp-concurrency` répartissent cette comparaison sur
+        # plusieurs connexions. 8 reste sous les limites habituelles d'un
+        # mutualisé ; au-delà, l'hébergeur refuserait des connexions et ce serait
+        # visible.
+        #
+        # `--stats` donne un battement de cœur : sans lui l'étape reste muette
+        # pendant des minutes et paraît bloquée — on ne distingue plus une
+        # comparaison lente d'un transfert qui pend, ce qui est arrivé.
+        env:
+          RCLONE_CHECKERS: "8"
+          RCLONE_TRANSFERS: "4"
+          RCLONE_FTP_CONCURRENCY: "8"
+          RCLONE_STATS: 20s
         run: |
           set -euo pipefail
           DRY=""
