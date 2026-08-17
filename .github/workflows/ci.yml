@@ -237,11 +237,27 @@ jobs:
         with:
           node-version: 22
 
-      # apt-get plutôt qu'une action tierce : ce workflow porte les identifiants
-      # FTP de production, et une action épinglée sur un tag mobile pourrait les
-      # lire. Voir design.md, Decisions.
+      # Le binaire officiel plutôt qu'une action tierce : ce workflow porte les
+      # identifiants FTP de production, et une action épinglée sur un tag mobile
+      # pourrait les lire. Voir design.md, Decisions.
+      #
+      # Et plutôt qu'apt : `apt-get update` rafraîchissait tout l'index des
+      # paquets — 9 à 15 secondes mesurées — pour en installer un seul, et
+      # livrait la version qu'Ubuntu embarque ce mois-ci. Ici la version est
+      # ÉPINGLÉE : le pipeline ne changera pas de comportement parce que
+      # l'image du runner a été reconstruite.
+      #
+      # La relever demande un geste délibéré, ce qui est le but.
       - name: Installer rclone
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone
+        env:
+          RCLONE_VERSION: v1.75.0
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/rclone.zip \
+            "https://downloads.rclone.org/${RCLONE_VERSION}/rclone-${RCLONE_VERSION}-linux-amd64.zip"
+          sudo unzip -qj /tmp/rclone.zip '*/rclone' -d /usr/local/bin
+          sudo chmod +x /usr/local/bin/rclone
+          rclone version | head -1
 
       # rclone n'accepte pas un mot de passe en clair dans sa configuration : il
       # le veut obscurci. L'obscurcissement est RÉVERSIBLE — ce n'est pas du
