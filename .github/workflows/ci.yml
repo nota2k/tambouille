@@ -318,8 +318,11 @@ jobs:
           echo "── 2. deployment create ──"
           call VersionControlDeployment/create --data-urlencode "repository_root=$REPO" | show
 
-          echo "── 3. état des déploiements ──"
-          call VersionControlDeployment/retrieve | show
+          echo "── 3. état des déploiements DE CE DÉPÔT ──"
+          # Sans `repository_root`, cet appel renvoie les déploiements de TOUS
+          # les dépôts du compte — ce qui m'a fait prendre le déploiement d'un
+          # autre projet pour le nôtre.
+          call VersionControlDeployment/retrieve --data-urlencode "repository_root=$REPO" | show
 
       - name: Vérifier l'accès FTPS
         run: |
