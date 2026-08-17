@@ -72,12 +72,14 @@ describe('AuthService', () => {
     }
 
     function accountOn(storedEmail: string, storedUsername: string) {
-      prisma.user.findFirst.mockImplementation(({ where }: { where: Where }) => {
-        const hit = where.email
-          ? matches(where.email, storedEmail)
-          : matches(where.username, storedUsername);
-        return Promise.resolve(hit ? { id: 'u1' } : null);
-      });
+      prisma.user.findFirst.mockImplementation(
+        ({ where }: { where: Where }) => {
+          const hit = where.email
+            ? matches(where.email, storedEmail)
+            : matches(where.username, storedUsername);
+          return Promise.resolve(hit ? { id: 'u1' } : null);
+        },
+      );
     }
 
     it('refuses an address that differs only in case from a registered one', async () => {
@@ -954,18 +956,23 @@ describe('AuthService', () => {
     // Same rule as `register`: the unique index compares strings, so nothing
     // below this check stops `Nelly` from landing next to `nelly`.
     it('refuses a username taken by someone else in a different case', async () => {
-      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1', username: null });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: 'u1',
+        username: null,
+      });
       prisma.user.findFirst.mockImplementation(({ where }: { where: Where }) =>
         Promise.resolve(
           typeof where.username === 'object' &&
-          where.username?.mode === 'insensitive' &&
-          where.username.equals.toLowerCase() === 'nelly'
+            where.username?.mode === 'insensitive' &&
+            where.username.equals.toLowerCase() === 'nelly'
             ? { id: 'u2', username: 'nelly' }
             : null,
         ),
       );
 
-      await expect(service.setUsername('u1', 'Nelly')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.setUsername('u1', 'Nelly')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
