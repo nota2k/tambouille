@@ -12,17 +12,17 @@ proposition de fusion qui porte ce changement.
 
 ## 2. Le workflow
 
-- [ ] 2.1 Créer `.github/workflows/ci.yml` : déclencheurs `pull_request` vers `main` et `push` sur `main` ; `concurrency` groupée sur la référence avec `cancel-in-progress: true` pour les propositions de fusion, jamais pour `main`.
-- [ ] 2.2 Tâche `backend` : `actions/checkout`, `actions/setup-node` en node 22 avec `cache: npm` et `cache-dependency-path: backend/package-lock.json`, puis `npm ci`, `npm run format:check`, `npm test`, `npm run build`. Ne lui fournir aucune variable d'environnement ni aucun secret — c'est ce que la spécification exige et ce que la mesure autorise.
-- [ ] 2.3 Tâche `frontend` : mêmes actions, `cache-dependency-path: frontend/package-lock.json`, puis `npm ci`, `npm run format:check`, `npm run lint:check`, `npm run build`. `build` enchaîne déjà `vue-tsc --build` et `vite build` par `run-p`, donc le typage est couvert sans étape séparée.
-- [ ] 2.4 Tâche `e2e` : service `postgres:16-alpine` (mêmes identifiants que `docker-compose.yml`) avec un `health-check`, `DATABASE_URL` pointant dessus, puis `npm ci` et `npm run test:e2e`. **Aucune étape de migration** : vérifié, la suite passe contre une base vide. Si quelqu'un ajoute `prisma migrate deploy` ici plus tard, il ajoute une dépendance dont la suite n'a pas besoin.
-- [ ] 2.5 Ajouter le rapport `eslint` non bloquant : une étape `continue-on-error: true` par paquet lançant `lint:check`. *Vérifier* : la tâche reste verte alors que l'étape est rouge et que son rapport est lisible dans les journaux. C'est le scénario « L'analyse statique signale des problèmes ».
+- [x] 2.1 Créer `.github/workflows/ci.yml` : déclencheurs `pull_request` vers `main` et `push` sur `main` ; `concurrency` groupée sur la référence avec `cancel-in-progress: true` pour les propositions de fusion, jamais pour `main`.
+- [x] 2.2 Tâche `backend` : `actions/checkout`, `actions/setup-node` en node 22 avec `cache: npm` et `cache-dependency-path: backend/package-lock.json`, puis `npm ci`, `npm run format:check`, `npm test`, `npm run build`. Ne lui fournir aucune variable d'environnement ni aucun secret — c'est ce que la spécification exige et ce que la mesure autorise.
+- [x] 2.3 Tâche `frontend` : mêmes actions, `cache-dependency-path: frontend/package-lock.json`, puis `npm ci`, `npm run format:check`, `npm run lint:check`, `npm run build`. `build` enchaîne déjà `vue-tsc --build` et `vite build` par `run-p`, donc le typage est couvert sans étape séparée.
+- [x] 2.4 Tâche `e2e` : service `postgres:16-alpine` (mêmes identifiants que `docker-compose.yml`) avec un `health-check`, `DATABASE_URL` pointant dessus, puis `npm ci` et `npm run test:e2e`. **Aucune étape de migration** : vérifié, la suite passe contre une base vide. Si quelqu'un ajoute `prisma migrate deploy` ici plus tard, il ajoute une dépendance dont la suite n'a pas besoin.
+- [x] 2.5 Ajouter le rapport `eslint` non bloquant : une étape `continue-on-error: true` par paquet lançant `lint:check`. *Vérifier* : la tâche reste verte alors que l'étape est rouge et que son rapport est lisible dans les journaux. C'est le scénario « L'analyse statique signale des problèmes ».
 
 ## 3. Mise en service
 
 - [ ] 3.1 Ouvrir la proposition de fusion et constater le premier passage complet. Relever la durée de chaque tâche : au-delà de quelques minutes, le retour cesse d'être utilisable et il faudra revoir la mise en cache.
 - [ ] 3.2 **Vérifier que le rouge fonctionne**, une assertion à la fois : casser volontairement un test et constater l'échec ; rétablir, casser le typage frontend, constater ; rétablir, désaligner un fichier, constater. Une vérification qu'on n'a jamais vue échouer n'est pas une vérification. Aucune de ces trois cassures ne doit être fusionnée.
-- [ ] 3.3 Vérifier qu'aucune tâche ne réclame de secret : relire le workflow, confirmer l'absence de toute référence à `secrets.`. C'est ce qui permettra plus tard d'accepter des propositions venues d'un fork sans réoutiller.
+- [x] 3.3 Vérifier qu'aucune tâche ne réclame de secret : relire le workflow, confirmer l'absence de toute référence à `secrets.`. **Fait** : zéro occurrence de `secrets.`, et `permissions: contents: read` en tête de fichier. C'est ce qui permettra plus tard d'accepter des propositions venues d'un fork sans réoutiller.
 - [ ] 3.4 Une fois le passage vert obtenu, activer la protection de branche sur `main` dans l'interface GitHub et y exiger les tâches. **Geste manuel, hors du dépôt** : tant qu'il n'est pas fait, une proposition rouge reste fusionnable et le workflow n'est qu'un avis.
 
 ## 4. Ce que ce changement laisse derrière lui

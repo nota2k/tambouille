@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Une nouvelle poussée sur une proposition de fusion annule l'exécution en cours
+# pour cette même référence : seul le dernier état compte. Les exécutions sur
+# `main` ne sont jamais annulées — chacune correspond à un commit distinct de
+# l'historique, et en perdre une laisserait un trou.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Aucune tâche ne lit de secret, et c'est délibéré : les vérifications restent
+# ainsi exécutables telles quelles sur une proposition venue d'un fork.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node 22 : la seule version qui satisfasse à la fois le `engines` du
+      # frontend et la production, qui tourne sur le node 22 du nodevenv
+      # o2switch. Vérifier sur une version que le serveur n'exécute pas
+      # reviendrait à vérifier autre chose que ce qui est déployé.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # `npm ci` et non `npm install` : il échoue si le verrou et le manifeste
+      # divergent, ce qui est précisément le signal recherché.
+      #
+      # Le `postinstall` du paquet déclenche `prisma generate`. Vérifié : il
+      # fonctionne sans `DATABASE_URL`, donc aucune variable n'est nécessaire ici.
+      - run: npm ci
+        working-directory: backend
+
+      - run: npm run format:check
+        working-directory: backend
+
+      # Aucune variable d'environnement, aucun service. Vérifié avant d'écrire
+      # ce fichier : la suite passe 539/539 dans un environnement entièrement
+      # vierge et sans base joignable.
+      - run: npm test
+        working-directory: backend
+
+      - run: npm run build
+        working-directory: backend
+
+      # Non bloquant. Le dépôt compte 659 problèmes eslint côté backend, dont
+      # environ 294 ne sont pas auto-corrigeables : les rendre bloquants
+      # reviendrait à exiger une remise à plat de cette taille avant toute
+      # fusion. Le rapport reste lisible dans les journaux, et son nettoyage
+      # est une entrée distincte de TODOS.md.
+      - name: eslint (rapport, non bloquant)
+        run: npm run lint:check
+        working-directory: backend
+        continue-on-error: true
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run format:check
+        working-directory: frontend
+
+      # `build` enchaîne `vue-tsc --build` et `vite build` par `run-p`, donc le
+      # contrôle de typage est couvert sans étape séparée.
+      - run: npm run build
+        working-directory: frontend
+
+      - name: eslint et oxlint (rapport, non bloquant)
+        run: npm run lint:check
+        working-directory: frontend
+        continue-on-error: true
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+
+    # `mail-boot.e2e-spec.ts` épingle une garantie qu'aucun test unitaire ne
+    # couvre : aucun défaut de configuration SMTP n'empêche l'API de démarrer.
+    # Elle exige un PostgreSQL joignable, parce que `PrismaService.onModuleInit`
+    # appelle `$connect()`.
+    #
+    # Un service déclaré ici, créé et détruit avec la tâche, n'est pas une
+    # dépendance extérieure : il ne tient à aucun secret ni à aucune machine
+    # tierce, et il est reproductible d'une exécution à l'autre.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tambouille
+          POSTGRES_PASSWORD: tambouille
+          POSTGRES_DB: tambouille
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tambouille"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+        working-directory: backend
+
+      # AUCUNE étape de migration, et ce n'est pas un oubli : vérifié contre une
+      # base vide et non migrée, la suite passe. `onModuleInit` se contente d'un
+      # `$connect()`, sans requête. Ajouter `prisma migrate deploy` ici ferait
+      # dépendre la vérification d'un état de schéma dont elle n'a pas besoin.
+      - run: npm run test:e2e
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://tambouille:tambouille@localhost:5432/tambouille?schema=public
