@@ -170,9 +170,19 @@ jobs:
   #
   # `needs` sur les trois vérifications : déployer sans qu'elles soient vertes
   # est impossible, et c'est une propriété du graphe des tâches, pas une
-  # consigne qu'on rappelle. La condition `workflow_dispatch` garantit qu'aucune
+  # consigne. La condition `workflow_dispatch` garantit qu'aucune
   # `pull_request` ne peut atteindre cette tâche, donc les secrets ci-dessous ne
   # sont jamais exposés à du code venu d'un fork.
+  #
+  # TRANSPORT : FTPS, et non SSH. Le port 22 est filtré par le pare-feu du
+  # mutualisé, dont la liste blanche compte cinq emplacements quand les plages
+  # de sortie des runners GitHub se comptent en milliers de blocs CIDR. Ce n'est
+  # pas une adresse à trouver, c'est une impossibilité de structure — mesurée le
+  # 17 août 2026. Le port 21 répond.
+  #
+  # Le FTP transfère des fichiers et n'exécute rien. Migrations, installation et
+  # redémarrage sont donc délégués à un cron du serveur : ce workflow dépose une
+  # demande et attend le résultat. Voir deploy/o2switch-cron.sh.
   # ─────────────────────────────────────────────────────────────────────────
   deploy:
     name: deploy
@@ -180,26 +190,30 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     # Un déploiement qui pend est pire qu'un déploiement qui échoue : il ne dit
-    # rien et consomme. Le 17 août, un rclone bloqué sur une invite
-    # d'authentification a tourné jusqu'à l'annulation manuelle.
-    timeout-minutes: 20
-    # Deux déploiements ne se chevauchent jamais, et aucun n'est annulé en
-    # cours de route : interrompre un transfert laisserait le serveur mi-ancien
+    # rien et consomme. Le 17 août, un transfert bloqué sur une connexion filtrée
+    # a tourné jusqu'à l'annulation manuelle.
+    timeout-minutes: 30
+    # Deux déploiements ne se chevauchent jamais, et aucun n'est annulé en cours
+    # de route : interrompre un transfert laisserait le serveur mi-ancien
     # mi-neuf, ce qu'aucune étape ultérieure ne rattraperait.
     concurrency:
       group: deploy-production
       cancel-in-progress: false
 
     env:
-      REMOTE: /home/${{ secrets.O2SWITCH_USER }}/tambouille
-      RCLONE_CONFIG_O2_TYPE: sftp
+      # Le compte FTP est cantonné à ~/tambouille : sa racine EST le répertoire
+      # de l'application. Les chemins ci-dessous sont donc relatifs à elle, et
+      # aucun d'eux ne peut désigner quoi que ce soit hors du cantonnement.
+      RCLONE_CONFIG_O2_TYPE: ftp
       RCLONE_CONFIG_O2_HOST: ${{ secrets.O2SWITCH_HOST }}
-      RCLONE_CONFIG_O2_USER: ${{ secrets.O2SWITCH_USER }}
-      RCLONE_CONFIG_O2_KEY_FILE: /home/runner/.ssh/deploy_key
-      # Ne jamais demander de mot de passe : sans cela rclone attend une saisie
-      # sur un runner qui n'en fournira jamais.
+      RCLONE_CONFIG_O2_USER: ${{ secrets.O2SWITCH_FTP_USER }}
+      # AUTH TLS sur le port 21. Jamais de FTP nu : sans TLS le mot de passe et
+      # l'intégralité des fichiers traverseraient internet en clair à chaque
+      # livraison. Le 990 (TLS implicite) est filtré, mesuré le 17 août.
+      RCLONE_CONFIG_O2_EXPLICIT_TLS: "true"
+      # Ne jamais demander de mot de passe : sur un runner, une invite attend une
+      # saisie qui ne viendra jamais et la tâche pend au lieu d'échouer.
       RCLONE_CONFIG_O2_ASK_PASSWORD: "false"
-      # Bornes de temps : un transfert qui n'aboutit pas doit échouer, pas pendre.
       RCLONE_CONTIMEOUT: 15s
       RCLONE_TIMEOUT: 60s
       RCLONE_LOW_LEVEL_RETRIES: "2"
@@ -215,54 +229,30 @@ jobs:
         with:
           node-version: 22
 
-      # Configuration par variables d'environnement plutôt que par fichier
-      # encodé dans un secret : la clé SSH reste le seul élément sensible,
-      # celui dont on a besoin de toute façon pour les migrations.
-      - name: Clé SSH et hôte connu
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.O2SWITCH_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "${{ secrets.O2SWITCH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      # apt-get plutôt qu'une action tierce : ce workflow porte la clé SSH de
-      # production, et une action tierce épinglée sur un tag mobile pourrait la
+      # apt-get plutôt qu'une action tierce : ce workflow porte les identifiants
+      # FTP de production, et une action épinglée sur un tag mobile pourrait les
       # lire. Voir design.md, Decisions.
-      # SONDE TEMPOIRE — à retirer une fois le transport choisi.
-      #
-      # Le port 22 s'est révélé filtré depuis un runner (connexion abandonnée
-      # sans réponse) alors qu'il répond depuis un poste de développement : le
-      # pare-feu du mutualisé n'accepte que des adresses connues. Avant de
-      # réécrire le transfert en FTP, il faut savoir si le 21 subit le même
-      # sort — sinon on aurait bâti toute une voie sur une hypothèse invérifiée,
-      # ce qui est exactement l'erreur qu'on vient de faire.
-      #
-      # Aucune de ces sondes n'a besoin d'identifiants : elles n'ouvrent qu'une
-      # connexion TCP. `timeout` distingue les deux réponses qui comptent —
-      # « refusé » (port fermé, la machine répond) contre « expiré » (paquets
-      # jetés, pare-feu).
-      - name: Sonder les ports depuis le runner
-        run: |
-          set -uo pipefail
-          probe() {
-            local port=$1 label=$2
-            if timeout 8 bash -c "cat < /dev/null > /dev/tcp/${{ secrets.O2SWITCH_HOST }}/$port" 2>/dev/null; then
-              echo "  port $port ($label) : OUVERT"
-            else
-              case $? in
-                124) echo "  port $port ($label) : EXPIRÉ — paquets jetés, pare-feu" ;;
-                *)   echo "  port $port ($label) : refusé ou fermé" ;;
-              esac
-            fi
-          }
-          probe 21  "FTP"
-          probe 22  "SSH"
-          probe 990 "FTPS implicite"
-          probe 443 "HTTPS — témoin, doit être ouvert"
-
       - name: Installer rclone
         run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone
+
+      # rclone n'accepte pas un mot de passe en clair dans sa configuration : il
+      # le veut obscurci. L'obscurcissement est RÉVERSIBLE — ce n'est pas du
+      # chiffrement — d'où le masquage explicite du résultat dans les journaux.
+      - name: Configurer l'accès FTPS
+        run: |
+          set -euo pipefail
+          OBSCURED=$(rclone obscure "${{ secrets.O2SWITCH_FTP_PASS }}")
+          echo "::add-mask::$OBSCURED"
+          echo "RCLONE_CONFIG_O2_PASS=$OBSCURED" >> "$GITHUB_ENV"
+
+      # Exercer l'accès avant d'en dépendre. Cette étape échoue en quelques
+      # secondes là où le transfert, lui, pendait — c'est ce qui est arrivé au
+      # premier essai, avant qu'on sache le port 22 filtré.
+      - name: Vérifier l'accès FTPS
+        run: |
+          set -euo pipefail
+          echo "Racine du compte FTP :"
+          rclone lsd o2: --max-depth 1
 
       - name: Construire le backend
         working-directory: backend
@@ -289,75 +279,56 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             DRY="--dry-run"
             echo "── MODE SIMULATION : rien ne sera écrit ──"
-            echo "Contenu actuel de la destination :"
-            rclone lsd o2:$REMOTE
-            rclone lsd o2:$REMOTE/backend
+            rclone lsd o2:backend || true
           fi
-          rclone sync backend/dist/      o2:$REMOTE/backend/dist/      --max-delete=50 $DRY --stats-one-line
-          rclone sync backend/generated/ o2:$REMOTE/backend/generated/ --max-delete=50 $DRY --stats-one-line
-          rclone sync backend/prisma/    o2:$REMOTE/backend/prisma/    --max-delete=20 $DRY --stats-one-line
-          rclone sync frontend/dist/     o2:$REMOTE/frontend/dist/     --max-delete=80 $DRY --stats-one-line
-          rclone copy backend/package.json      o2:$REMOTE/backend/ $DRY
-          rclone copy backend/package-lock.json o2:$REMOTE/backend/ $DRY
+          rclone sync backend/dist/      o2:backend/dist/      --max-delete=50 $DRY --stats-one-line
+          rclone sync backend/generated/ o2:backend/generated/ --max-delete=50 $DRY --stats-one-line
+          rclone sync backend/prisma/    o2:backend/prisma/    --max-delete=20 $DRY --stats-one-line
+          rclone sync frontend/dist/     o2:frontend/dist/     --max-delete=80 $DRY --stats-one-line
+          rclone copy backend/package.json      o2:backend/ $DRY
+          rclone copy backend/package-lock.json o2:backend/ $DRY
 
-      # ── Dépendances d'exécution ──────────────────────────────────────────
+      # ── Demande, puis attente ────────────────────────────────────────────
       #
-      # `npm install --omit=dev`, JAMAIS `npm ci`.
+      # Le FTP n'exécute rien. Le pipeline dépose une DEMANDE portant son SHA ;
+      # le script du serveur — qui vit dans ~/bin/, hors de portée de ce compte
+      # FTP — l'exécute et écrit un résultat.
       #
-      # `npm ci` commence par supprimer `node_modules`. Or CloudLinux NodeJS
-      # Selector exige que ce répertoire soit un LIEN SYMBOLIQUE vers le
-      # virtualenv de l'application. Un `npm ci` détruit le lien, vide sa cible,
-      # et toute commande npm ultérieure est refusée — c'est exactement ce qui a
-      # cassé la production le 17 août 2026, et il a fallu rétablir le lien à la
-      # main. Ne « simplifiez » pas cette ligne.
-      #
-      # L'installation n'a lieu que si le verrou a changé : sur un mutualisé,
-      # c'est une à deux minutes économisées sur la grande majorité des
-      # livraisons.
-      - name: Installer les dépendances d'exécution si le verrou a changé
+      # Le SHA circule dans les deux sens pour que le pipeline ne puisse pas lire
+      # le résultat d'un déploiement antérieur et le prendre pour le sien.
+      - name: Demander l'exécution au serveur
         if: ${{ !inputs.dry_run }}
         run: |
           set -euo pipefail
-          LOCAL=$(sha256sum backend/package-lock.json | cut -d' ' -f1)
-          REMOTE_SUM=$(ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} \
-            "sha256sum $REMOTE/backend/package-lock.json.deployed 2>/dev/null | cut -d' ' -f1" || true)
-          if [ "$LOCAL" = "$REMOTE_SUM" ]; then
-            echo "Verrou inchangé — pas d'installation."
-            exit 0
-          fi
-          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} bash -euo pipefail <<EOSSH
-            source ~/nodevenv/tambouille/backend/22/bin/activate
-            cd $REMOTE/backend
-            npm install --omit=dev
-            # La structure imposée par l'hébergeur doit avoir survécu.
-            if [ ! -L node_modules ]; then
-              echo "ERREUR : node_modules n'est plus un lien symbolique." >&2
-              exit 1
-            fi
-            cp package-lock.json package-lock.json.deployed
-          EOSSH
+          echo "${{ github.sha }}" > pending
+          rclone copyto pending o2:deploy/pending
+          echo "demande déposée pour ${{ github.sha }}"
 
-      # ── Schéma, puis redémarrage ─────────────────────────────────────────
-      #
-      # Migrer AVANT de redémarrer : pendant la fenêtre qui suit, l'ancien code
-      # tourne sur le nouveau schéma, ce qui est sûr tant que les migrations
-      # sont additives. L'inverse ne l'est jamais.
-      - name: Migrer et redémarrer
+      # Un déploiement qui dépose une demande et se déclare réussi n'annonce que
+      # son propre envoi. Le résultat qui compte est celui de l'opération.
+      - name: Attendre le résultat du serveur
         if: ${{ !inputs.dry_run }}
+        timeout-minutes: 15
         run: |
-          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key ${{ secrets.O2SWITCH_USER }}@${{ secrets.O2SWITCH_HOST }} bash -euo pipefail <<EOSSH
-            source ~/nodevenv/tambouille/backend/22/bin/activate
-            # Le PATH du serveur porte un node 24.11.x qui ne satisfait pas le
-            # \`engines\` du projet et n'est pas celui que Passenger exécute.
-            node -v | grep -q '^v22\.' || { echo "ERREUR : node \$(node -v) au lieu de 22.x" >&2; exit 1; }
-            cd $REMOTE/backend
-            npx --yes prisma@7 migrate deploy
-            touch tmp/restart.txt
-          EOSSH
+          set -uo pipefail
+          SHA="${{ github.sha }}"
+          for i in $(seq 1 45); do
+            if rclone cat o2:deploy/result > result 2>/dev/null; then
+              if grep -q "^sha=$SHA$" result; then
+                echo "── résultat du serveur ──"; cat result
+                grep -q '^status=ok$' result && exit 0
+                echo "::error::le serveur a signalé un échec"; exit 1
+              fi
+            fi
+            sleep 20
+          done
+          echo "::error::aucun résultat du serveur après 15 minutes — le cron tourne-t-il ?"
+          exit 1
 
       # Constater plutôt que supposer : un redémarrage réussi n'exclut pas que
       # les deux moitiés du site soient désaccordées. C'est arrivé le 17 août.
       - name: Vérifier que le site répond
+        if: ${{ !inputs.dry_run }}
         run: |
           set -euo pipefail
           sleep 5

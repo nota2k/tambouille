@@ -123,14 +123,18 @@ versionnement de `dist/` par une affirmation devenue fausse.
 
 **Retiré du suivi git** : `frontend/dist/`.
 
-**Hors du dépôt, et sans équivalent versionné** : un compte FTP dédié cantonné
-à `~/tambouille` ; un script de déploiement dans `~/bin/` ; une entrée cron qui
-l'appelle. Puis, plus tard, la suppression du `.git` de `~/tambouille` et celle
-de la branche `o2switch-db`.
+**Ajouté au dépôt** : `deploy/o2switch-cron.sh`, le script que le cron du
+serveur exécute. Il vit dans `~/bin/` pour s'exécuter, mais sa source est
+versionnée ici — relisible, comparable, et sa dérive constatable.
 
-Ces trois premiers éléments sont le point faible du dispositif : ils vivent sur
-le serveur, ne sont pas sous gestion de version, et rien ne signalera leur
-disparition sinon un déploiement qui n'aboutit plus.
+**Hors du dépôt** : un compte FTP dédié cantonné à `~/tambouille` ; la copie du
+script dans `~/bin/` ; une entrée cron qui l'appelle. Puis, plus tard, la
+suppression du `.git` de `~/tambouille` et celle de la branche `o2switch-db`.
+
+Ces éléments restent le point faible du dispositif : ils vivent sur le serveur,
+et rien ne signalera leur disparition sinon un déploiement qui n'aboutit plus.
+Versionner la source du script réduit ce risque sans le supprimer — c'est la
+copie déposée qui s'exécute, et les deux peuvent diverger.
 
 ## Non-Goals
 

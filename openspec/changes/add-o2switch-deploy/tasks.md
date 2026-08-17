@@ -19,9 +19,9 @@ Ce groupe ne produit aucun fichier du dépôt : son résultat vit sur le serveur
 hors de toute gestion de version. C'est le point faible assumé du dispositif, et
 la raison pour laquelle le script doit être court et lisible.
 
-- [ ] 2.1 Écrire le script de déploiement et le déposer dans `~/bin/`, **hors du périmètre du compte FTP**. Il lit `~/tambouille/deploy/pending`, et s'il existe : active le `nodevenv`, vérifie que `node -v` répond en 22.x, installe les dépendances d'exécution si le verrou diffère de celui de la dernière installation réussie, applique les migrations, touche `backend/tmp/restart.txt`, écrit `deploy/result`, supprime `pending`.
-- [ ] 2.2 **`npm install --omit=dev`, jamais `npm ci`** — avec la raison écrite dans le script, à côté de la commande. `npm ci` supprime `node_modules`, donc le lien symbolique que CloudLinux impose, et c'est ce qui a cassé la production le 17 août. Le script doit en outre **échouer explicitement** si `node_modules` cesse d'être un lien.
-- [ ] 2.3 Protéger le script contre le recouvrement par `flock` : deux exécutions du cron ne doivent jamais se chevaucher, ni une exécution longue être doublée par la suivante.
+- [x] 2.1 **Écrit et versionné** dans `deploy/o2switch-cron.sh` — le proposal désignait comme point faible qu'il n'ait aucun équivalent sous gestion de version ; il en a un désormais. La **copie vers `~/bin/`** reste un geste manuel, à faire avec la tâche 2.4. Écrire le script de déploiement et le déposer dans `~/bin/`, **hors du périmètre du compte FTP**. Il lit `~/tambouille/deploy/pending`, et s'il existe : active le `nodevenv`, vérifie que `node -v` répond en 22.x, installe les dépendances d'exécution si le verrou diffère de celui de la dernière installation réussie, applique les migrations, touche `backend/tmp/restart.txt`, écrit `deploy/result`, supprime `pending`.
+- [x] 2.2 **`npm install --omit=dev`, jamais `npm ci`** — avec la raison écrite dans le script, à côté de la commande. `npm ci` supprime `node_modules`, donc le lien symbolique que CloudLinux impose, et c'est ce qui a cassé la production le 17 août. Le script doit en outre **échouer explicitement** si `node_modules` cesse d'être un lien.
+- [x] 2.3 Protéger le script contre le recouvrement par `flock` : deux exécutions du cron ne doivent jamais se chevaucher, ni une exécution longue être doublée par la suivante.
 - [ ] 2.4 Installer l'entrée cron, toutes les cinq minutes. *Vérifier* : déposer un `pending` à la main, attendre, constater que `result` apparaît et que `pending` a disparu.
 - [ ] 2.5 **Exercer le redémarrage seul, avant d'en dépendre.** `touch tmp/restart.txt` n'a jamais été vu fonctionner : le 17 août la chaîne s'est interrompue avant, et Passenger a rechargé de lui-même. On sait que le nouveau code servait ; on ne sait pas que ce geste le provoque. Le vérifier isolément — modifier une chaîne dans `dist/`, lancer le script, constater le changement servi.
 
@@ -29,10 +29,10 @@ la raison pour laquelle le script doit être court et lisible.
 
 - [x] 2b.1 Ajouter la tâche `deploy` à `ci.yml` : `needs: [backend, frontend, e2e]`, `workflow_dispatch` avec entrées `ref` et `dry_run`, condition excluant les `pull_request`. **Écrit**, YAML validé, blocs `run` passés à `bash -n`. L'observation sur une vraie PR reste à faire.
 - [x] 2b.2 Installer rclone par `apt-get` et construire les deux paquets dans la tâche. Pas d'action tierce, pas d'`upload-artifact`.
-- [ ] 2b.3 **Réécrire le transfert en FTPS** : `RCLONE_CONFIG_O2_TYPE=ftp`, `EXPLICIT_TLS=true`, mot de passe obscurci par `rclone obscure` dans la tâche. `sync` par sous-répertoire avec son `--max-delete`, `copy` pour les manifestes, **rien qui vise `backend/` lui-même**.
+- [x] 2b.3 **Réécrire le transfert en FTPS** : `RCLONE_CONFIG_O2_TYPE=ftp`, `EXPLICIT_TLS=true`, mot de passe obscurci par `rclone obscure` dans la tâche. `sync` par sous-répertoire avec son `--max-delete`, `copy` pour les manifestes, **rien qui vise `backend/` lui-même**.
 - [ ] 2b.4 **Exercer la garde avant d'en dépendre** : lancer en `dry_run` et lire ce que chaque `sync` annonce supprimer ; puis, en abaissant temporairement un `--max-delete` à 1, constater que l'opération **s'interrompt** au lieu d'effacer. C'est le scénario « Portée de transfert erronée », et la seule tâche qui distingue une garde d'un commentaire rassurant.
-- [ ] 2b.5 Déposer `deploy/pending` portant le SHA, puis **attendre `deploy/result`** en l'interrogeant par FTP jusqu'à y lire ce même SHA, avec un délai maximal. Échouer si le statut n'est pas `ok`, et échouer aussi si rien n'arrive — un pipeline qui dépose une demande et se déclare réussi n'annonce que son propre envoi.
-- [ ] 2b.6 Retirer la sonde de ports temporaire, ainsi que les étapes SSH devenues mortes.
+- [x] 2b.5 Déposer `deploy/pending` portant le SHA, puis **attendre `deploy/result`** en l'interrogeant par FTP jusqu'à y lire ce même SHA, avec un délai maximal. Échouer si le statut n'est pas `ok`, et échouer aussi si rien n'arrive — un pipeline qui dépose une demande et se déclare réussi n'annonce que son propre envoi.
+- [x] 2b.6 Retirer la sonde de ports temporaire, ainsi que les étapes SSH devenues mortes.
 - [x] 2b.7 Ajouter la vérification d'après déploiement : une requête sur l'API et une sur le site, l'échec de l'une faisant échouer la tâche.
 
 ## 3. Le premier déploiement piloté
