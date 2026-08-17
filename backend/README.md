@@ -1,98 +1,94 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Backend Tambouille
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API NestJS. Pour l'installation et le démarrage en local, voir le
+[README racine](../README.md).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Ce fichier documente le **déploiement**, parce que c'est ici que vivent les
+détails qui le contraignent : Passenger, le virtualenv Node de l'hébergeur, et
+les migrations Prisma.
 
-## Description
+## Comment une version arrive en production
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Rien n'est manuel, et rien ne se déclenche tout seul non plus — le déploiement
+part sur commande, depuis *Actions › CI › Run workflow*.
 
-## Project setup
-
-```bash
-$ npm install
+```
+push / PR ──▶ backend · frontend · e2e          les trois vérifications
+                    │
+                    ▼  needs
+              deploy (workflow_dispatch seulement)
+                    │
+     construit les deux paquets sur le runner
+                    │
+     rclone en FTPS ─────────────▶  ~/tambouille/{backend,frontend}
+                    │
+     dépose deploy/pending (SHA) ─▶  lu par le cron, toutes les 5 min
+                    │                       │
+                    │              ~/bin/o2switch-cron.sh
+                    │                 npm install --omit=dev  (si le verrou a changé)
+                    │                 prisma migrate deploy
+                    │                 touch tmp/restart.txt
+                    │◀───── deploy/result (SHA + statut) ─────┘
+                    │
+     attend le résultat, échoue s'il n'arrive pas
+                    │
+     vérifie que l'API et le site répondent
 ```
 
-## Compile and run the project
+Compter environ **quatre minutes**, dont une à deux d'attente du cron.
 
-```bash
-# development
-$ npm run start
+## Entrées du déclenchement manuel
 
-# watch mode
-$ npm run start:dev
+| Entrée | Effet |
+|---|---|
+| `ref` | Déploie une référence précise. **C'est le retour arrière** : redéployer un commit connu-bon, sans rien révoquer ni réécrire |
+| `dry_run` | N'écrit rien. rclone liste et simule, les étapes qui modifient le serveur sont sautées. À employer pour voir ce qu'un déploiement effacerait avant de le lancer |
 
-# production mode
-$ npm run start:prod
-```
+## Pourquoi FTPS et pas SSH
 
-## Run tests
+Le port 22 est filtré depuis un runner GitHub : le pare-feu du mutualisé
+n'accepte que des adresses déclarées, et sa liste blanche compte cinq
+emplacements quand les plages de sortie des runners se comptent en milliers de
+blocs CIDR. Ce n'est pas une adresse à trouver, c'est une impossibilité de
+structure. Le port 21 répond, en TLS explicite.
 
-```bash
-# unit tests
-$ npm run test
+Le FTP transférant des fichiers sans rien exécuter, migrations, installation et
+redémarrage passent par un cron du serveur.
 
-# e2e tests
-$ npm run test:e2e
+## La règle de sûreté à ne pas défaire
 
-# test coverage
-$ npm run test:cov
-```
+**Le script du cron vit dans `~/bin/`, le compte FTP est cantonné à
+`~/tambouille`.**
 
-## Deployment
+C'est ce qui empêche un identifiant de dépôt de fichiers de valoir exécution de
+code : le pipeline peut déposer une *demande*, jamais changer ce qui s'exécute en
+réponse. Déplacer ce script sous `~/tambouille` annulerait toute la propriété.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Deux corollaires, écrits aussi dans le script lui-même :
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- **`npm install --omit=dev`, jamais `npm ci`.** `npm ci` supprime
+  `node_modules`, or CloudLinux exige que ce soit un lien symbolique vers le
+  virtualenv. Un `npm ci` a cassé la production le 17 août 2026 et il a fallu
+  rétablir le lien à la main.
+- **Activer le `nodevenv` avant toute commande Node.** Le `PATH` du serveur porte
+  un node 24.11.x qui ne satisfait pas le `engines` du projet et n'est pas celui
+  que Passenger exécute.
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+## Secrets
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Trois, tous relatifs au compte FTP dédié : `O2SWITCH_FTP_HOST`,
+`O2SWITCH_FTP_USER`, `O2SWITCH_FTP_PASS`. Les trois tâches de vérification n'en
+lisent aucun — elles restent donc exécutables depuis un fork.
 
-## Resources
+`backend/.env` vit sur le serveur et n'est jamais transféré : le déploiement ne
+peut pas l'écraser, et ne peut pas non plus le renseigner. Une variable nouvelle
+demande un geste manuel, et son absence ne se voit qu'en empruntant le chemin
+qui la lit.
 
-Check out a few resources that may come in handy when working with NestJS:
+## Ce qui reste manuel
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- Installer le script du cron : le copier depuis `deploy/o2switch-cron.sh` vers
+  `~/bin/`, et poser l'entrée cron. Le fichier versionné est la source ; c'est la
+  copie qui s'exécute, et les deux peuvent diverger sans que rien ne le signale.
+- Ajouter une variable d'environnement en production.
+- Tout ce qui touche à cPanel : compte FTP, pare-feu, entrée cron.

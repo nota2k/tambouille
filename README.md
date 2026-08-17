@@ -67,6 +67,10 @@ Variables d'environnement (`backend/.env`) : `DATABASE_URL`, `JWT_SECRET`, `JWT_
 
 ⚠️ Pense à changer `JWT_SECRET` avant tout déploiement.
 
+Le déploiement en production est décrit dans [`backend/README.md`](backend/README.md) :
+il part sur commande depuis *Actions › CI › Run workflow*, derrière les trois
+vérifications, et n'aboutit que si le serveur confirme avoir migré et redémarré.
+
 ### 3. Frontend
 
 ```bash
