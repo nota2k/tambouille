@@ -87,7 +87,7 @@ sur une mesure, et aucune n'était devinable depuis le dépôt.
   les constructions et le formatage soient verts — une propriété structurelle,
   pas une intention.
 - Les artefacts sont construits **sur le runner**, commités sur une branche
-  `deploy` dédiée, et récupérés par le serveur via le **déploiement git de
+  `production` dédiée, et récupérés par le serveur via le **déploiement git de
   cPanel**, déclenché par son API. Le serveur ne compile plus de code
   applicatif ; il tire, recopie, installe ses dépendances d'exécution quand elles
   changent, migre et redémarre.

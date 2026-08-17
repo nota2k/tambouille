@@ -104,10 +104,10 @@ facile. Ce serait revenir exactement au point de départ — `nest build` et
 `vite build` sur un mutualisé bridé, ce que ce chantier existe pour supprimer,
 et ce qui a échoué trois fois le 17 août.
 
-### Les artefacts voyagent par une branche `deploy`
+### Les artefacts voyagent par une branche `production`
 
 cPanel déploie le **contenu du dépôt**, pas des artefacts produits ailleurs. Le
-CI construit donc, commite `dist/` et `generated/` sur une branche `deploy`
+CI construit donc, commite `dist/` et `generated/` sur une branche `production`
 dédiée, et pousse. `main` reste propre.
 
 Effet secondaire favorable : ce qui est déployé devient un commit — donc
