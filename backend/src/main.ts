@@ -29,23 +29,6 @@ async function bootstrap() {
   // nothing: `req.ip` stays the loopback socket address.
   app.set('trust proxy', 1);
 
-  // SONDE-CPANEL — temporaire, retirée au commit suivant.
-  //
-  // Le frontend est servi par Apache sans passer par Passenger : un marqueur
-  // dans index.html prouve la livraison, jamais le redémarrage. Cet en-tête ne
-  // peut apparaître que si ce fichier a été recompilé, transféré ET si le
-  // processus a repris le nouveau code.
-  app.use(
-    (
-      _req: unknown,
-      res: { setHeader: (k: string, v: string) => void },
-      next: () => void,
-    ) => {
-      res.setHeader('X-Deploy-Probe', 'cpanel');
-      next();
-    },
-  );
-
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
   });
