@@ -9,7 +9,8 @@ import { formatDate } from '@/utils/date'
 import { formatDuration } from '@/utils/time'
 import MixListItem from '@/components/MixListItem.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
-import type { Mix, MixListResponse, AuthorSummary } from '@/types'
+import FourneeBanner from '@/components/FourneeBanner.vue'
+import type { Fournee, Mix, MixListResponse, AuthorSummary } from '@/types'
 
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
@@ -61,6 +62,35 @@ const featuredDuration = computed(() => formatDuration(featuredMix.value?.durati
 
 /** Tous les mix chargés, pour en tirer les tags et les cuisinier⋅ère⋅s de la colonne. */
 const knownMixes = computed(() => [...latestMixes.value, ...topMixes.value])
+
+/**
+ * La fournée mise en avant (maquette 3e). Les champs éditoriaux — numéro,
+ * période, titre, texte, couleur de saison, curateur — sont écrits ici en dur :
+ * il n'existe pas encore de modèle `Fournee` en base, et une sélection
+ * éditoriale ne se déduit d'aucune donnée existante. Seuls les mix sont réels,
+ * pour que les pochettes, les durées et les liens soient vrais.
+ *
+ * Ils sont pris dans les plus écoutés et non dans les plus récents : « À la une »
+ * et « Derniers mix » sortent tous deux de `latestMixes`, et la fournée y aurait
+ * affiché les mêmes mix à quelques centimètres d'écart.
+ *
+ * En dessous de trois mix la bande du gabarit n'a plus de tenue, donc le bandeau
+ * s'efface — sur un site encore vide, il ne montrerait qu'un trou.
+ */
+const fournee = computed<Fournee | null>(() => {
+  const mixes = topMixes.value.slice(0, 5)
+  if (mixes.length < 3) return null
+  return {
+    number: 18,
+    period: "Tout l'hiver",
+    title: 'Nuit de quinze heures',
+    intro:
+      'Il fait noir à 16 h et ça nous va. Cinq mix pour la saison creuse : drone lent, deux heures de dub sous la pluie, et un set enregistré dans une cave à 3 h du matin sans public.',
+    color: '#2D5FA8',
+    curator: 'la rédaction',
+    mixes,
+  }
+})
 
 /** Les tags les plus portés par les mix affichés — pas un classement, une porte d'entrée. */
 const trendingTags = computed(() => {
@@ -174,6 +204,11 @@ onMounted(loadSections)
 </script>
 
 <template>
+  <!-- Hors du conteneur paginé, délibérément : l'aplat de saison va d'un bord à
+       l'autre de la fenêtre, seul son contenu s'aligne sur la grille de la page.
+       Masqué pendant une recherche, où la home cède la place aux résultats. -->
+  <FourneeBanner v-if="fournee && !isSearching" :fournee="fournee" />
+
   <div class="mx-auto max-w-[1900px] px-4 py-9">
     <!-- Titre et filtres sur une seule ligne, posés sur le filet noir : c'est la
          barre qui donne son échelle à toute la page. -->
