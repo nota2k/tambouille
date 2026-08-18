@@ -174,7 +174,7 @@ onMounted(loadSections)
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl px-4 py-9">
+  <div class="mx-auto max-w-[1900px] px-4 py-9">
     <!-- Titre et filtres sur une seule ligne, posés sur le filet noir : c'est la
          barre qui donne son échelle à toute la page. -->
     <div
@@ -187,8 +187,8 @@ onMounted(loadSections)
           class="pb-2 transition"
           :class="
             sortBy === 'recent'
-              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text'
-              : 'hover:text-tambouille-text'
+              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text text-lg'
+              : 'hover:text-tambouille-text text-lg'
           "
           @click="sortBy = 'recent'"
         >
@@ -199,8 +199,8 @@ onMounted(loadSections)
           class="pb-2 transition"
           :class="
             sortBy === 'plays'
-              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text'
-              : 'hover:text-tambouille-text'
+              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text text-lg'
+              : 'hover:text-tambouille-text text-lg'
           "
           @click="sortBy = 'plays'"
         >
@@ -208,14 +208,14 @@ onMounted(loadSections)
         </button>
         <button
           type="button"
-          class="pb-2 hover:text-tambouille-text"
+          class="pb-2 hover:text-tambouille-tex text-lg"
           @click="showTagsOverlay = true"
         >
-          Par tag<span v-if="selectedTags.length" class="text-tambouille-accent">
+          Par tag<span v-if="selectedTags.length" class="text-tambouille-accent text-lg">
             ({{ selectedTags.length }})</span
           >
         </button>
-        <button type="button" class="pb-2 hover:text-tambouille-text" @click="playRandomMix">
+        <button type="button" class="pb-2 hover:text-tambouille-text text-lg" @click="playRandomMix">
           Au hasard
         </button>
       </div>
@@ -318,7 +318,7 @@ onMounted(loadSections)
             <div class="flex flex-col gap-6 border-b border-black/15 py-7 sm:flex-row">
               <RouterLink
                 :to="{ name: 'mix-detail', params: { id: featuredMix.id } }"
-                class="aspect-square w-full max-w-[220px] shrink-0 overflow-hidden bg-tambouille-surface-hover"
+                class="aspect-square w-full max-w-[var(--width-max-large)] shrink-0 overflow-hidden bg-tambouille-surface-hover"
               >
                 <img
                   v-if="featuredMix.coverUrl"
@@ -330,12 +330,12 @@ onMounted(loadSections)
 
               <div class="flex min-w-0 flex-1 flex-col">
                 <RouterLink :to="{ name: 'mix-detail', params: { id: featuredMix.id } }">
-                  <span class="font-display text-2xl font-bold leading-tight sm:text-[32px]">
+                  <h2 class="font-display text-5xl font-medium leading-tight sm:text-[46px]">
                     {{ featuredMix.title }}
-                  </span>
+                  </h2>
                 </RouterLink>
 
-                <p class="pb-1.5 pt-2.5 text-[15px] text-tambouille-muted">
+                <p class="pb-1.5 pt-2.5 text-[17px] text-tambouille-muted">
                   {{ featuredMix.user.displayName }} · {{ formatDate(featuredMix.createdAt) }}
                 </p>
 

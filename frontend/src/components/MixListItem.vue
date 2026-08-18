@@ -33,7 +33,7 @@ function onToggle(event: Event) {
     :class="isCurrent ? 'bg-tambouille-accent-wash' : 'hover:bg-tambouille-surface-hover'"
   >
     <div
-      class="aspect-square w-[72px] shrink-0 overflow-hidden bg-tambouille-surface-hover sm:w-[88px]"
+      class="aspect-square w-[122px] shrink-0 overflow-hidden bg-tambouille-surface-hover sm:w-[188px]"
     >
       <img
         v-if="mix.coverUrl"
@@ -49,9 +49,9 @@ function onToggle(event: Event) {
     </div>
 
     <div class="min-w-0 flex-1">
-      <p class="font-display text-[17px] font-bold leading-tight text-tambouille-text sm:text-xl">
+      <h3 class="font-display text-[24px] font-bold leading-tight text-tambouille-text sm:text-2xl">
         {{ mix.title }}
-      </p>
+      </h3>
 
       <!-- Auteur, durée, nombre de morceaux : la ligne que la maquette réclamait. -->
       <p class="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-sm text-tambouille-muted">

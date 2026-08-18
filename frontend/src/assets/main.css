@@ -45,7 +45,7 @@
   --font-sans: Rambla, system-ui, sans-serif;
   --font-display: Arvo, Georgia, serif;
 
-  --text-tambouille-title-big: clamp(2rem, 4.2vw, 2.75rem);
+  --text-tambouille-title-big: clamp(2rem, 4.8vw, 4.75rem);
   --text-tambouille-clamp-big: clamp(1.9rem, 3.8vw, 2.5rem);
 
   /* --- Formes ------------------------------------------------------------
@@ -60,6 +60,8 @@
   --radius-2xl: 0px;
   --radius-3xl: 0px;
   --radius-4xl: 0px;
+
+  --width-max-large: 380px;
 }
 
 html,
@@ -144,17 +146,14 @@ h6,
 .page-grid {
   display: grid;
   grid-template-columns:
-    [full-start] minmax(var(--page-gutter, 1rem), 1fr)
-    [content-start] min(var(--page-width, 72rem), 100% - var(--page-gutter, 1rem) * 2) [content-end]
-    minmax(var(--page-gutter, 1rem), 1fr)
-    [full-end];
+    [full-start] minmax(var(--page-gutter, 1rem), 1fr) [content-start] min(var(--page-width, 72rem), 100% - var(--page-gutter, 1rem) * 2) [content-end] minmax(var(--page-gutter, 1rem), 1fr) [full-end];
 }
 
-.page-grid > * {
+.page-grid>* {
   grid-column: content;
 }
 
-.page-grid > .full-bleed {
+.page-grid>.full-bleed {
   grid-column: full;
 }
 
@@ -172,7 +171,7 @@ h6,
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #000;
   font-family: Rambla, system-ui, sans-serif;
-  font-size: 0.6875rem;
+  font-size: 1.4F875rem;
   font-weight: 400;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -198,23 +197,22 @@ h6,
   gap: 0.5rem;
   padding: 0.75rem 1.375rem;
   font-family: Rambla, system-ui, sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 500;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   line-height: 1;
   border: 1px solid transparent;
   cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  min-width: 160px;
 }
 
 .tb-btn {
   background: var(--color-tambouille-accent);
   color: #fff;
 }
+
 .tb-btn:hover:not(:disabled) {
   background: var(--color-tambouille-accent-hover);
 }
@@ -224,6 +222,7 @@ h6,
   color: #000;
   background: transparent;
 }
+
 .tb-btn-outline:hover:not(:disabled) {
   background: #000;
   color: #fff;
@@ -233,6 +232,7 @@ h6,
   background: #000;
   color: #fff;
 }
+
 .tb-btn-dark:hover:not(:disabled) {
   background: var(--color-tambouille-accent);
 }
@@ -262,15 +262,18 @@ h6,
   background: transparent;
   cursor: pointer;
 }
+
 .tb-chip:hover {
   background: #000;
   color: #fff;
 }
+
 .tb-chip-on {
   background: var(--color-tambouille-accent);
   border-color: var(--color-tambouille-accent);
   color: #fff;
 }
+
 .tb-chip-on:hover {
   background: var(--color-tambouille-accent-hover);
   border-color: var(--color-tambouille-accent-hover);
@@ -282,6 +285,7 @@ h6,
   color: var(--color-tambouille-accent);
   font-size: 0.875rem;
 }
+
 .tb-tag:hover {
   text-decoration: underline;
 }
@@ -318,6 +322,7 @@ h6,
   .tb-field::placeholder {
     color: var(--color-tambouille-faint);
   }
+
   .tb-field:focus {
     border-color: var(--color-tambouille-accent);
   }
