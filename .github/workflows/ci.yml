@@ -323,7 +323,10 @@ jobs:
               if str(dep.get('deploy_id')) != cible:
                   continue
               ts = dep.get('timestamps') or {}
-              if 'successful' in ts:
+              # La clé est `succeeded`. Chercher `successful` — que j'avais
+              # supposé — faisait tourner cette boucle jusqu'à expiration sur
+              # des déploiements pourtant réussis.
+              if 'succeeded' in ts or 'successful' in ts:
                   print('  déploiement', cible, 'réussi'); raise SystemExit(0)
               if 'failed' in ts:
                   print('::error::déploiement %s en échec — %s' % (cible, dep.get('log_path')))

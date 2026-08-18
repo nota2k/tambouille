@@ -118,7 +118,16 @@ if [ -z "$appliquees" ]; then
   exit 1
 fi
 presentes=$(ls -1 "$BACKEND/prisma/migrations" | grep -v migration_lock | sort)
-manquantes=$(comm -13 <(echo "$appliquees") <(echo "$presentes"))
+
+# PAS de substitution de processus `<(…)` ici : elle n'est pas disponible dans
+# l'environnement où cPanel exécute ses tâches, et `comm` échouait sur
+# « /dev/fd/63: No such file or directory ». La variable restait vide, le script
+# concluait « à jour », et redémarrait — une garde qui ne gardait rien, du même
+# genre exactement que celles qu'elle est censée remplacer.
+manquantes=$(echo "$presentes" | while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  echo "$appliquees" | grep -qxF "$m" || echo "$m"
+done)
 
 if [ -n "$manquantes" ]; then
   echo "ERREUR : migrations non appliquées, et ce déploiement ne peut pas les appliquer." >&2
