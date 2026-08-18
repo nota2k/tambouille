@@ -8,6 +8,10 @@ const app_module_1 = require("./app.module");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.set('trust proxy', 1);
+    app.use((_req, res, next) => {
+        res.setHeader('X-Deploy-Probe', 'cpanel');
+        next();
+    });
     app.enableCors({
         origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
     });
