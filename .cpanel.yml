@@ -1,0 +1,33 @@
+---
+# Ce que cPanel exécute après avoir extrait la branche déployée.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# LA PREMIÈRE LIGNE N'EST PAS DÉCORATIVE
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# `VersionControl::update` de l'UAPI répond `status 1` et **ne tire rien** : il
+# ne met à jour que les métadonnées de cPanel. Mesuré, dans les deux formes,
+# avec et sans paramètre `branch`. Le bouton « Update from Remote » de
+# l'interface fait autre chose, sans équivalent exposé par l'API.
+#
+# Sans ce `pull`, cPanel redéploie indéfiniment le commit sur lequel son clone a
+# été laissé — ce qui a fait tourner pendant deux heures une version du script
+# antérieure à sa propre correction, et rendu le diagnostic très confus.
+#
+# La seconde ligne s'exécute donc sur l'arbre FRAÎCHEMENT tiré : le script lancé
+# est toujours le dernier publié. C'est ce qui permet à ce fichier de ne plus
+# jamais changer — toute la logique vit dans le script, où elle est commentée à
+# côté des commandes qu'elle justifie.
+#
+# `--ff-only` : la branche est construite par `commit-tree` avec la pointe
+# précédente pour parent, donc toujours en avance rapide. Si elle ne l'est plus,
+# quelque chose d'imprévu s'est produit et s'arrêter vaut mieux que fusionner.
+#
+# Ce fichier détermine ce qui s'exécute sur le serveur, et il vit dans le dépôt :
+# qui peut y pousser peut y faire exécuter n'importe quoi. C'est le niveau de
+# confiance qu'on accorde déjà au code applicatif, mais il est dit plutôt que tu
+# — voir openspec/changes/add-o2switch-deploy/design.md, « Deux concessions ».
+deployment:
+  tasks:
+    - '/usr/bin/git pull --ff-only'
+    - '/bin/bash deploy/o2switch-deploy.sh'

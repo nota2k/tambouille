@@ -64,67 +64,143 @@ production n'est pas l'octet exact de ce qui a été testé, mais le même commi
 reconstruit. Pour un projet dont les constructions sont déterministes à ce
 niveau, l'échange est favorable.
 
-### rclone en SFTP pour le transfert, SSH pour le reste
+### Le déploiement git de cPanel, déclenché par son API
 
-Le transfert passe par rclone ; les migrations et le redémarrage par une
-commande SSH ordinaire. Deux outils, mais un seul secret : la clé.
+**Troisième transport, et cette fois par mesure plutôt que par déduction.**
 
-Ce qui décide en faveur de rclone n'est pas l'absence de dépendance à un binaire
-distant — `rsync` est très probablement présent — mais **`--max-delete`**. La
-spécification exige deux protections indépendantes autour de la suppression
-distante ; le cadrage des chemins en est une, et c'est une discipline. `--max-delete`
-en est une seconde, qui tient même si le cadrage est réécrit de travers.
+SSH est fermé : le port 22 est filtré depuis un runner, et la liste blanche de
+l'hébergeur compte cinq emplacements quand les plages de sortie des runners se
+comptent en milliers de blocs CIDR. FTPS fonctionnait — le pipeline a livré, est
+revenu en arrière, a redémarré Passenger — mais payait une taxe : le FTP n'a pas
+de listage récursif, donc `rclone sync` interrogeait des centaines de fichiers
+un par un, 141 secondes sur 248 pour quelques centaines de kilooctets.
+
+Le port **2083** répond depuis un runner. L'UAPI de cPanel y est joignable, un
+jeton y est accepté, et — mesuré, pas supposé — un déploiement déclenché depuis
+un runner exécute réellement les tâches de `.cpanel.yml` sur le serveur :
+six commandes, toutes en code de sortie 0, marqueur écrit, `Build completed with
+exit code 0`.
+
+Cela remplace **trois mécanismes d'un coup** : le transport rclone, le protocole
+témoin/résultat, et le cron du serveur. Le FTP n'exécutait rien, d'où le détour ;
+cPanel exécute, donc le détour disparaît.
 
 ```
-rclone sync   backend/dist/       →  ~/tambouille/backend/dist/       --max-delete=50
-rclone sync   backend/generated/  →  ~/tambouille/backend/generated/  --max-delete=50
-rclone sync   backend/prisma/     →  ~/tambouille/backend/prisma/     --max-delete=20
-rclone sync   frontend/dist/      →  ~/tambouille/frontend/dist/      --max-delete=80
-rclone copy   backend/package.json backend/package-lock.json  →  ~/tambouille/backend/
+CI construit  ──▶ commite les artefacts sur la branche `deploy` ──▶ pousse
+                                                                    │
+     UAPI /execute/VersionControl/update  ◀──────────────────────────┘
+     UAPI /execute/VersionControlDeployment/create
+                                          │
+                        cPanel tire, puis exécute .cpanel.yml
+                          copie vers ~/tambouille, migre, redémarre
 ```
 
-`sync` par sous-répertoire, `copy` pour les deux manifestes, **jamais rien qui
-vise `backend/` lui-même**. `.env`, `node_modules/`, `tmp/`, `.htaccess` et les
-222 Mo d'`uploads` vivent à la racine de `backend/` : ils sont hors de portée par
-construction, et `--max-delete` couvre le cas où cette construction serait
-défaite.
+*Écarté* : garder FTPS. Il fonctionne, mais coûte un cron hors du dépôt, un
+compte et un mot de passe de plus, et deux minutes de comparaison par
+déploiement.
 
-*Écarté* : `rclone sync` sur `backend/` avec une liste d'exclusions. Une liste
-s'oublie ; une portée qui ne contient pas la chose ne s'oublie pas.
+*Écarté* : construire sur le serveur via `.cpanel.yml`, ce que cPanel rend
+facile. Ce serait revenir exactement au point de départ — `nest build` et
+`vite build` sur un mutualisé bridé, ce que ce chantier existe pour supprimer,
+et ce qui a échoué trois fois le 17 août.
 
-### rclone installé par `apt-get`, pas par une action tierce
+### Les artefacts voyagent par une branche `production`
 
-Le workflow portera la clé SSH de production. Y faire entrer une action tierce
-étend la surface d'approvisionnement à un dépôt sur lequel personne ici n'a de
-prise : un tag déplacé lit le secret.
+cPanel déploie le **contenu du dépôt**, pas des artefacts produits ailleurs. Le
+CI construit donc, commite `dist/` et `generated/` sur une branche `production`
+dédiée, et pousse. `main` reste propre.
 
-*Écarté* : `AnimMouse/setup-rclone`, qui est commode et gère le versionnement.
-Si on la reprend un jour, ce doit être **épinglée à un SHA de commit**, jamais à
-`@v1` — la différence entre « ce que le mainteneur publiera » et « ce que j'ai
-lu ». Une ligne d'`apt-get` évite entièrement la question.
+Effet secondaire favorable : ce qui est déployé devient un commit — donc
+inspectable, comparable, et désignable pour un retour arrière.
 
-*Écarté* : `curl … | sudo bash`, qui est pire que l'action à tous égards.
+Coût : la tâche de déploiement a besoin de `contents: write`, là où tout le
+workflow est en lecture seule. À cantonner à cette seule tâche.
 
-### Configuration de rclone par variables d'environnement
+### Deux concessions de sûreté, écrites parce qu'elles sont réelles
 
-`RCLONE_SFTP_*` et un fichier de clé écrit dans le runner, plutôt qu'un fichier
-de configuration encodé en base64 déposé dans un secret. La clé SSH reste ainsi
-**le seul élément sensible** — celui dont on a besoin de toute façon pour les
-migrations et le redémarrage.
+**La propriété que le dispositif FTP tenait, celui-ci ne la tient pas.** Avec le
+cron, le script exécuté vivait dans `~/bin/`, hors de portée du compte de
+déploiement : un identifiant volé permettait de déposer des fichiers, jamais de
+choisir ce qui s'exécute. Ici `.cpanel.yml` est dans le dépôt — qui peut y
+pousser peut faire exécuter n'importe quoi sur le serveur.
 
-### Migrations par SSH, avec la CLI téléchargée à la demande
+Ce n'est pas absurde : c'est le niveau de confiance qu'on accorde déjà au code
+applicatif, qui s'exécute aussi. Mais l'exigence correspondante a été **retirée**
+de la spécification plutôt que maquillée, parce qu'une exigence qu'on ne tient
+plus vaut moins que pas d'exigence.
 
-`ssh … 'cd ~/tambouille/backend && npx --yes prisma@7 migrate deploy'`.
+**Le jeton est plus large que ce qu'il remplace.** `Tokens::create_full_access`
+donne accès à toute l'API cPanel du compte, quand le compte FTP était cantonné à
+`~/tambouille`. Compensé par la révocabilité et par un nom explicite —
+`github-deploy` — qui permettra de savoir ce qu'on révoque dans six mois.
 
-Ce n'est pas un choix : la base n'écoute que sur `localhost`, il n'existe aucun
-autre chemin. L'analyse des quatre modalités inscrite dans `TODOS.md` en juillet
-raisonnait sur une base joignable depuis l'extérieur ; la reconnaissance a montré
-que cette prémisse était fausse, et la conclusion se trouve juste par accident.
-`TODOS.md` doit être corrigé en même temps que ce chantier.
+### Le déclenchement dit « mis en file », pas « fait »
 
-`prisma` est une devDependency et le serveur n'installe plus que ses dépendances
-d'exécution — d'où `npx --yes`, qui télécharge la CLI le temps de la commande.
-Vingt à quarante secondes par déploiement comportant une migration.
+`VersionControlDeployment::create` répond `status 1` avec un `deploy_id` et un
+horodatage `queued`. C'est un accusé de réception, pas un résultat. La preuve
+d'exécution est venue du marqueur écrit par les tâches, jamais de la réponse.
+
+Le pipeline doit donc interroger `VersionControlDeployment::retrieve` jusqu'à
+voir un horodatage `successful` ou `failed` pour son propre déploiement, et
+échouer si rien n'arrive. C'est exactement ce que la version FTP faisait avec
+`deploy/result` — l'exigence a survécu au changement de mécanisme, ce qui est
+plutôt bon signe pour elle.
+
+Attention à un piège rencontré : `retrieve` sans `repository_root` renvoie les
+déploiements de **tous** les dépôts du compte. Un filtre qu'on n'a pas vu
+filtrer ne filtre pas — celui-ci m'a fait prendre le déploiement d'un autre
+projet pour le nôtre.
+
+### Le déploiement tire lui-même, parce que l'API ne le fait pas
+
+**`VersionControl::update` ne tire rien.** Il répond `status 1` et se contente de
+mettre à jour les métadonnées de cPanel — mesuré dans les deux formes, avec et
+sans paramètre `branch`. Le bouton « Update from Remote » de l'interface fait
+autre chose, sans équivalent exposé par l'API.
+
+Conséquence observée avant d'être comprise : cPanel a redéployé pendant deux
+heures le commit sur lequel son clone avait été laissé, exécutant une version du
+script antérieure à sa propre correction. Le symptôme — un `npx prisma` qu'on
+avait pourtant retiré — désignait un fichier qui n'existait plus dans le dépôt.
+
+`.cpanel.yml` tire donc lui-même, en première tâche. La seconde s'exécute sur
+l'arbre fraîchement obtenu, donc **le script lancé est toujours le dernier
+publié**. C'est ce qui permet à ce fichier de ne plus jamais changer : toute la
+logique vit dans le script.
+
+Le seul coût est un amorçage manuel — un `git pull` sur le serveur pour que ce
+`.cpanel.yml`-ci arrive. Une fois posé, le mécanisme se suffit.
+
+### Le déploiement détecte les migrations, il ne les applique pas
+
+**Prisma 7 ne tient pas dans la mémoire des processus cPanel.** Mesuré au premier
+déploiement réel : `npx prisma@7 migrate deploy` échoue sur
+`RangeError: WebAssembly.Instance(): Cannot allocate Wasm memory`. La CLI
+instancie un module WebAssembly au démarrage — avant même de savoir s'il y a du
+travail — et CloudLinux applique aux processus lancés par cPanel une limite plus
+stricte qu'à une session SSH, où la même commande passe.
+
+Le déploiement compare donc les répertoires de `prisma/migrations/` à ce que la
+table `_prisma_migrations` déclare avoir appliqué, avec `psql`. Aucun Prisma, pas
+de WebAssembly, quelques millisecondes.
+
+- **Rien à migrer** — le cas courant : le déploiement continue et redémarre.
+- **Des migrations en attente** : il **s'arrête** en les nommant et en donnant la
+  commande à lancer en SSH. Il ne redémarre pas, donc l'ancien code continue de
+  servir sur l'ancien schéma, ce qui est cohérent.
+- **Table illisible** : il s'arrête aussi. On ne redémarre pas à l'aveugle.
+
+C'est l'option « le pipeline détecte et s'arrête », esquissée puis écartée quand
+on croyait pouvoir tout automatiser. La contrainte l'a rendue nécessaire, et elle
+a le mérite de ne pas faire semblant : une migration reste un geste conscient,
+deux fois par mois, et le déploiement refuse de mentir sur ce qu'il n'a pas fait.
+
+*Écarté* : appliquer les migrations en SQL brut depuis le script. Cela
+réimplémenterait la comptabilité de `_prisma_migrations`, pour un gain qui ne
+concerne que deux déploiements par mois.
+
+*Écarté* : rétrograder la CLI à une version antérieure à WebAssembly. Prisma 5 ne
+comprend ni `prisma.config.ts` ni le générateur `prisma-client` de la version 7.
 
 ### L'installation des dépendances reste sur le serveur, et n'efface jamais
 
@@ -143,9 +219,16 @@ manuel, et il a fallu rétablir le lien à la main pour en sortir. `npm install`
 complète sans jamais vider — et cela supprime au passage la fenêtre pendant
 laquelle un respawn de Passenger trouverait une application sans dépendances.
 
-**Seulement quand le verrou a changé.** Comparer `package-lock.json` distant et
-local avant de décider. Deux lignes de shell, et une installation évitée sur la
-grande majorité des déploiements.
+**Seulement quand le verrou a changé.** Une tâche de `.cpanel.yml` compare le
+`package-lock.json` qu'elle vient de recevoir à celui de la dernière
+installation réussie, gardé à côté sous un autre nom. Deux fichiers, une
+comparaison locale, et une installation évitée sur la grande majorité des
+déploiements.
+
+Ces deux règles sont les seules choses que le script du cron lègue au nouveau
+mécanisme. Elles ont été payées cher — un `npm ci` a cassé la production le
+17 août — et elles doivent voyager avec les commandes, pas rester dans un
+document que personne ne relit en modifiant une ligne.
 
 *Écarté* : installer à chaque fois. Sur un mutualisé, c'est une à deux minutes
 ajoutées à chaque livraison pour un résultat presque toujours identique.
@@ -153,6 +236,15 @@ ajoutées à chaque livraison pour un résultat presque toujours identique.
 *Écarté* : transférer `node_modules` depuis le runner. `bcrypt` l'interdit, et
 c'est précisément le genre de raccourci qui casse en production et nulle part
 ailleurs.
+
+**Le hook `postinstall` du paquet a dû disparaître pour que tout ceci tienne.**
+Il lançait `prisma generate` à chaque installation ; or `npm install` s'exécute
+dans le virtualenv CloudLinux — `node_modules` y étant un lien symbolique — où
+`prisma/schema.prisma` n'existe pas. L'installation échouait donc entièrement
+sur le serveur. Le client est désormais généré par `prebuild`, `pretest` et
+`pretest:e2e` : au moment de construire ou de tester, jamais d'installer. Le
+serveur ne fait ni l'un ni l'autre, et un dépôt fraîchement cloné construit
+toujours du premier coup.
 
 À noter, sans que la cause soit établie : sur ce serveur, `npm` omet les
 dépendances de développement **par défaut**, alors qu'aucun `.npmrc` n'existe et
@@ -212,12 +304,28 @@ où l'automatisme prend la main.
 **La bascule peut faire tomber le site si l'ordre est inversé** → Traité dans
 le plan de migration ci-dessous. C'est le risque le plus concret du chantier.
 
-**Le redémarrage par `touch tmp/restart.txt` n'a jamais été exercé** → Pendant
-le rattrapage du 17 août, la chaîne s'est interrompue avant cette commande, et
-Passenger a rechargé de lui-même — on a donc constaté que le nouveau code
-servait, sans avoir constaté que le geste qui le provoque fonctionne. Le
-pipeline en dépend entièrement. *Atténuation* : une tâche dédiée l'exerce seule,
-avant de l'inscrire dans une séquence où son échec passerait inaperçu.
+**Le redémarrage est prouvé, mais sur le mécanisme précédent** → Le
+`touch tmp/restart.txt` a été vu provoquer un rechargement : un en-tête déposé
+dans `main.ts` est apparu en production, ce qu'aucun déploiement frontend
+n'aurait pu établir puisque Apache sert ces fichiers sans passer par Passenger.
+Mais c'était le script du cron qui touchait le fichier. Avec cPanel c'est une
+tâche de `.cpanel.yml`, donc **un mécanisme non éprouvé remplace un mécanisme
+éprouvé** — pour la deuxième fois sur ce point précis. *Atténuation* : le
+réexercer isolément, avec la même sonde, avant d'en dépendre.
+
+**Le déploiement s'exécute avec les droits du compte, sur ordre du dépôt** →
+`.cpanel.yml` est du shell versionné : qui peut pousser peut faire exécuter. Et
+le jeton, en `full_access`, dépasse largement le besoin. *Atténuation* : aucune
+qui rétablisse la propriété perdue — elle est retirée de la spécification plutôt
+que maquillée. Reste la révocabilité du jeton et le fait que pousser sur ce
+dépôt suppose déjà d'y être autorisé.
+
+**cPanel accepte un déclenchement sans garantir l'exécution** → `create` répond
+« mis en file ». Un pipeline qui s'en contenterait annoncerait des déploiements
+qui n'ont pas eu lieu. *Atténuation* : interroger `retrieve` jusqu'à un
+horodatage terminal, **en filtrant par dépôt** — sans ce filtre l'appel renvoie
+les déploiements de tout le compte, ce qui m'a déjà fait lire le résultat d'un
+autre projet comme s'il était le nôtre.
 
 ## Migration Plan
 
@@ -228,16 +336,21 @@ tomber le site**.
 0.  PRÉREQUIS, hors périmètre — rattrapage manuel en SSH        ✅ FAIT le 17 août
         │   5 commits, migration keycloak_login, 2 variables dans .env
         ▼
-1.  le pipeline transfère et redémarre       dist encore versionné : doublon inoffensif
-        │                                     filet : le clone sert toujours
+0bis. CÔTÉ SERVEUR, manuel et déjà fait
+        │   dépôt cPanel cloné dans ~/repositories/tambouille   ✅
+        │   jeton d'API nommé github-deploy                      ✅
+        │   — distinct de ~/tambouille, qui reste la cible servie
+        ▼
+1.  le CI construit, commite sur `deploy`, déclenche, attend
+        │   dist encore versionné sur main : doublon inoffensif
         ▼
 2.  un déploiement vérifié de bout en bout
         │
         ▼
-3.  suppression du .git de ~/tambouille      plus aucun pull ne peut rien effacer
-        │
+3.  suppression du .git de ~/tambouille      la cible servie cesse d'être un dépôt
+        │                                     (celui de cPanel est ailleurs)
         ▼
-4.  git rm -r --cached frontend/dist         maintenant seulement
+4.  git rm -r --cached frontend/dist sur main   le CI le remet sur `deploy`
         │
         ▼
 5.  suppression de la branche o2switch-db
@@ -267,6 +380,12 @@ fonctionne toujours. Après la 3, le retour arrière est un redéploiement par
 `workflow_dispatch` sur une référence connue-bonne.
 
 ## Open Questions
+
+- ~~Remplacer le `sync` fichier par fichier par une archive déballée côté
+  serveur ?~~ **Sans objet** : il n'y a plus de `sync`. La question naissait du
+  coût de comparaison du FTP — 141 secondes sur 248 — et cPanel le supprime en
+  faisant tirer le serveur lui-même par git. La bonne idée a été rendue inutile
+  par un changement plus profond, ce qui vaut mieux que de l'avoir implémentée.
 
 - Faut-il conserver `frontend/dist` dans l'historique ou le purger ? Le garder
   laisse des mégaoctets de bundles dans les objets git, sans conséquence

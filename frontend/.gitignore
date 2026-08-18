@@ -10,9 +10,24 @@ lerna-debug.log*
 node_modules
 .DS_Store
 .env
-# dist/ est versionné sur la branche o2switch-db : la prod le récupère par
-# `git pull`, il n'y a pas d'étape de build côté serveur. L'ignorer obligeait à
-# un `git add -f` à chaque fois, et un build oublié partait donc en silence.
+# dist/ n'est plus versionné ici, et le commentaire qu'il remplace disait le
+# contraire pour des raisons devenues fausses. Elles méritent d'être conservées,
+# parce qu'elles ont été crues pendant des mois :
+#
+#   « la prod le récupère par `git pull`, il n'y a pas d'étape de build côté
+#     serveur »
+#
+# Le serveur construisait, en réalité — vérifié le 17 août 2026 : le bundle
+# qu'il servait portait des hashs qui n'existaient dans aucun commit. Le `dist`
+# versionné n'était plus servi depuis au moins le 9 août. Et comme il était à la
+# fois suivi et reconstruit sur place, le `git status` de la production portait
+# en permanence une cinquantaine de fausses modifications — au point qu'une
+# vraie, un fichier édité à la main, y aurait été invisible.
+#
+# Aujourd'hui le CI construit et publie les artefacts sur la branche
+# `production`, que le serveur récupère. Cette branche-ci ne porte plus que des
+# sources.
+dist
 dist-ssr
 coverage
 *.local

@@ -93,21 +93,55 @@ Le serveur porte des données et des fichiers de configuration absents du dépô
 secrets, dépendances installées, fichiers déposés par les utilisateurs — dont
 certains ne sont sauvegardés nulle part ailleurs.
 
-Cette garantie MUST reposer sur deux protections indépendantes : la portée du
-transfert, qui ne vise jamais un répertoire contenant ces éléments ; et une
-limite sur le nombre de suppressions, qui interrompt l'opération même si la
-portée est mal écrite. Une seule des deux ne suffit pas — la première est une
-discipline, et une discipline se défait à la première réécriture distraite.
+Cette garantie MUST reposer sur la portée des opérations de copie, qui MUST
+désigner des répertoires nommés un par un et MUST NOT viser un répertoire
+contenant ces éléments. Aucune opération MUST employer de joker pour désigner ce
+qu'elle remplace.
+
+C'est une discipline, et une discipline se défait à la première réécriture
+distraite. Elle MUST donc être écrite à l'endroit où on la défait — dans le
+fichier qui porte les commandes — avec ce qu'elle protège, et non dans une
+documentation séparée que personne ne relit en modifiant une ligne.
 
 #### Scenario: Un déploiement ordinaire
 
 - **WHEN** une version est déployée
 - **THEN** les fichiers de configuration du serveur, ses dépendances installées et les fichiers déposés par les utilisateurs sont intacts
 
-#### Scenario: Portée de transfert erronée
+#### Scenario: Un répertoire remplacé
 
-- **WHEN** une opération de transfert viserait un répertoire contenant des données absentes du dépôt
-- **THEN** elle s'interrompt avant d'effacer, plutôt que d'aboutir
+- **WHEN** un répertoire d'artefacts est remplacé
+- **THEN** seul ce répertoire est effacé, et il est désigné par son nom
+
+### Requirement: Une opération déléguée au serveur est constatée, pas supposée
+
+Lorsqu'une opération est déléguée à un mécanisme du serveur, le déploiement
+MUST attendre son résultat et MUST échouer si ce résultat est un échec ou
+n'arrive pas dans un délai borné.
+
+Un déploiement qui déclenche une opération et se déclare réussi n'annonce que
+son propre envoi. Le résultat qui compte est celui de l'opération, et il n'est
+connu que du serveur tant que personne ne va le chercher.
+
+Cette exigence a survécu à deux changements de mécanisme, et la mesure la
+confirme à chaque fois : l'appel qui déclenche répond « accepté » ou « mis en
+file », jamais « exécuté ». La preuve d'exécution est toujours venue d'ailleurs
+que de la réponse au déclenchement.
+
+#### Scenario: L'opération déléguée réussit
+
+- **WHEN** le serveur a exécuté l'opération demandée avec succès
+- **THEN** le déploiement lit ce résultat et se poursuit
+
+#### Scenario: L'opération déléguée échoue
+
+- **WHEN** le serveur signale un échec
+- **THEN** le déploiement échoue en rapportant ce que le serveur a rapporté
+
+#### Scenario: Aucun résultat n'arrive
+
+- **WHEN** aucun résultat n'est disponible au terme du délai imparti
+- **THEN** le déploiement échoue plutôt que de supposer que l'opération a eu lieu
 
 ### Requirement: Le schéma change avant le code
 
@@ -115,9 +149,17 @@ Une migration de base MUST être appliquée avant que le code qui en dépend ne
 soit servi. Les migrations MUST être additives, de sorte que le code encore en
 place au moment où elles s'appliquent continue de fonctionner.
 
-Les migrations MUST emprunter le même canal authentifié que les autres
-opérations sur le serveur. La base MUST NOT être rendue accessible depuis
-l'extérieur dans le seul but de permettre à un déploiement de l'atteindre.
+La base MUST NOT être rendue accessible depuis l'extérieur dans le seul but de
+permettre à un déploiement de l'atteindre.
+
+Lorsque le déploiement ne peut pas appliquer une migration lui-même, il MUST
+s'arrêter avant de mettre le nouveau code en service, et MUST nommer les
+migrations en attente. Il MUST NOT redémarrer l'application en laissant croire
+que le déploiement a abouti : l'ancien code servant l'ancien schéma est un état
+cohérent, l'inverse ne l'est pas.
+
+Le déploiement MUST pouvoir déterminer s'il reste des migrations à appliquer sans
+dépendre de l'outil qui les applique.
 
 #### Scenario: Version comportant une migration
 
@@ -128,6 +170,17 @@ l'extérieur dans le seul but de permettre à un déploiement de l'atteindre.
 
 - **WHEN** la migration est appliquée et que le code précédent sert encore
 - **THEN** ce code continue de fonctionner
+
+#### Scenario: Une migration est en attente et ne peut pas être appliquée
+
+- **WHEN** le déploiement constate des migrations non appliquées qu'il ne peut pas appliquer
+- **THEN** il échoue en les nommant
+- **AND** l'application n'est pas redémarrée
+
+#### Scenario: L'état des migrations est illisible
+
+- **WHEN** le déploiement ne parvient pas à établir quelles migrations sont appliquées
+- **THEN** il échoue plutôt que de redémarrer sans savoir
 
 ### Requirement: Un déploiement se constate
 
