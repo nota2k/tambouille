@@ -254,6 +254,14 @@ onUnmounted(() => {
 
           <template v-if="authStore.isAuthenticated">
             <RouterLink
+              to="/collection"
+              class="text-sm text-tambouille-white hover:underline"
+              active-class="!text-tambouille-white"
+            >
+              Collection
+            </RouterLink>
+
+            <RouterLink
               to="/upload"
               class="rounded-none border border-white px-4 py-2 text-[13px] font-bold text-white hover:bg-white hover:text-tambouille-accent"
             >
@@ -412,6 +420,14 @@ onUnmounted(() => {
             </RouterLink>
 
             <template v-if="authStore.isAuthenticated">
+              <RouterLink
+                to="/collection"
+                class="rounded-none px-4 py-3 text-base font-medium hover:bg-white/15"
+                @click="closeMobileMenu"
+              >
+                Collection
+              </RouterLink>
+
               <RouterLink
                 to="/upload"
                 class="rounded-none px-4 py-3 text-base font-medium hover:bg-white/15"
