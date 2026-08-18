@@ -5,12 +5,14 @@ on:
     branches: [main]
   push:
     branches: [main]
-  # Le déploiement ne part que sur commande, le temps qu'on lui fasse confiance.
-  # Le passage à `push` sur `main` est la dernière tâche du chantier, pas la
-  # première — voir openspec/changes/add-o2switch-deploy/tasks.md, groupe 6.
+  # Le déploiement partait d'abord sur commande seule, le temps qu'on lui fasse
+  # confiance. Il part maintenant aussi de lui-même sur `main` — c'est le point
+  # du chantier : la production a servi neuf jours de code périmé parce que
+  # déployer était un geste qu'on pouvait simplement ne pas faire.
   #
-  # `ref` est aussi le retour arrière : redéployer une version connue-bonne en
-  # la désignant, sans révoquer de commit ni réécrire l'historique.
+  # `workflow_dispatch` reste, et n'est pas un vestige : `ref` est le retour
+  # arrière. Redéployer une version connue-bonne en la désignant, sans révoquer
+  # de commit ni réécrire l'historique.
   workflow_dispatch:
     inputs:
       ref:
@@ -164,8 +166,13 @@ jobs:
   #
   # `needs` sur les trois vérifications : déployer sans qu'elles soient vertes
   # est impossible, et c'est une propriété du graphe des tâches. La condition
-  # `workflow_dispatch` garantit qu'aucune `pull_request` ne l'atteint, donc les
-  # secrets ne sont jamais exposés à du code venu d'un fork.
+  # ci-dessous nomme ses deux événements plutôt que d'écarter le troisième, et ce
+  # n'est pas du style : elle est ce qui garantit qu'aucune `pull_request`
+  # n'atteint cette tâche, donc que les secrets ne sont jamais exposés à du code
+  # venu d'un fork. Écrite en négatif — « sauf pull_request » — un quatrième
+  # déclencheur ajouté plus tard y tomberait sans qu'on l'ait voulu. Et le test
+  # sur `github.ref` n'est pas décoratif : sans lui, une poussée sur n'importe
+  # quelle branche déploierait en production.
   #
   # POURQUOI PAS SSH : le port 22 est filtré depuis un runner, et la liste
   # blanche du mutualisé compte cinq emplacements quand les runners GitHub
@@ -178,7 +185,9 @@ jobs:
   deploy:
     name: deploy
     needs: [backend, frontend, e2e]
-    if: github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Deux déploiements ne se chevauchent jamais, et aucun n'est annulé en cours
