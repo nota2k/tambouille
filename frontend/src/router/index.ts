@@ -71,6 +71,12 @@ const router = createRouter({
       component: () => import('@/views/OidcCallbackView.vue'),
     },
     {
+      path: '/collection',
+      name: 'collection',
+      component: () => import('@/views/CollectionView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/upload',
       name: 'upload',
       component: () => import('@/views/UploadView.vue'),
