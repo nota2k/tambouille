@@ -39,8 +39,7 @@ const filteredMixes = computed(() => {
   if (q) {
     result = result.filter(
       (mix) =>
-        mix.title.toLowerCase().includes(q) ||
-        mix.tags.some((t) => t.toLowerCase().includes(q)),
+        mix.title.toLowerCase().includes(q) || mix.tags.some((t) => t.toLowerCase().includes(q)),
     )
   }
 
@@ -159,11 +158,8 @@ onMounted(loadCollection)
         </div>
 
         <div class="pt-6">
-          <p
-            v-if="filteredMixes.length === 0"
-            class="py-10 text-center text-tambouille-muted"
-          >
-            {{ (search || selectedTag) ? 'Aucun résultat.' : 'Aucun mix pour l\'instant.' }}
+          <p v-if="filteredMixes.length === 0" class="py-10 text-center text-tambouille-muted">
+            {{ search || selectedTag ? 'Aucun résultat.' : "Aucun mix pour l'instant." }}
           </p>
           <MixListItem v-for="mix in filteredMixes" v-else :key="mix.id" :mix="mix" />
         </div>
@@ -175,11 +171,7 @@ onMounted(loadCollection)
             Aucune playlist pour l'instant.
           </p>
           <div v-else class="flex flex-wrap gap-4">
-            <PlaylistCard
-              v-for="playlist in playlists"
-              :key="playlist.id"
-              :playlist="playlist"
-            />
+            <PlaylistCard v-for="playlist in playlists" :key="playlist.id" :playlist="playlist" />
           </div>
         </div>
       </template>
