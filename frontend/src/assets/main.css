@@ -145,10 +145,12 @@ h6,
  */
 .page-grid {
   display: grid;
-  grid-template-columns: [full-start] minmax(var(--page-gutter, 1rem), 1fr) [content-start] min(
+  grid-template-columns:
+    [full-start] minmax(var(--page-gutter, 1rem), 1fr) [content-start] min(
       var(--page-width, 72rem),
       100% - var(--page-gutter, 1rem) * 2
-    ) [content-end] minmax(var(--page-gutter, 1rem), 1fr) [full-end];
+    )
+    [content-end] minmax(var(--page-gutter, 1rem), 1fr) [full-end];
 }
 
 .page-grid > * {
