@@ -157,7 +157,7 @@ watch(
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl px-4 py-10">
+  <div class="mx-auto max-w-[1900px] px-4 py-10">
     <div v-if="loading" class="py-16 text-center text-tambouille-muted">Chargement...</div>
 
     <template v-else-if="mix">
@@ -165,7 +165,7 @@ watch(
            qui manquait — durée, nombre de morceaux, tags. -->
       <div class="flex flex-col gap-7 sm:flex-row">
         <div
-          class="aspect-square w-full max-w-[260px] shrink-0 overflow-hidden bg-tambouille-surface-hover"
+          class="aspect-square w-full max-w-[360px] shrink-0 overflow-hidden bg-tambouille-surface-hover"
         >
           <img
             v-if="mix.coverUrl"

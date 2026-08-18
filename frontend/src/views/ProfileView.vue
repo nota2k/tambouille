@@ -177,7 +177,7 @@ onMounted(loadProfile)
 
 <template>
   <div>
-    <div v-if="loading" class="mx-auto max-w-6xl px-4 py-16 text-center text-tambouille-muted">
+    <div v-if="loading" class="mx-auto max-w-7xl px-4 py-16 text-center text-tambouille-muted">
       Chargement...
     </div>
 
@@ -211,7 +211,7 @@ onMounted(loadProfile)
         />
       </div>
 
-      <div class="mx-auto max-w-6xl px-4 pb-12">
+      <div class="mx-auto max-w-7xl px-4 pb-12">
         <div
           class="flex flex-col items-start gap-5 border-b-2 border-tambouille-rule pb-6 sm:flex-row sm:items-end sm:gap-7"
         >

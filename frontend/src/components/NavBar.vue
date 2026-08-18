@@ -146,8 +146,8 @@ onUnmounted(() => {
 
 <template>
   <header class="sticky top-0 z-[1001] bg-tambouille-accent">
-    <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 lg:gap-9">
-      <RouterLink to="/" class="shrink-0 text-2xl font-bold tracking-tight">
+    <div class="mx-auto flex h-16 max-w-[1900px] items-center gap-6 px-4 lg:gap-9">
+      <RouterLink to="/" class="shrink-0 text-5xl tracking-tight">
         <span class="font-wordmark text-tambouille-white flex items-center gap-4"
           >Tambouille
           <svg
@@ -246,7 +246,7 @@ onUnmounted(() => {
         <div class="flex items-center gap-5 max-[400px]:hidden lg:gap-6">
           <RouterLink
             to="/"
-            class="text-sm text-tambouille-white hover:underline"
+            class="text-lg text-tambouille-white hover:underline"
             active-class="!text-tambouille-white"
           >
             Découvrir
@@ -255,7 +255,7 @@ onUnmounted(() => {
           <template v-if="authStore.isAuthenticated">
             <RouterLink
               to="/collection"
-              class="text-sm text-tambouille-white hover:underline"
+              class="text-lg text-tambouille-white hover:underline"
               active-class="!text-tambouille-white"
             >
               Collection
@@ -263,7 +263,7 @@ onUnmounted(() => {
 
             <RouterLink
               to="/upload"
-              class="rounded-none border border-white px-4 py-2 text-[13px] font-bold text-white hover:bg-white hover:text-tambouille-accent"
+              class="rounded-none border border-white px-4 py-2 text-lg font-bold text-white hover:bg-white hover:text-tambouille-accent"
             >
               Uploader
             </RouterLink>
@@ -292,7 +292,7 @@ onUnmounted(() => {
                 <RouterLink
                   v-if="authStore.user?.username"
                   :to="{ name: 'profile', params: { username: authStore.user.username } }"
-                  class="block px-4 py-2 text-sm hover:bg-tambouille-surface-hover"
+                  class="block px-4 py-2 text-lg hover:bg-tambouille-surface-hover"
                   @click="menuOpen = false"
                 >
                   Mon profil

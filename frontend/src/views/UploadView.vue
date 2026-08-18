@@ -210,7 +210,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl px-4 py-10">
+  <div class="mx-auto max-w-7xl px-4 py-10">
     <h1 class="text-tambouille-title-big leading-none">Mettre un mix à la casserole</h1>
 
     <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_360px]">
@@ -247,7 +247,7 @@ async function onSubmit() {
           d'origine. Un mot seul est compris comme un compte Mixcloud.
         </p>
 
-        <p v-if="sourceError" class="mt-2 text-sm text-tambouille-accent">{{ sourceError }}</p>
+        <p v-if="sourceError" class="mt-2 text-md text-tambouille-accent">{{ sourceError }}</p>
 
         <ul
           v-if="sourceItems.length > 0"
@@ -275,7 +275,7 @@ async function onSubmit() {
                   {{ formatDuration(item.durationSec) ?? 'durée inconnue' }}
                 </span>
               </span>
-              <span v-if="importingRef === item.ref" class="shrink-0 text-xs text-tambouille-muted">
+              <span v-if="importingRef === item.ref" class="shrink-0 text-md text-tambouille-muted">
                 Import…
               </span>
             </button>
@@ -287,7 +287,7 @@ async function onSubmit() {
                il vient évite de confondre la source d'origine et l'importateur. -->
           <p
             v-if="importedSource"
-            class="mb-6 border-l-2 border-tambouille-accent py-1 pl-4 text-sm"
+            class="mb-6 border-l-2 border-tambouille-accent py-1 pl-4 text-md"
           >
             <span class="text-tambouille-muted">Importé depuis</span>
             <a
@@ -305,17 +305,17 @@ async function onSubmit() {
           <p class="tb-eyebrow">Les infos</p>
 
           <div class="pt-5">
-            <label class="mb-1.5 block text-sm text-tambouille-muted">Titre</label>
+            <label class="mb-1.5 block text-md text-tambouille-muted">Titre</label>
             <input v-model="title" type="text" required maxlength="120" class="tb-field" />
           </div>
 
           <div class="pt-5">
-            <label class="mb-1.5 block text-sm text-tambouille-muted">Description</label>
+            <label class="mb-1.5 block text-md text-tambouille-muted">Description</label>
             <textarea v-model="description" rows="4" maxlength="2000" class="tb-field" />
           </div>
 
           <div class="pt-5">
-            <label class="mb-1.5 block text-sm text-tambouille-muted"
+            <label class="mb-1.5 block text-md text-tambouille-muted"
               >Tags (séparés par des virgules)</label
             >
             <input

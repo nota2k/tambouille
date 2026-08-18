@@ -464,7 +464,7 @@ function onEnded() {
       {{ playbackError }}
     </p>
 
-    <div class="mx-auto flex max-w-6xl items-center gap-5 px-4 py-3">
+    <div class="mx-auto flex max-w-7xl items-center gap-5 px-4 py-3">
       <img
         v-if="playerStore.currentMix.coverUrl"
         :src="mediaUrl(playerStore.currentMix.coverUrl)"
