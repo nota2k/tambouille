@@ -215,7 +215,11 @@ onMounted(loadSections)
             ({{ selectedTags.length }})</span
           >
         </button>
-        <button type="button" class="pb-2 hover:text-tambouille-text text-lg" @click="playRandomMix">
+        <button
+          type="button"
+          class="pb-2 hover:text-tambouille-text text-lg"
+          @click="playRandomMix"
+        >
           Au hasard
         </button>
       </div>

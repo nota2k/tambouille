@@ -145,15 +145,17 @@ h6,
  */
 .page-grid {
   display: grid;
-  grid-template-columns:
-    [full-start] minmax(var(--page-gutter, 1rem), 1fr) [content-start] min(var(--page-width, 72rem), 100% - var(--page-gutter, 1rem) * 2) [content-end] minmax(var(--page-gutter, 1rem), 1fr) [full-end];
+  grid-template-columns: [full-start] minmax(var(--page-gutter, 1rem), 1fr) [content-start] min(
+      var(--page-width, 72rem),
+      100% - var(--page-gutter, 1rem) * 2
+    ) [content-end] minmax(var(--page-gutter, 1rem), 1fr) [full-end];
 }
 
-.page-grid>* {
+.page-grid > * {
   grid-column: content;
 }
 
-.page-grid>.full-bleed {
+.page-grid > .full-bleed {
   grid-column: full;
 }
 
@@ -204,7 +206,10 @@ h6,
   line-height: 1;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
   min-width: 160px;
 }
 
