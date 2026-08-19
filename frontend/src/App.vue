@@ -6,9 +6,14 @@ import AppFooter from '@/components/AppFooter.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
+import { useSmoothScroll } from '@/composables/useSmoothScroll'
 
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
+
+// Le défilement est un état de la fenêtre, pas d'une page : il s'installe ici,
+// une seule fois, plutôt que dans chaque vue.
+useSmoothScroll()
 
 onMounted(() => {
   if (authStore.accessToken) {
