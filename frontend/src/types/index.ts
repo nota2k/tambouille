@@ -36,6 +36,8 @@ export interface Mix {
   id: string
   title: string
   description: string | null
+  /** Le nom de l'artiste. Null sur les mix déposés à la main et sur les anciens. */
+  artist: string | null
   /** R2 object key. Null when the audio lives elsewhere. */
   audioUrl: string | null
   /** `'mixcloud' | 'remote'`. Null when the audio is on R2. */
@@ -149,6 +151,7 @@ export interface MixImport {
   title: string
   description: string
   tags: string[]
+  artist?: string
   coverSourceUrl?: string
   durationSec?: number
   tracklist: { artist: string; title: string; timecodeSec: number }[]
