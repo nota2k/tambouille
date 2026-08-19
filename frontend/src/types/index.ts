@@ -1,3 +1,5 @@
+import type { FourneeLayout } from '@/content/fournees'
+
 export interface AuthorSummary {
   id: string
   username: string
@@ -160,3 +162,43 @@ export interface MixImport {
  *  de `POST /imports/resolve` sont donc discriminées explicitement. */
 export type ResolveResponse =
   { kind: 'mix'; mix: MixImport } | { kind: 'list'; items: SourceItem[] }
+
+/**
+ * Une fournée : la sélection éditoriale mise en avant sur la home. Le gabarit
+ * (maquette 3e) impose ce qui ne change jamais — un numéro, une période, un
+ * titre de trois mots, trois phrases, une durée cumulée et le nom de qui a
+ * choisi. Le reste est laissé libre.
+ *
+ * Pas encore un modèle en base : l'objet est écrit à la main dans la vue, et
+ * seuls les mix sont réels. Le composant qui l'affiche ne sait rien de cette
+ * provenance, pour qu'une API puisse s'y substituer sans le toucher.
+ */
+export interface Fournee {
+  /** Le gabarit de mise en page. */
+  layout: FourneeLayout
+  /** Affiché « LA FOURNÉE N°18 ». */
+  number: number
+  /** Période libre, rendue en capitales : « TOUT L'HIVER ». */
+  period: string
+  /** Trois mots au maximum. */
+  title: string
+  /** Trois phrases, pas quatre. */
+  intro: string
+  /**
+   * La couleur de saison, en hexadécimal (`#2D5FA8`). Le bandeau est le seul
+   * endroit du site où une couleur hors palette maison est autorisée : elle ne
+   * doit déborder sur aucun autre bloc de la page.
+   */
+  color: string
+  /**
+   * Bascule le bandeau en fond noir, la couleur ne servant plus que d'accent —
+   * la variante 3c du gabarit. C'est un choix éditorial et non un repli
+   * technique : sur l'aplat de saison, l'encre est choisie automatiquement et
+   * tient toujours le seuil de 4,5:1.
+   */
+  inverted?: boolean
+  /** Qui a choisi — un pseudo, ou « la rédaction ». */
+  curator: string
+  /** Les mix retenus, dans l'ordre d'affichage. Cinq dans le gabarit. */
+  mixes: Mix[]
+}
