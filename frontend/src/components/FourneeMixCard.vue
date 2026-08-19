@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
 import { formatDuration } from '@/utils/time'
+import { mixCredit } from '@/composables/useMixCredit'
 import type { FourneeZone } from '@/composables/useFourneeTheme'
 import type { Mix } from '@/types'
 
@@ -10,6 +11,7 @@ const props = defineProps<{ mix: Mix; zone: FourneeZone; layout?: 'large' | 'tal
 
 const playerStore = usePlayerStore()
 const isPlaying = computed(() => playerStore.currentMix?.id === props.mix.id)
+const credit = computed(() => mixCredit(props.mix))
 
 /**
  * La carte jouée s'inverse : son fond prend l'encre de la bande, son texte la
@@ -55,8 +57,10 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
       {{ mix.title }}
     </RouterLink>
 
+    <!-- Pas de « importé par » ici : la carte est étroite et le gabarit lui
+         impose déjà trois informations. L'artiste remplace le compte. -->
     <p class="pt-4 pb-3 text-[13px] leading-[1.45] opacity-75">
-      {{ mix.user.displayName }}<br />
+      {{ credit.primary }}<br />
       <b :style="{ color: ink }">{{ formatDuration(mix.durationSec) ?? 'durée inconnue' }}</b>
       <template v-if="mix.tracklist.length"> · {{ mix.tracklist.length }} morceaux</template>
     </p>

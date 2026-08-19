@@ -14,10 +14,12 @@ export interface MixImport {
   title: string;
   description: string;
   tags: string[];
+  /** Le nom de l'artiste, quand la source le donne. */
+  artist?: string;
   coverSourceUrl?: string;
   durationSec?: number;
   tracklist: { artist: string; title: string; timecodeSec: number }[];
-  sourceType: 'mixcloud' | 'remote';
+  sourceType: 'mixcloud' | 'remote' | 'soundcloud';
   sourceRef: string;
   sourceLabel: string;
   sourcePageUrl?: string;
@@ -44,4 +46,24 @@ export function decodeRef(ref: string): { importer: string; value: string } {
     throw new BadRequestException('Référence de source invalide');
   }
   return { importer: ref.slice(0, separator), value: ref.slice(separator + 1) };
+}
+
+/**
+ * Place le nom de l'artiste **en tête** des tags, jamais à la suite.
+ *
+ * `MixesService.parseTags` tronque à 10 tags à la création : ajouté en dernier, le nom
+ * de l'artiste serait le premier perdu sur un mix qui porte déjà 10 tags — précisément
+ * les mix les mieux renseignés.
+ *
+ * La déduplication ignore la casse parce que l'enregistrement l'ignore aussi : les tags
+ * sont passés en minuscules, donc « Nota » et « nota » sont un seul tag une fois en base.
+ * Sans ça, le formulaire afficherait un doublon qui disparaîtrait à l'envoi, sans que
+ * rien n'explique lequel des deux a été retenu.
+ */
+export function withArtistTag(tags: string[], artistName?: string): string[] {
+  if (!artistName) return tags;
+  const rest = tags.filter(
+    (tag) => tag.toLowerCase() !== artistName.toLowerCase(),
+  );
+  return [artistName, ...rest];
 }

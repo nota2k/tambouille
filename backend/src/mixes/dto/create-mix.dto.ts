@@ -24,6 +24,16 @@ export class CreateMixDto {
   @MaxLength(2000)
   description?: string;
 
+  /**
+   * Le nom de l'artiste. Purement affiché — jamais rendu dans un `href` ni
+   * passé à un `fetch` —, donc échappé par Vue et sans garde de protocole,
+   * contrairement à `sourceRef`.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  artist?: string;
+
   /** Comma-separated list of tags, e.g. "house,deep-house,live" */
   @IsOptional()
   @IsString()
@@ -45,12 +55,13 @@ export class CreateMixDto {
   coverSourceUrl?: string;
 
   /**
-   * Which player engine the audio needs: 'mixcloud' or 'remote'. Paired with
-   * `sourceRef`; `MixesService` refuses one without the other.
+   * Which player engine the audio needs: 'mixcloud', 'remote' or
+   * 'soundcloud'. Paired with `sourceRef`; `MixesService` refuses one without
+   * the other.
    */
   @IsOptional()
   @IsString()
-  @IsIn(['mixcloud', 'remote'])
+  @IsIn(['mixcloud', 'remote', 'soundcloud'])
   sourceType?: string;
 
   /**

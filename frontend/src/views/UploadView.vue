@@ -11,6 +11,7 @@ import type { Mix, MixImport, ResolveResponse, SourceItem } from '@/types'
 const router = useRouter()
 
 const title = ref('')
+const artist = ref('')
 const description = ref('')
 const tags = ref('')
 const audioFile = ref<File | null>(null)
@@ -35,7 +36,7 @@ const coverSourceUrl = ref<string | null>(null)
 // already validated and read. A hand-filled form leaves it null and is never
 // offered the hosting choice — there would be nothing to point at.
 const importedSource = ref<{
-  type: 'mixcloud' | 'remote'
+  type: 'mixcloud' | 'remote' | 'soundcloud'
   ref: string
   label: string
   pageUrl?: string
@@ -54,6 +55,7 @@ const useRemoteAudio = computed(() => keepAudioAtSource.value && importedSource.
 
 function applyImport(mix: MixImport) {
   title.value = mix.title
+  artist.value = mix.artist ?? ''
   description.value = mix.description
   tags.value = mix.tags.join(', ')
   trackRows.value =
@@ -174,6 +176,7 @@ async function onSubmit() {
 
   const formData = new FormData()
   formData.append('title', title.value)
+  if (artist.value.trim()) formData.append('artist', artist.value.trim())
   if (description.value) formData.append('description', description.value)
   if (tags.value) formData.append('tags', tags.value)
   if (tracklist.entries.length > 0) formData.append('tracklist', JSON.stringify(tracklist.entries))
@@ -310,6 +313,19 @@ async function onSubmit() {
           </div>
 
           <div class="pt-5">
+            <label class="mb-1.5 block text-md text-tambouille-muted">Artiste</label>
+            <input v-model="artist" type="text" maxlength="120" class="tb-field" />
+            <!-- Comme pour les tags : un champ qui se remplit tout seul sans que
+                 rien ne dise d'où il vient est une surprise, pas un service. -->
+            <!-- Archive.org, Ouïedire, podcast et LYL ne donnent aucun artiste :
+                 sans le `&& artist`, la mention s'afficherait quand même,
+                 pointant vers un champ resté vide. -->
+            <p v-if="importedSource && artist" class="mt-1.5 text-xs text-tambouille-muted">
+              Repris de {{ importedSource.label }}. Vide si tu es l'artiste.
+            </p>
+          </div>
+
+          <div class="pt-5">
             <label class="mb-1.5 block text-md text-tambouille-muted">Description</label>
             <textarea v-model="description" rows="4" maxlength="2000" class="tb-field" />
           </div>
@@ -367,9 +383,13 @@ async function onSubmit() {
                   {{ importedSource.label }}, via les commandes de Tambouille. L'audio
                   <strong>n'est pas copié</strong>&nbsp;: s'il disparaît ou passe en privé sur
                   {{ importedSource.label }}, le mix cesse de fonctionner ici.
-                  <template v-if="importedSource.type === 'mixcloud'">
-                    Les écoutes sont comptées par Mixcloud et ne sont donc pas affichées sur
-                    Tambouille.
+                  <template
+                    v-if="
+                      importedSource.type === 'mixcloud' || importedSource.type === 'soundcloud'
+                    "
+                  >
+                    Les écoutes sont comptées par {{ importedSource.label }} et ne sont donc pas
+                    affichées sur Tambouille.
                   </template>
                   La pochette, elle, est bien importée.
                 </span>

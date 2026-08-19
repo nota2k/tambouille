@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
 import { formatDuration } from '@/utils/time'
+import { mixCredit } from '@/composables/useMixCredit'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import { mixShareUrl } from '@/utils/share'
@@ -14,6 +15,7 @@ const props = withDefaults(defineProps<{ mix: Mix; landscape?: boolean }>(), {
 const playerStore = usePlayerStore()
 
 const duration = computed(() => formatDuration(props.mix.durationSec))
+const credit = computed(() => mixCredit(props.mix))
 
 function play(event: Event) {
   event.preventDefault()
@@ -64,7 +66,10 @@ function play(event: Event) {
       {{ mix.title }}
     </p>
     <p class="mt-1 truncate text-[13px] text-tambouille-muted">
-      {{ mix.user.displayName }}<template v-if="duration"> · {{ duration }}</template>
+      {{ credit.primary }}<template v-if="duration"> · {{ duration }}</template>
+      <span v-if="credit.secondary" class="block text-tambouille-muted">
+        importé par {{ credit.secondary }}
+      </span>
     </p>
   </RouterLink>
 </template>

@@ -129,26 +129,6 @@ export function readArtist(user: unknown): CloudcastArtist | undefined {
   };
 }
 
-/**
- * Place le nom de l'artiste **en tête** des tags, jamais à la suite.
- *
- * `MixesService.parseTags` tronque à 10 tags à la création : ajouté en dernier, le nom
- * de l'artiste serait le premier perdu sur un mix qui porte déjà 10 tags — précisément
- * les mix les mieux renseignés.
- *
- * La déduplication ignore la casse parce que l'enregistrement l'ignore aussi : les tags
- * sont passés en minuscules, donc « Nota » et « nota » sont un seul tag une fois en base.
- * Sans ça, le formulaire afficherait un doublon qui disparaîtrait à l'envoi, sans que
- * rien n'explique lequel des deux a été retenu.
- */
-export function withArtistTag(tags: string[], artistName?: string): string[] {
-  if (!artistName) return tags;
-  const rest = tags.filter(
-    (tag) => tag.toLowerCase() !== artistName.toLowerCase(),
-  );
-  return [artistName, ...rest];
-}
-
 export function pickPictureUrl(pictures: unknown): string | undefined {
   if (!isRecord(pictures)) return undefined;
   for (const size of PICTURE_PREFERENCE) {
@@ -231,9 +211,9 @@ export function toCloudcastImport(raw: unknown): CloudcastImport {
     title: typeof cloudcast.name === 'string' ? cloudcast.name : '',
     description:
       typeof cloudcast.description === 'string' ? cloudcast.description : '',
-    // Le nom de l'artiste rejoint les tags : le mix appartiendra au compte Tambouille
-    // qui l'importe, donc sans ça plus rien dans la fiche ne dit de qui il est.
-    tags: withArtistTag(parseTags(cloudcast.tags), artist?.name),
+    // Les tags de la source, sans plus : l'artiste part par `artist`, juste
+    // en dessous, et n'a plus à être replié ici.
+    tags: parseTags(cloudcast.tags),
     coverSourceUrl: pickPictureUrl(cloudcast.pictures),
     tracklist: parseSections(cloudcast.sections),
     artist,

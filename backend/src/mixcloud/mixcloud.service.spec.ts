@@ -10,7 +10,6 @@ import {
   readArtist,
   toCloudcastImport,
   toCloudcastSummary,
-  withArtistTag,
 } from './mixcloud.service';
 
 /**
@@ -316,35 +315,23 @@ describe('MixcloudService', () => {
       expect(readArtist({})).toBeUndefined();
     });
 
-    it('ajoute le nom en tête des tags', () => {
-      expect(toCloudcastImport(cloudcastFixture({ user })).tags).toEqual([
-        'Nota',
-        'Italo disco',
-        'New wave',
-      ]);
+    it('part par son propre champ, plus par les tags', () => {
+      // Depuis que `artist` a sa colonne, le replier ici aussi ferait deux sources
+      // pour la même information — c'est désormais l'importeur qui décide.
+      const imported = toCloudcastImport(cloudcastFixture({ user }));
+
+      expect(imported.artist?.name).toBe('Nota');
+      expect(imported.tags).toEqual(['Italo disco', 'New wave']);
     });
 
-    it('garde le nom quand le mix porte déjà 10 tags', () => {
-      // C'est la raison d'être de la mise en tête : `MixesService.parseTags` tronque à 10,
-      // donc un nom ajouté en dernier serait le premier perdu.
+    it('ne touche pas aux tags même quand le mix en porte déjà 10', () => {
       const tags = Array.from({ length: 10 }, (_, i) => ({ name: `tag${i}` }));
 
-      const result = toCloudcastImport(cloudcastFixture({ user, tags })).tags;
+      const result = toCloudcastImport(cloudcastFixture({ user, tags }));
 
-      expect(result[0]).toBe('Nota');
-      expect(result.slice(0, 10)).toContain('Nota');
-    });
-
-    it('ne duplique pas un nom déjà présent parmi les tags, quelle que soit la casse', () => {
-      const result = toCloudcastImport(
-        cloudcastFixture({ user, tags: [{ name: 'nota' }, { name: 'Disco' }] }),
-      ).tags;
-
-      expect(result).toEqual(['Nota', 'Disco']);
-    });
-
-    it('laisse les tags intacts quand il n’y a pas d’artiste', () => {
-      expect(withArtistTag(['Disco'], undefined)).toEqual(['Disco']);
+      expect(result.artist?.name).toBe('Nota');
+      expect(result.tags).toHaveLength(10);
+      expect(result.tags).not.toContain('Nota');
     });
 
     it('accompagne aussi les mix listés, pas seulement celui qu’on importe', () => {
