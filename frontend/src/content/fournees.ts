@@ -166,3 +166,27 @@ export function parseFournee(raw: string, path: string): FourneeSource {
     mixIds,
   }
 }
+
+/**
+ * La fournée en cours à l'instant donné, ou `null`.
+ *
+ * `to` est inclusive jusqu'au dernier instant de la journée : une fournée qui
+ * se termine le 28 février tient tout le 28. La comparaison se fait donc contre
+ * le lendemain à minuit, plutôt qu'en tripatouillant les heures de `now`.
+ *
+ * Un recouvrement de fenêtres est une erreur de saisie, mais elle arrivera :
+ * celle dont le `from` est le plus récent l'emporte. N'importe quelle règle
+ * ferait l'affaire pourvu qu'elle soit stable — ce qu'il faut éviter, c'est de
+ * dépendre de l'ordre dans lequel `import.meta.glob` a rendu les fichiers, qui
+ * peut changer d'un build à l'autre.
+ */
+export function selectFournee(sources: FourneeSource[], now: Date): FourneeSource | null {
+  let elue: FourneeSource | null = null
+  for (const source of sources) {
+    const lendemainDeCloture = new Date(source.to)
+    lendemainDeCloture.setDate(lendemainDeCloture.getDate() + 1)
+    if (now < source.from || now >= lendemainDeCloture) continue
+    if (!elue || source.from > elue.from) elue = source
+  }
+  return elue
+}

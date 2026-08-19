@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseFournee, parseLocalDate, FourneeParseError } from '../fournees'
+import { parseFournee, parseLocalDate, FourneeParseError, selectFournee } from '../fournees'
+import type { FourneeSource } from '../fournees'
 
 const VALIDE = `---
 layout: tall
@@ -117,5 +118,71 @@ describe('parseFournee', () => {
     expect(
       parseFournee(large.replace('[a, b, c, d, e]', '[a, b, c, d]'), 'x.md').mixIds,
     ).toHaveLength(4)
+  })
+})
+
+function source(from: string, to: string, title = 'x'): FourneeSource {
+  return {
+    layout: 'tall',
+    number: 1,
+    title,
+    period: 'p',
+    color: '#000000',
+    inverted: false,
+    curator: 'c',
+    intro: 'i',
+    from: new Date(from),
+    to: new Date(to),
+    mixIds: ['a', 'b', 'c', 'd', 'e'],
+  }
+}
+
+/** Un instant dans la journée, pour éprouver les bornes ailleurs qu'à minuit. */
+function midi(jour: string): Date {
+  const d = new Date(jour)
+  d.setHours(12, 0, 0, 0)
+  return d
+}
+
+describe('selectFournee', () => {
+  const hiver = source('2026-12-01T00:00:00', '2027-02-28T00:00:00', 'hiver')
+
+  it(`rend null sur un dossier vide`, () => {
+    expect(selectFournee([], midi('2026-12-15T00:00:00'))).toBeNull()
+  })
+
+  it(`rend null avant l'ouverture`, () => {
+    expect(selectFournee([hiver], midi('2026-11-30T00:00:00'))).toBeNull()
+  })
+
+  it(`rend la fournée pendant la fenêtre`, () => {
+    expect(selectFournee([hiver], midi('2027-01-15T00:00:00'))?.title).toBe('hiver')
+  })
+
+  it(`inclut le jour d'ouverture, dès minuit`, () => {
+    expect(selectFournee([hiver], new Date('2026-12-01T00:00:00'))?.title).toBe('hiver')
+  })
+
+  it(`inclut le jour de clôture jusqu'à son dernier instant`, () => {
+    expect(selectFournee([hiver], midi('2027-02-28T00:00:00'))?.title).toBe('hiver')
+    const finDeJournee = new Date('2027-02-28T23:59:59')
+    expect(selectFournee([hiver], finDeJournee)?.title).toBe('hiver')
+  })
+
+  it(`rend null le lendemain de la clôture`, () => {
+    expect(selectFournee([hiver], new Date('2027-03-01T00:00:00'))).toBeNull()
+  })
+
+  it(`départage un recouvrement par le \`from\` le plus récent`, () => {
+    const ancienne = source('2026-12-01T00:00:00', '2027-03-31T00:00:00', 'ancienne')
+    const recente = source('2027-01-01T00:00:00', '2027-03-31T00:00:00', 'recente')
+    expect(selectFournee([ancienne, recente], midi('2027-02-01T00:00:00'))?.title).toBe('recente')
+    // L'ordre du tableau ne doit rien changer.
+    expect(selectFournee([recente, ancienne], midi('2027-02-01T00:00:00'))?.title).toBe('recente')
+  })
+
+  it(`ignore les fournées hors fenêtre pour en élire une en cours`, () => {
+    const passee = source('2026-01-01T00:00:00', '2026-03-01T00:00:00', 'passee')
+    expect(selectFournee([passee, hiver], midi('2027-01-15T00:00:00'))?.title).toBe('hiver')
   })
 })
