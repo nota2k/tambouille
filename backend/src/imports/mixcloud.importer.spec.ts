@@ -33,13 +33,20 @@ describe('MixcloudImporter.resolve', () => {
     });
     const importer = importerWith({ getCloudcast });
 
-    const imported = (await importer.importItem('/Notamusic/antimythes/')) as {
-      artist?: string;
-      tags: string[];
-    };
+    const imported = await importer.importItem('/Notamusic/antimythes/');
 
-    expect(imported.artist).toBe('Nota');
-    expect(imported.tags).toEqual(['synth']);
+    expect(imported).toEqual({
+      title: 'Antimythes',
+      description: 'desc',
+      tags: ['synth'],
+      artist: 'Nota',
+      coverSourceUrl: 'https://thumbnailer.mixcloud.com/x.jpg',
+      tracklist: [],
+      sourceType: 'mixcloud',
+      sourceRef: '/Notamusic/antimythes/',
+      sourceLabel: 'Mixcloud',
+      sourcePageUrl: 'https://www.mixcloud.com/Notamusic/antimythes/',
+    });
   });
 
   it('treats a one-segment path as an account and lists it', async () => {

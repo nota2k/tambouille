@@ -27,7 +27,11 @@ describe('mixCredit', () => {
   })
 
   it('compare sans tenir compte de la casse ni des espaces de bordure', () => {
-    expect(mixCredit({ artist: '  nelly babillon  ', user: compte }).secondary).toBeNull()
+    const credit = mixCredit({ artist: '  nelly babillon  ', user: compte })
+    expect(credit.secondary).toBeNull()
+    // La casse du compte l'emporte quand c'est la même personne — une
+    // décision de conception, pas un hasard de comparaison.
+    expect(credit.primary).toBe('Nelly Babillon')
   })
 
   it("garde la casse de l'artiste telle que la source l'écrit", () => {
@@ -35,6 +39,8 @@ describe('mixCredit', () => {
   })
 
   it('traite un artiste vide comme absent', () => {
-    expect(mixCredit({ artist: '   ', user: compte }).secondary).toBeNull()
+    const credit = mixCredit({ artist: '   ', user: compte })
+    expect(credit.secondary).toBeNull()
+    expect(credit.primary).toBe('Nelly Babillon')
   })
 })

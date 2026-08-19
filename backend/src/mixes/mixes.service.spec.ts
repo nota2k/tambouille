@@ -665,11 +665,42 @@ describe('MixesService', () => {
         { audioUrl: AUDIO_KEY },
       );
 
-      // La clé est passée, valant `undefined` : Prisma laisse alors la colonne
-      // à NULL, ce qui est l'état de tout mix déposé à la main.
+      // NULL explicite, l'état de tout mix déposé à la main.
       expect(prisma.mix.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ artist: undefined }),
+          data: expect.objectContaining({ artist: null }),
+        }),
+      );
+    });
+
+    it('stocke un artiste vide ou fait d’espaces à NULL, pas en chaîne vide', async () => {
+      await service.create(
+        USER_ID,
+        { title: 'A mix', artist: '   ' },
+        { audioUrl: AUDIO_KEY },
+      );
+
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ artist: null }),
+        }),
+      );
+    });
+
+    it('à la mise à jour, un artiste vidé retombe à NULL plutôt qu’à une chaîne vide', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: USER_ID,
+        audioUrl: AUDIO_KEY,
+        sourceType: null,
+        sourceRef: null,
+      });
+
+      await service.update(MIX_ID, USER_ID, { artist: '  ' });
+
+      expect(prisma.mix.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ artist: null }),
         }),
       );
     });

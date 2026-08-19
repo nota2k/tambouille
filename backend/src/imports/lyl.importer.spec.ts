@@ -166,9 +166,9 @@ describe('LylImporter.resolve on an episode', () => {
 
     expect(imported).toMatchObject({
       title: 'Temple Of Faitiche',
-      // The artist leads the tags, then the styles, then the station.
+      artist: 'Daniel Majer: Friends and Fragments',
+      // L'artiste a son champ, il ne reste plus dans les tags.
       tags: [
-        'Daniel Majer: Friends and Fragments',
         'Avant-garde',
         'Experimental',
         'Field Recording',

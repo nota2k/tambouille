@@ -87,7 +87,10 @@ async function onSubmit() {
 
   const formData = new FormData()
   formData.append('title', title.value)
-  if (artist.value.trim()) formData.append('artist', artist.value.trim())
+  // Envoyé même vide, contrairement à `UploadView` : ici il peut y avoir une
+  // valeur existante à effacer (un artiste importé à tort), et un champ absent
+  // ne l'effacerait pas — le backend ignore ce qu'il ne reçoit pas.
+  formData.append('artist', artist.value.trim())
   formData.append('description', description.value)
   formData.append('tags', tags.value)
   formData.append('tracklist', JSON.stringify(tracklist.entries))

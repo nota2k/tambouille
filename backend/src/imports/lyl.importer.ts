@@ -8,7 +8,6 @@ import { safeFetch } from '../common/safe-fetch';
 import { stripHtml } from '../common/strip-html';
 import {
   encodeRef,
-  withArtistTag,
   type MixImport,
   type SourceImporter,
   type SourceItem,
@@ -186,9 +185,10 @@ export class LylImporter implements SourceImporter {
     return {
       title: episode.title || 'Sans titre',
       description: stripHtml(episode.description ?? ''),
-      // Le mix appartiendra au compte Tambouille qui l'importe : sans le nom
-      // de l'artiste en tête des tags, plus rien ne dit de qui il est.
-      tags: withArtistTag([...styles, 'LYL Radio'], episode.artists?.trim()),
+      // L'artiste a désormais son champ : le laisser aussi dans les tags ferait
+      // deux sources pour la même information.
+      tags: [...styles, 'LYL Radio'],
+      artist: episode.artists?.trim(),
       coverSourceUrl: episode.image?.url,
       durationSec: parseLylDuration(episode.duration),
       tracklist: parseLylTracks(episode.tracks),

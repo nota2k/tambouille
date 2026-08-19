@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
+import { mixCredit } from '@/composables/useMixCredit'
 import { mediaUrl } from '@/utils/media'
 import { formatTime, formatDuration } from '@/utils/time'
 import { formatDate } from '@/utils/date'
@@ -24,6 +25,10 @@ const authStore = useAuthStore()
 
 const mix = ref<Mix | null>(null)
 const uploaderProfile = ref<UserProfile | null>(null)
+// La règle « artiste sinon compte » vit dans le composable, pas ici : sans
+// lui, un mix importé par son propre artiste lirait « par Nelly Babillon »
+// puis « Mijoté par Nelly Babillon », juste en dessous.
+const credit = computed(() => (mix.value ? mixCredit(mix.value) : null))
 const suggestions = ref<Mix[]>([])
 const loading = ref(true)
 const deleting = ref(false)
@@ -187,10 +192,14 @@ watch(
         <div class="min-w-0 flex-1">
           <h1 class="text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.05]">{{ mix.title }}</h1>
 
-          <!-- L'artiste, quand la source d'import le donne : sous le titre, en
-               clair, à côté de `UploaderCard` qui dit qui a mis en ligne — deux
-               informations différentes, pas une hiérarchie entre elles. -->
-          <p v-if="mix.artist" class="pt-1 text-lg text-tambouille-muted">par {{ mix.artist }}</p>
+          <!-- N'apparaît que lorsqu'il y a deux noms distincts à montrer : pas
+               d'artiste, ou artiste identique au compte qui a mis en ligne
+               (import de son propre mix), et la ligne se tait — sinon on
+               lirait « par Nelly Babillon » puis « Mijoté par Nelly Babillon »
+               juste en dessous. -->
+          <p v-if="credit?.secondary" class="pt-1 text-lg text-tambouille-muted">
+            par {{ credit.primary }}
+          </p>
 
           <p class="pb-2.5 pt-3.5 text-base text-tambouille-muted">
             Mijoté par

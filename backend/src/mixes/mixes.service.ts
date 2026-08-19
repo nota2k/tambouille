@@ -169,7 +169,11 @@ export class MixesService {
       data: {
         title: dto.title,
         description: dto.description,
-        artist: dto.artist,
+        // Normalisé à NULL plutôt qu'à une chaîne vide : `UploadView` n'envoie
+        // le champ que non vide, mais un import peut fournir des espaces
+        // seuls, et la colonne doit rester dans le même état que si rien
+        // n'avait été donné.
+        artist: dto.artist?.trim() || null,
         tags: parseTags(dto.tags),
         audioUrl,
         sourceType,
@@ -277,7 +281,10 @@ export class MixesService {
     const data: Record<string, unknown> = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
-    if (dto.artist !== undefined) data.artist = dto.artist;
+    // Vide ou fait d'espaces vaut effacement : `EditMixView` envoie toujours
+    // le champ, y compris vide — sans ce `trim() || null`, une chaîne vide
+    // resterait stockée telle quelle plutôt que de vider la colonne.
+    if (dto.artist !== undefined) data.artist = dto.artist.trim() || null;
     if (dto.tags !== undefined) data.tags = parseTags(dto.tags);
     if (coverUrl !== undefined) data.coverUrl = coverUrl;
     if (dto.tracklist !== undefined) {

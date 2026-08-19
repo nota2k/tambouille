@@ -317,7 +317,10 @@ async function onSubmit() {
             <input v-model="artist" type="text" maxlength="120" class="tb-field" />
             <!-- Comme pour les tags : un champ qui se remplit tout seul sans que
                  rien ne dise d'où il vient est une surprise, pas un service. -->
-            <p v-if="importedSource" class="mt-1.5 text-xs text-tambouille-muted">
+            <!-- Archive.org, Ouïedire, podcast et LYL ne donnent aucun artiste :
+                 sans le `&& artist`, la mention s'afficherait quand même,
+                 pointant vers un champ resté vide. -->
+            <p v-if="importedSource && artist" class="mt-1.5 text-xs text-tambouille-muted">
               Repris de {{ importedSource.label }}. Vide si tu es l'artiste.
             </p>
           </div>

@@ -11,7 +11,6 @@ import {
   toCloudcastImport,
   toCloudcastSummary,
 } from './mixcloud.service';
-import { withArtistTag } from '../imports/source-importer';
 
 /**
  * `fetch` is mocked throughout: these cover the relay's own rules — the two
@@ -333,10 +332,6 @@ describe('MixcloudService', () => {
       expect(result.artist?.name).toBe('Nota');
       expect(result.tags).toHaveLength(10);
       expect(result.tags).not.toContain('Nota');
-    });
-
-    it('laisse les tags intacts quand il n’y a pas d’artiste', () => {
-      expect(withArtistTag(['Disco'], undefined)).toEqual(['Disco']);
     });
 
     it('accompagne aussi les mix listés, pas seulement celui qu’on importe', () => {
