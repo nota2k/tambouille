@@ -13,6 +13,7 @@ import TagsOverlay from '@/components/TagsOverlay.vue'
 import FourneeBanner from '@/components/FourneeBanner.vue'
 import FeedLink from '@/components/FeedLink.vue'
 import { useFournee } from '@/composables/useFournee'
+import { mixCredit } from '@/composables/useMixCredit'
 import type { Mix, MixListResponse, AuthorSummary } from '@/types'
 
 const authStore = useAuthStore()
@@ -62,6 +63,9 @@ let searchTimeout: ReturnType<typeof setTimeout> | undefined
 const featuredMix = computed(() => latestMixes.value[0] ?? null)
 const restOfLatest = computed(() => latestMixes.value.slice(1))
 const featuredDuration = computed(() => formatDuration(featuredMix.value?.durationSec))
+// La règle artiste/compte vient du composable, comme sur les cinq autres
+// surfaces : ce bloc écrivait le compte en dur et était le seul à la contourner.
+const featuredCredit = computed(() => (featuredMix.value ? mixCredit(featuredMix.value) : null))
 
 /** Tous les mix chargés, pour en tirer les tags et les cuisinier⋅ère⋅s de la colonne. */
 const knownMixes = computed(() => [...latestMixes.value, ...topMixes.value])
@@ -357,6 +361,14 @@ onMounted(loadSections)
                     {{ featuredMix.title }}
                   </h2>
                 </RouterLink>
+
+                <!-- Même règle que sur la page du mix : la ligne ne paraît que
+                     lorsqu'il y a deux noms distincts à montrer. Sans artiste,
+                     ou quand l'artiste est le compte qui a mis en ligne, elle se
+                     tait — sinon on lirait le même nom deux fois de suite. -->
+                <p v-if="featuredCredit?.secondary" class="pt-2 text-[17px] text-tambouille-muted">
+                  par {{ featuredCredit.primary }}
+                </p>
 
                 <p class="pb-1.5 pt-2.5 text-[17px] text-tambouille-muted">
                   {{ featuredMix.user.displayName }} · {{ formatDate(featuredMix.createdAt) }}
