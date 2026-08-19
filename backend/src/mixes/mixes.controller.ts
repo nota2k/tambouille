@@ -9,6 +9,8 @@ import {
   Patch,
   Post,
   Query,
+  Redirect,
+  Req,
   UploadedFile,
   UploadedFiles,
   UseGuards,
@@ -18,12 +20,14 @@ import {
   FileFieldsInterceptor,
   FileInterceptor,
 } from '@nestjs/platform-express';
+import type { Request } from 'express';
 import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
 import { CoverImportService } from './cover-import.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
 import { QuerySuggestionsDto } from './dto/query-suggestions.dto';
+import { mediaBasesFor } from '../common/media-bases';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import {
@@ -98,6 +102,21 @@ export class MixesController {
   @UseGuards(OptionalJwtAuthGuard)
   findOne(@Param('id') id: string, @OptionalUserId() currentUserId?: string) {
     return this.mixesService.findOne(id, currentUserId);
+  }
+
+  /**
+   * L'URL que portent les `enclosure` des flux de syndication. Elle redirige
+   * plutôt que de servir l'audio : une URL d'enclosure vit des années dans la
+   * base locale de chaque abonné, et y graver le domaine R2 reviendrait à
+   * s'interdire tout changement d'hébergement — ce projet en a déjà fait un.
+   *
+   * `302` et non `301` : un `301` est mémorisé par les clients, ce qui annule
+   * exactement le bénéfice recherché.
+   */
+  @Get(':id/audio')
+  @Redirect()
+  resolveAudio(@Param('id') id: string, @Req() request: Request) {
+    return this.mixesService.resolveAudio(id, mediaBasesFor(request));
   }
 
   @Get(':id/suggestions')

@@ -21,6 +21,7 @@ const create_mix_dto_1 = require("./dto/create-mix.dto");
 const update_mix_dto_1 = require("./dto/update-mix.dto");
 const query_mixes_dto_1 = require("./dto/query-mixes.dto");
 const query_suggestions_dto_1 = require("./dto/query-suggestions.dto");
+const media_bases_1 = require("../common/media-bases");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const optional_jwt_auth_guard_1 = require("../auth/guards/optional-jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
@@ -49,6 +50,9 @@ let MixesController = class MixesController {
     }
     findOne(id, currentUserId) {
         return this.mixesService.findOne(id, currentUserId);
+    }
+    resolveAudio(id, request) {
+        return this.mixesService.resolveAudio(id, (0, media_bases_1.mediaBasesFor)(request));
     }
     listSuggestions(id, query, currentUserId) {
         return this.mixesService.listSuggestions(id, query.limit ?? 3, currentUserId);
@@ -137,6 +141,15 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], MixesController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Get)(':id/audio'),
+    (0, common_1.Redirect)(),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], MixesController.prototype, "resolveAudio", null);
 __decorate([
     (0, common_1.Get)(':id/suggestions'),
     (0, common_1.UseGuards)(optional_jwt_auth_guard_1.OptionalJwtAuthGuard),

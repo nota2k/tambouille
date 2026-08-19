@@ -1,4 +1,5 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { type MediaBases } from '../common/audio-source';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
@@ -51,6 +52,10 @@ export declare class MixesService {
         totalPages: number;
     }>;
     findOne(id: string, currentUserId?: string): Promise<any>;
+    resolveAudio(id: string, bases: MediaBases): Promise<{
+        url: string;
+        statusCode: number;
+    }>;
     update(id: string, userId: string, dto: UpdateMixDto, coverUrl?: string): Promise<any>;
     remove(id: string, userId: string): Promise<void>;
     listSuggestions(id: string, limit: number, currentUserId?: string): Promise<{

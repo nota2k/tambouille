@@ -953,3 +953,59 @@ describe('update — the cover it replaces', () => {
     expect(asMock).not.toHaveBeenCalled();
   });
 });
+
+describe('MixesService.resolveAudio', () => {
+  const BASES = { r2: 'https://cdn.example', api: 'https://api.example' };
+
+  function serviceFor(mix: Record<string, unknown> | null) {
+    const prisma = createPrismaMock();
+    prisma.mix.findUnique.mockResolvedValue(mix);
+    return new MixesService(prisma as unknown as PrismaService);
+  }
+
+  it('redirige temporairement un mix hébergé vers le bucket public', async () => {
+    const service = serviceFor({
+      audioUrl: AUDIO_KEY,
+      sourceType: null,
+      sourceRef: null,
+    });
+
+    await expect(service.resolveAudio(MIX_ID, BASES)).resolves.toEqual({
+      url: `https://cdn.example/${AUDIO_KEY}`,
+      // 302 et non 301 : un client qui mémorise la destination annule le seul
+      // bénéfice de cette indirection.
+      statusCode: 302,
+    });
+  });
+
+  it('redirige temporairement un mix distant vers sa source', async () => {
+    const service = serviceFor({
+      audioUrl: null,
+      sourceType: 'remote',
+      sourceRef: 'https://ailleurs.example/episode.mp3',
+    });
+
+    await expect(service.resolveAudio(MIX_ID, BASES)).resolves.toEqual({
+      url: 'https://ailleurs.example/episode.mp3',
+      statusCode: 302,
+    });
+  });
+
+  it('refuse un mix Mixcloud par un 404', async () => {
+    const service = serviceFor({
+      audioUrl: null,
+      sourceType: SOURCE_TYPE,
+      sourceRef: SOURCE_REF,
+    });
+
+    await expect(service.resolveAudio(MIX_ID, BASES)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('refuse un mix inexistant par un 404', async () => {
+    await expect(
+      serviceFor(null).resolveAudio(MIX_ID, BASES),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});

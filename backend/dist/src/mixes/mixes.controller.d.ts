@@ -1,3 +1,4 @@
+import type { Request } from 'express';
 import { MixesService } from './mixes.service';
 import { CoverImportService } from './cover-import.service';
 import { CreateMixDto } from './dto/create-mix.dto';
@@ -43,6 +44,10 @@ export declare class MixesController {
     }>;
     findAllTags(): Promise<string[]>;
     findOne(id: string, currentUserId?: string): Promise<any>;
+    resolveAudio(id: string, request: Request): Promise<{
+        url: string;
+        statusCode: number;
+    }>;
     listSuggestions(id: string, query: QuerySuggestionsDto, currentUserId?: string): Promise<{
         items: any[];
     }>;

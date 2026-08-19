@@ -43,6 +43,14 @@ remplacer generated backend/generated "$BACKEND"
 remplacer prisma    backend/prisma    "$BACKEND"
 remplacer dist      frontend/dist     "$APP/frontend"
 
+# Les fournées sont des fichiers du frontend, embarqués dans son bundle au
+# build. Le flux de syndication d'une fournée les lit côté backend, en fichiers,
+# et `frontend/dist` ne les contient pas sous cette forme : sans cette ligne,
+# `/api/fournees/:numero/rss` répond 404 en production tout en marchant en
+# local. Le backend les cherche là où `FOURNEES_DIR` le dit — voir
+# `backend/README.md`.
+remplacer fournees  frontend/src/content/fournees "$BACKEND"
+
 /bin/cp -f "$SOURCE/backend/package.json" "$SOURCE/backend/package-lock.json" "$BACKEND/"
 echo "  copiés   : package.json, package-lock.json"
 

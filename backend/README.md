@@ -121,6 +121,29 @@ peut pas l'écraser, et ne peut pas non plus le renseigner. Une variable nouvell
 demande un geste manuel, et son absence ne se voit qu'en empruntant le chemin
 qui la lit.
 
+## Les fournées, côté backend
+
+Le flux `/api/fournees/:numero/rss` lit les fichiers markdown de fournée. Ils
+vivent dans `frontend/src/content/fournees/`, où le frontend les embarque à son
+build ; le déploiement en dépose une copie dans `backend/fournees/`, puisque
+`frontend/dist` ne les contient pas sous forme de fichiers.
+
+`FOURNEES_DIR` dit au backend où les chercher. Sans elle, il cherche à côté du
+dépôt (`../frontend/src/content/fournees`), ce qui est juste en local et faux en
+production, où il faut donc renseigner :
+
+```
+FOURNEES_DIR=/home/bane2718/tambouille/backend/fournees
+```
+
+Un dossier absent ne fait pas tomber l'API : `readFournees` rend une liste vide,
+seul le flux de fournée répond alors 404, et les trois autres continuent de
+servir.
+
+`R2_PUBLIC_URL` est l'autre variable neuve : le backend ne stocke que des clés
+d'objet, et c'est elle qui les rend absolues dans les `enclosure`. Sa valeur est
+celle de `VITE_R2_PUBLIC_URL` côté frontend.
+
 ## Ce qui reste manuel
 
 - Appliquer une migration, pour la raison ci-dessus.

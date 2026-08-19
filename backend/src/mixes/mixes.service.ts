@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { deleteFromR2 } from '../common/upload.utils';
+import { audioSourceFor, type MediaBases } from '../common/audio-source';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
@@ -262,6 +263,32 @@ export class MixesService {
       throw new NotFoundException('Mix not found');
     }
     return toMixResponse(mix);
+  }
+
+  /**
+   * Résout l'audio d'un mix vers son emplacement réel, pour la redirection que
+   * les `enclosure` des flux pointent.
+   *
+   * Un mix dont l'audio n'est pas adressable — Mixcloud, qui n'expose qu'un
+   * lecteur embarqué — est un 404 et non une redirection vers sa page : aucune
+   * `enclosure` ne mène ici, et rendre du HTML à un client qui attend un
+   * fichier casserait son téléchargement au lieu de le laisser indisponible.
+   */
+  async resolveAudio(id: string, bases: MediaBases) {
+    const mix = await this.prisma.mix.findUnique({
+      where: { id },
+      select: { audioUrl: true, sourceType: true, sourceRef: true },
+    });
+    if (!mix) {
+      throw new NotFoundException('Mix not found');
+    }
+
+    const source = audioSourceFor(mix, bases);
+    if (!source) {
+      throw new NotFoundException('Mix has no downloadable audio');
+    }
+
+    return { url: source.url, statusCode: 302 };
   }
 
   async update(

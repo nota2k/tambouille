@@ -16,6 +16,7 @@ exports.toMixResponse = toMixResponse;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const upload_utils_1 = require("../common/upload.utils");
+const audio_source_1 = require("../common/audio-source");
 function parseTags(tags) {
     if (!tags)
         return [];
@@ -197,6 +198,20 @@ let MixesService = class MixesService {
             throw new common_1.NotFoundException('Mix not found');
         }
         return toMixResponse(mix);
+    }
+    async resolveAudio(id, bases) {
+        const mix = await this.prisma.mix.findUnique({
+            where: { id },
+            select: { audioUrl: true, sourceType: true, sourceRef: true },
+        });
+        if (!mix) {
+            throw new common_1.NotFoundException('Mix not found');
+        }
+        const source = (0, audio_source_1.audioSourceFor)(mix, bases);
+        if (!source) {
+            throw new common_1.NotFoundException('Mix has no downloadable audio');
+        }
+        return { url: source.url, statusCode: 302 };
     }
     async update(id, userId, dto, coverUrl) {
         const mix = await this.prisma.mix.findUnique({ where: { id } });

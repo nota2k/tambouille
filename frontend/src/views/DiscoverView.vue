@@ -4,13 +4,14 @@ import { useRoute } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
-import { mediaUrl } from '@/utils/media'
+import { feedUrl, mediaUrl } from '@/utils/media'
 import { formatDate } from '@/utils/date'
 import { formatDuration } from '@/utils/time'
 import MixListItem from '@/components/MixListItem.vue'
 import MixGrid from '@/components/MixGrid.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
 import FourneeBanner from '@/components/FourneeBanner.vue'
+import FeedLink from '@/components/FeedLink.vue'
 import { useFournee } from '@/composables/useFournee'
 import type { Mix, MixListResponse, AuthorSummary } from '@/types'
 
@@ -190,7 +191,15 @@ onMounted(loadSections)
     <div
       class="flex flex-wrap items-end justify-between gap-4 border-b-2 border-tambouille-rule pb-3"
     >
-      <h1 class="text-tambouille-title-big leading-none">Découvrir</h1>
+      <div class="flex items-center gap-3">
+        <h1 class="text-tambouille-title-big leading-none">Découvrir</h1>
+        <FeedLink :href="feedUrl('/rss')" title="Tambouille" />
+        <FeedLink
+          v-if="fournee"
+          :href="feedUrl(`/fournees/${fournee.number}/rss`)"
+          :title="`La fournée n°${fournee.number} — ${fournee.title}`"
+        />
+      </div>
       <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-tambouille-muted">
         <button
           type="button"
