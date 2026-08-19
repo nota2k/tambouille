@@ -8,6 +8,7 @@ import { mediaUrl } from '@/utils/media'
 import { formatDate } from '@/utils/date'
 import { formatDuration } from '@/utils/time'
 import MixListItem from '@/components/MixListItem.vue'
+import MixGrid from '@/components/MixGrid.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
 import FourneeBanner from '@/components/FourneeBanner.vue'
 import { useFournee } from '@/composables/useFournee'
@@ -362,7 +363,7 @@ onMounted(loadSections)
                   <span
                     v-for="tag in featuredMix.tags.slice(0, 3)"
                     :key="tag"
-                    class="text-tambouille-accent"
+                    class="tb-tag"
                   >
                     {{ tag }}
                   </span>
@@ -394,7 +395,7 @@ onMounted(loadSections)
 
           <section v-if="recentlyPlayedMixes.length" class="pt-10">
             <p class="tb-eyebrow">Repris là où tu t'es arrêté⋅e</p>
-            <MixListItem v-for="mix in recentlyPlayedMixes" :key="mix.id" :mix="mix" />
+            <MixGrid :mixes="recentlyPlayedMixes" class="mt-4" />
           </section>
         </div>
 
