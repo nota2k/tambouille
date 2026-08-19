@@ -67,9 +67,7 @@ function onToggle(event: Event) {
         </template>
         <template v-if="visibleTags.length">
           <span aria-hidden="true">·</span>
-          <span v-for="tag in visibleTags" :key="tag" class="tb-tag">{{
-            tag
-          }}</span>
+          <span v-for="tag in visibleTags" :key="tag" class="tb-tag">{{ tag }}</span>
         </template>
       </p>
 

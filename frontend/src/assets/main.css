@@ -41,7 +41,7 @@
   --color-tambouille-accent: #ff2d6f;
   --color-tambouille-accent-dark: #d61f59;
   --color-tambouille-accent-hover: #e0265f;
-  --color-tambouille-jaune:#ffd76e;
+  --color-tambouille-jaune: #ffd76e;
   /* Le lavis rose de la ligne en cours de lecture — le seul aplat de couleur
      autorisé dans un flux, pour dire « c'est celui-là qui tourne ». */
   --color-tambouille-accent-wash: #fff5f8;
