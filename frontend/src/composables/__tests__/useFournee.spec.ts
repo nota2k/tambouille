@@ -11,6 +11,7 @@ function mix(id: string): Mix {
     id,
     title: `mix ${id}`,
     description: null,
+    artist: null,
     audioUrl: `${id}.mp3`,
     sourceType: null,
     sourceRef: null,

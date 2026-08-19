@@ -37,6 +37,21 @@ export class SourceRefConstraint implements ValidatorConstraintInterface {
       return true;
     }
 
+    // `sourceRef` est ici l'URL de page SoundCloud, rendue verbatim dans un
+    // `:href` par `MixDetailView` — Vue ne filtre pas les hrefs. La contrainte
+    // doit donc refuser tout ce qui n'est pas une adresse https sur le
+    // domaine SoundCloud, `javascript:` compris.
+    if (sourceType === 'soundcloud') {
+      try {
+        const url = new URL(value);
+        if (url.protocol !== 'https:') return false;
+        const host = url.hostname.toLowerCase();
+        return host === 'soundcloud.com' || host.endsWith('.soundcloud.com');
+      } catch {
+        return false;
+      }
+    }
+
     return false;
   }
 

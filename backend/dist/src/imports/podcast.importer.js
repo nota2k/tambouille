@@ -142,7 +142,7 @@ let PodcastImporter = class PodcastImporter {
             return parseFeed(body.toString('utf8'));
         }
         catch {
-            throw new common_1.BadRequestException('Lien non reconnu. Sources gérées : Mixcloud, Archive.org, flux RSS.');
+            throw new common_1.BadRequestException('Lien non reconnu. Sources gérées : Mixcloud, SoundCloud, Archive.org, Ouïedire, LYL Radio, flux RSS.');
         }
     }
 };

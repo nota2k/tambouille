@@ -9,6 +9,7 @@ export interface MixImport {
     title: string;
     description: string;
     tags: string[];
+    artist?: string;
     coverSourceUrl?: string;
     durationSec?: number;
     tracklist: {
@@ -16,7 +17,7 @@ export interface MixImport {
         title: string;
         timecodeSec: number;
     }[];
-    sourceType: 'mixcloud' | 'remote';
+    sourceType: 'mixcloud' | 'remote' | 'soundcloud';
     sourceRef: string;
     sourceLabel: string;
     sourcePageUrl?: string;
@@ -32,3 +33,4 @@ export declare function decodeRef(ref: string): {
     importer: string;
     value: string;
 };
+export declare function withArtistTag(tags: string[], artistName?: string): string[];

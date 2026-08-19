@@ -78,6 +78,11 @@ model Mix {
   id           String   @id @default(uuid())
   title        String
   description  String?
+  /// Le nom de l'artiste tel que la source l'écrit, casse comprise. Null sur
+  /// les mix déposés à la main, où l'artiste est le compte lui-même — et sur
+  /// tous les mix antérieurs à cette colonne, qui ne sont pas rétro-remplis :
+  /// leur artiste vit dans les tags, en minuscules et sans marqueur.
+  artist       String?
   // Exactly one audio source: either `audioUrl` alone, or `sourceType` and
   // `sourceRef` together. Prisma cannot express that, so `MixesService`
   // enforces it on create and update.

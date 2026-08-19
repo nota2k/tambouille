@@ -27,7 +27,7 @@ let ImportsService = class ImportsService {
         }
         const importer = this.importers.find((candidate) => candidate.matches(url));
         if (!importer) {
-            throw new common_1.BadRequestException('Lien non reconnu. Sources gérées : Mixcloud, Archive.org, flux RSS.');
+            throw new common_1.BadRequestException('Lien non reconnu. Sources gérées : Mixcloud, SoundCloud, Archive.org, Ouïedire, LYL Radio, flux RSS.');
         }
         return importer;
     }

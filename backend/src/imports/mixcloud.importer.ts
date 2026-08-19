@@ -47,8 +47,12 @@ export class MixcloudImporter implements SourceImporter {
     return {
       title: imported.title,
       description: imported.description,
-      // `toCloudcastImport` already folded the artist name into the tags.
+      // L'artiste a désormais son champ : le laisser aussi dans les tags ferait
+      // deux sources pour la même information, et la question de laquelle gagne
+      // quand elles divergent. `withArtistTag` reste exporté — les mix déjà
+      // importés portent ce tag, et rien ne le leur retire.
       tags: imported.tags,
+      artist: imported.artist?.name,
       coverSourceUrl: imported.coverSourceUrl,
       tracklist: imported.tracklist,
       sourceType: 'mixcloud',

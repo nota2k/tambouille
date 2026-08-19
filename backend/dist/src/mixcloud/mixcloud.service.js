@@ -9,7 +9,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MixcloudService = exports.KEY_PATTERN = void 0;
 exports.parseTags = parseTags;
 exports.readArtist = readArtist;
-exports.withArtistTag = withArtistTag;
 exports.pickPictureUrl = pickPictureUrl;
 exports.parseSections = parseSections;
 exports.toCloudcastSummary = toCloudcastSummary;
@@ -64,12 +63,6 @@ function readArtist(user) {
         username,
         profileUrl: url.startsWith('https://www.mixcloud.com/') ? url : undefined,
     };
-}
-function withArtistTag(tags, artistName) {
-    if (!artistName)
-        return tags;
-    const rest = tags.filter((tag) => tag.toLowerCase() !== artistName.toLowerCase());
-    return [artistName, ...rest];
 }
 function pickPictureUrl(pictures) {
     if (!isRecord(pictures))
@@ -130,7 +123,7 @@ function toCloudcastImport(raw) {
     return {
         title: typeof cloudcast.name === 'string' ? cloudcast.name : '',
         description: typeof cloudcast.description === 'string' ? cloudcast.description : '',
-        tags: withArtistTag(parseTags(cloudcast.tags), artist?.name),
+        tags: parseTags(cloudcast.tags),
         coverSourceUrl: pickPictureUrl(cloudcast.pictures),
         tracklist: parseSections(cloudcast.sections),
         artist,

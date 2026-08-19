@@ -15,6 +15,7 @@ const source_ref_constraint_1 = require("./source-ref.constraint");
 class UpdateMixDto {
     title;
     description;
+    artist;
     tags;
     tracklist;
     sourceType;
@@ -37,6 +38,12 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], UpdateMixDto.prototype, "artist", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(300),
     __metadata("design:type", String)
 ], UpdateMixDto.prototype, "tags", void 0);
@@ -48,7 +55,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsIn)(['mixcloud', 'remote']),
+    (0, class_validator_1.IsIn)(['mixcloud', 'remote', 'soundcloud']),
     __metadata("design:type", String)
 ], UpdateMixDto.prototype, "sourceType", void 0);
 __decorate([

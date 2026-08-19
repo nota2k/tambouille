@@ -28,7 +28,6 @@ export interface CloudcastImport {
 }
 export declare function parseTags(tags: unknown): string[];
 export declare function readArtist(user: unknown): CloudcastArtist | undefined;
-export declare function withArtistTag(tags: string[], artistName?: string): string[];
 export declare function pickPictureUrl(pictures: unknown): string | undefined;
 export declare function parseSections(sections: unknown): TracklistEntry[];
 export declare function toCloudcastSummary(raw: unknown): CloudcastSummary;

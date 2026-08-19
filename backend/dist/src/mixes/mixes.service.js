@@ -119,6 +119,7 @@ let MixesService = class MixesService {
             data: {
                 title: dto.title,
                 description: dto.description,
+                artist: dto.artist?.trim() || null,
                 tags: parseTags(dto.tags),
                 audioUrl,
                 sourceType,
@@ -147,6 +148,7 @@ let MixesService = class MixesService {
                                     mode: 'insensitive',
                                 },
                             },
+                            { artist: { contains: query.q, mode: 'insensitive' } },
                         ],
                     }
                     : {},
@@ -209,6 +211,8 @@ let MixesService = class MixesService {
             data.title = dto.title;
         if (dto.description !== undefined)
             data.description = dto.description;
+        if (dto.artist !== undefined)
+            data.artist = dto.artist.trim() || null;
         if (dto.tags !== undefined)
             data.tags = parseTags(dto.tags);
         if (coverUrl !== undefined)

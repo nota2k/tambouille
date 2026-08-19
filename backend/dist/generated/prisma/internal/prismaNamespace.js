@@ -103,6 +103,7 @@ exports.MixScalarFieldEnum = {
     id: 'id',
     title: 'title',
     description: 'description',
+    artist: 'artist',
     audioUrl: 'audioUrl',
     sourceType: 'sourceType',
     sourceRef: 'sourceRef',

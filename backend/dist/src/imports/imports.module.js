@@ -13,7 +13,9 @@ const imports_controller_1 = require("./imports.controller");
 const imports_service_1 = require("./imports.service");
 const archive_importer_1 = require("./archive.importer");
 const mixcloud_importer_1 = require("./mixcloud.importer");
+const soundcloud_importer_1 = require("./soundcloud.importer");
 const ouiedire_importer_1 = require("./ouiedire.importer");
+const lyl_importer_1 = require("./lyl.importer");
 const podcast_importer_1 = require("./podcast.importer");
 let ImportsModule = class ImportsModule {
 };
@@ -24,19 +26,23 @@ exports.ImportsModule = ImportsModule = __decorate([
         controllers: [imports_controller_1.ImportsController],
         providers: [
             mixcloud_importer_1.MixcloudImporter,
+            soundcloud_importer_1.SoundcloudImporter,
             archive_importer_1.ArchiveImporter,
             ouiedire_importer_1.OuiedireImporter,
+            lyl_importer_1.LylImporter,
             podcast_importer_1.PodcastImporter,
             imports_service_1.ImportsService,
             {
                 provide: imports_service_1.SOURCE_IMPORTERS,
                 inject: [
                     mixcloud_importer_1.MixcloudImporter,
+                    soundcloud_importer_1.SoundcloudImporter,
                     archive_importer_1.ArchiveImporter,
                     ouiedire_importer_1.OuiedireImporter,
+                    lyl_importer_1.LylImporter,
                     podcast_importer_1.PodcastImporter,
                 ],
-                useFactory: (mixcloud, archive, ouiedire, podcast) => [mixcloud, archive, ouiedire, podcast],
+                useFactory: (mixcloud, soundcloud, archive, ouiedire, lyl, podcast) => [mixcloud, soundcloud, archive, ouiedire, lyl, podcast],
             },
         ],
     })

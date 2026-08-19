@@ -43,6 +43,7 @@ let MixcloudImporter = class MixcloudImporter {
             title: imported.title,
             description: imported.description,
             tags: imported.tags,
+            artist: imported.artist?.name,
             coverSourceUrl: imported.coverSourceUrl,
             tracklist: imported.tracklist,
             sourceType: 'mixcloud',

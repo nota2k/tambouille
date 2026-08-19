@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
 import { formatDuration } from '@/utils/time'
+import { mixCredit } from '@/composables/useMixCredit'
 import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import type { Mix } from '@/types'
 
@@ -10,6 +11,7 @@ const props = defineProps<{ mix: Mix }>()
 const playerStore = usePlayerStore()
 
 const duration = computed(() => formatDuration(props.mix.durationSec))
+const credit = computed(() => mixCredit(props.mix))
 const isCurrent = computed(() => playerStore.currentMix?.id === props.mix.id)
 const isPlaying = computed(() => isCurrent.value && playerStore.isPlaying)
 
@@ -56,7 +58,12 @@ function onToggle(event: Event) {
 
       <!-- Auteur, durée, nombre de morceaux : la ligne que la maquette réclamait. -->
       <p class="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-sm text-tambouille-muted">
-        <span>{{ mix.user.displayName }}</span>
+        <span>
+          {{ credit.primary }}
+          <span v-if="credit.secondary" class="text-tambouille-muted">
+            — importé par {{ credit.secondary }}
+          </span>
+        </span>
         <template v-if="duration">
           <span aria-hidden="true">·</span>
           <b class="font-bold text-tambouille-text">{{ duration }}</b>

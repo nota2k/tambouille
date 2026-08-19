@@ -22,25 +22,24 @@ describe('MixcloudImporter.matches', () => {
 });
 
 describe('MixcloudImporter.resolve', () => {
-  it('treats a two-segment path as one cloudcast and imports it', async () => {
+  it('met l’artiste dans son champ et laisse les tags de la source intacts', async () => {
     const getCloudcast = jest.fn().mockResolvedValue({
       title: 'Antimythes',
       description: 'desc',
-      tags: ['synth', 'Nota'],
+      tags: ['synth'],
+      artist: { name: 'Nota', username: 'Notamusic' },
       coverSourceUrl: 'https://thumbnailer.mixcloud.com/x.jpg',
       tracklist: [],
     });
     const importer = importerWith({ getCloudcast });
 
-    const resolved = await importer.resolve(
-      new URL('https://www.mixcloud.com/Notamusic/antimythes/'),
-    );
+    const imported = await importer.importItem('/Notamusic/antimythes/');
 
-    expect(getCloudcast).toHaveBeenCalledWith('/Notamusic/antimythes/');
-    expect(resolved).toEqual({
+    expect(imported).toEqual({
       title: 'Antimythes',
       description: 'desc',
-      tags: ['synth', 'Nota'],
+      tags: ['synth'],
+      artist: 'Nota',
       coverSourceUrl: 'https://thumbnailer.mixcloud.com/x.jpg',
       tracklist: [],
       sourceType: 'mixcloud',
