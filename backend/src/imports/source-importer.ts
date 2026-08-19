@@ -17,7 +17,7 @@ export interface MixImport {
   coverSourceUrl?: string;
   durationSec?: number;
   tracklist: { artist: string; title: string; timecodeSec: number }[];
-  sourceType: 'mixcloud' | 'remote';
+  sourceType: 'mixcloud' | 'remote' | 'soundcloud';
   sourceRef: string;
   sourceLabel: string;
   sourcePageUrl?: string;

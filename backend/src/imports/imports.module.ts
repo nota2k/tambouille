@@ -4,6 +4,7 @@ import { ImportsController } from './imports.controller';
 import { ImportsService, SOURCE_IMPORTERS } from './imports.service';
 import { ArchiveImporter } from './archive.importer';
 import { MixcloudImporter } from './mixcloud.importer';
+import { SoundcloudImporter } from './soundcloud.importer';
 import { OuiedireImporter } from './ouiedire.importer';
 import { PodcastImporter } from './podcast.importer';
 
@@ -12,6 +13,7 @@ import { PodcastImporter } from './podcast.importer';
   controllers: [ImportsController],
   providers: [
     MixcloudImporter,
+    SoundcloudImporter,
     ArchiveImporter,
     OuiedireImporter,
     PodcastImporter,
@@ -26,16 +28,18 @@ import { PodcastImporter } from './podcast.importer';
       // properly.
       inject: [
         MixcloudImporter,
+        SoundcloudImporter,
         ArchiveImporter,
         OuiedireImporter,
         PodcastImporter,
       ],
       useFactory: (
         mixcloud: MixcloudImporter,
+        soundcloud: SoundcloudImporter,
         archive: ArchiveImporter,
         ouiedire: OuiedireImporter,
         podcast: PodcastImporter,
-      ) => [mixcloud, archive, ouiedire, podcast],
+      ) => [mixcloud, soundcloud, archive, ouiedire, podcast],
     },
   ],
 })

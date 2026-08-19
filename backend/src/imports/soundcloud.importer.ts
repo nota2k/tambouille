@@ -1,0 +1,124 @@
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+} from '@nestjs/common';
+import { safeFetch } from '../common/safe-fetch';
+import type { MixImport, SourceImporter, SourceItem } from './source-importer';
+
+const OEMBED_MAX_BYTES = 256 * 1024;
+const FETCH_TIMEOUT_MS = 10_000;
+
+/**
+ * Les inscriptions à l'API SoundCloud sont fermées depuis des années : il n'y
+ * a pas de `client_id` à obtenir, donc `api.soundcloud.com` est hors
+ * d'atteinte. Reste l'oEmbed, public et sans clé — qui répond sur une piste et
+ * sur un set, mais renvoie 404 sur une page de compte.
+ *
+ * D'où un importeur sans branche « liste à choisir » : `resolve` rend toujours
+ * un `MixImport`. Et d'où l'absence de durée, de tags et de tracklist, que
+ * l'oEmbed ne donne pas et qu'on n'invente pas.
+ */
+@Injectable()
+export class SoundcloudImporter implements SourceImporter {
+  readonly name = 'soundcloud';
+
+  matches(url: URL): boolean {
+    const host = url.hostname.toLowerCase();
+    return host === 'soundcloud.com' || host.endsWith('.soundcloud.com');
+  }
+
+  async resolve(url: URL): Promise<MixImport | SourceItem[]> {
+    // Un seul segment, c'est un compte — que l'oEmbed ne sait pas servir. On
+    // le dit ici plutôt que de laisser remonter un 404 opaque.
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (segments.length < 2) {
+      throw new BadRequestException(
+        'SoundCloud ne permet pas de lister les pistes d’un compte. Colle l’adresse d’une piste ou d’un set.',
+      );
+    }
+    return this.importItem(url.toString());
+  }
+
+  async importItem(pageUrl: string): Promise<MixImport> {
+    const oembed = await this.readOembed(pageUrl);
+
+    return {
+      title: stripAuthorSuffix(oembed.title, oembed.author_name),
+      description: htmlToText(oembed.description ?? ''),
+      // L'oEmbed ne donne ni tags, ni durée, ni tracklist : le formulaire
+      // d'upload les laisse remplir à la main plutôt que de les inventer.
+      tags: [],
+      coverSourceUrl: oembed.thumbnail_url,
+      tracklist: [],
+      sourceType: 'soundcloud',
+      // L'URL de page, et non celle de l'API : `MixDetailView` reconstruit le
+      // lien « retour à la source » à partir de `sourceRef`, et le widget
+      // accepte les deux formes.
+      sourceRef: pageUrl,
+      sourceLabel: 'SoundCloud',
+      sourcePageUrl: pageUrl,
+    };
+  }
+
+  private async readOembed(pageUrl: string): Promise<OembedResponse> {
+    const endpoint = `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(pageUrl)}`;
+    const { body } = await safeFetch(endpoint, {
+      maxBytes: OEMBED_MAX_BYTES,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      accept: 'application/json',
+    });
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body.toString('utf8'));
+    } catch {
+      throw new BadGatewayException('Réponse illisible depuis SoundCloud');
+    }
+
+    const candidate = parsed as Partial<OembedResponse>;
+    if (typeof candidate?.title !== 'string') {
+      throw new BadGatewayException('Réponse inattendue depuis SoundCloud');
+    }
+    return candidate as OembedResponse;
+  }
+}
+
+interface OembedResponse {
+  title: string;
+  description?: string;
+  thumbnail_url?: string;
+  author_name?: string;
+}
+
+/**
+ * L'oEmbed rend « <titre> by <auteur> », une forme faite pour un affichage et
+ * non pour un formulaire. Le suffixe ne tombe que s'il correspond exactement :
+ * un titre qui contient « by » ailleurs ne doit pas être amputé.
+ */
+function stripAuthorSuffix(title: string, author?: string): string {
+  if (!author) return title.trim();
+  const suffix = ` by ${author}`;
+  return title.endsWith(suffix)
+    ? title.slice(0, -suffix.length).trim()
+    : title.trim();
+}
+
+/**
+ * La description arrive en HTML, avec des liens et des entités. Le formulaire
+ * attend du texte : on retire les balises, on rend les quelques entités que
+ * SoundCloud produit, et on écrase les blancs multiples — `&nbsp;` en tête de
+ * mot laisserait sinon des espaces doubles.
+ */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
