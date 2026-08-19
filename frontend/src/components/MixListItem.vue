@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
 import { formatDuration } from '@/utils/time'
+import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import type { Mix } from '@/types'
 
 const props = defineProps<{ mix: Mix }>()
@@ -66,11 +67,11 @@ function onToggle(event: Event) {
         </template>
         <template v-if="visibleTags.length">
           <span aria-hidden="true">·</span>
-          <span v-for="tag in visibleTags" :key="tag" class="text-tambouille-accent">{{
-            tag
-          }}</span>
+          <span v-for="tag in visibleTags" :key="tag" class="tb-tag">{{ tag }}</span>
         </template>
       </p>
+
+      <WaveformPlayer :mix="mix" class="mt-2" />
     </div>
 
     <button

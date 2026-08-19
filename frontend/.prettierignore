@@ -1,3 +1,7 @@
 # Les fichiers de fournée sont saisis à la main et lus par un parseur qui
 # n'accepte que les listes en ligne. Prettier les reformaterait.
 src/content/fournees/
+
+# Même raison pour la liste des radios : son corps a un format à trois
+# signes (`##`, une URL, `## Nom` puis une URL) que Prettier réécrirait.
+src/content/elsewhere.md

@@ -2,6 +2,10 @@
    à sa place, donc un @import placé sous lui se retrouve précédé de règles et le
    minifieur le jette — les polices ne partaient pas en production. */
 @import url('https://fonts.googleapis.com/css2?family=Arvo:wght@400;700&family=Rambla:wght@400;700&display=swap');
+/* Avant Tailwind, pour la raison dite juste au-dessus : la feuille de Lenis
+   neutralise `scroll-behavior` tant que le défilement inertiel est actif, et
+   gère les conteneurs marqués `data-lenis-prevent`. */
+@import 'lenis/dist/lenis.css';
 @import 'tailwindcss';
 
 /* Gulax reste la police du logotype (« Tambouille ») et de la signature du pied de
@@ -37,6 +41,7 @@
   --color-tambouille-accent: #ff2d6f;
   --color-tambouille-accent-dark: #d61f59;
   --color-tambouille-accent-hover: #e0265f;
+  --color-tambouille-jaune: #ffd76e;
   /* Le lavis rose de la ligne en cours de lecture — le seul aplat de couleur
      autorisé dans un flux, pour dire « c'est celui-là qui tourne ». */
   --color-tambouille-accent-wash: #fff5f8;
@@ -68,6 +73,31 @@ html,
 body,
 #app {
   height: 100%;
+}
+
+/*
+ * Défilement doux pour les ancres, les retours en haut de page et tout appel à
+ * `scrollIntoView`. Posé sur `html` et non sur `body` : c'est l'élément
+ * défilant du document.
+ *
+ * `:not(.lenis)` parce que c'est un repli, pas la règle : quand le défilement
+ * inertiel tourne, Lenis pose cette classe et prend la main sur tous les
+ * défilements. La feuille de Lenis 1.3 ne neutralise plus `scroll-behavior`
+ * elle-même, donc les deux animeraient le même saut chacun de son côté.
+ * Le repli sert au mouvement réduit, où Lenis ne démarre pas.
+ *
+ * L'exception n'est pas décorative. Un défilement animé déclenche des nausées
+ * chez une partie des lecteurs, et le réglage système est leur seul recours —
+ * la règle du dessous le respecte plutôt que de leur imposer l'animation.
+ */
+html:not(.lenis) {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {
@@ -289,8 +319,13 @@ h6,
 
 /* Un tag dans un flux est un lien rose, pas une pastille grise de plus. */
 .tb-tag {
-  color: var(--color-tambouille-accent);
-  font-size: 0.875rem;
+  background: #545454;
+  color: white;
+  padding: 0px 5px;
+  font-weight: 300;
+  line-height: 1.3em;
+  border-radius: 1px;
+  font-size: var(--text-sm);
 }
 
 .tb-tag:hover {

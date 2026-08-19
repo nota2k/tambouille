@@ -1,1 +1,0 @@
-function e(e){return new Date(e).toLocaleDateString(`fr-FR`,{day:`numeric`,month:`long`,year:`numeric`})}export{e as t};
