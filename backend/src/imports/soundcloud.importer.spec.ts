@@ -45,7 +45,7 @@ describe('SoundcloudImporter.resolve', () => {
       title: 'Flickermood',
       description:
         'From the Soulhack album, recently featured in this ad https://www.dswshoes.com/tv_commercial.jsp?m=october2007',
-      tags: [],
+      tags: ['Forss'],
       coverSourceUrl:
         'https://i1.sndcdn.com/artworks-000067273316-smsiqx-t500x500.jpg',
       tracklist: [],

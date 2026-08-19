@@ -10,8 +10,8 @@ import {
   readArtist,
   toCloudcastImport,
   toCloudcastSummary,
-  withArtistTag,
 } from './mixcloud.service';
+import { withArtistTag } from '../imports/source-importer';
 
 /**
  * `fetch` is mocked throughout: these cover the relay's own rules — the two

@@ -30,7 +30,7 @@ https://soundcloud.com/oembed?format=json&url=<url encodée>
 | Rendu | Absent |
 |---|---|
 | `title` — sous la forme « Flickermood by Forss » | la **durée** |
-| `description` — en HTML | les **tags** |
+| `description` — en HTML | les **tags** libres |
 | `thumbnail_url` — pochette 500×500 sur `i1.sndcdn.com` | la **tracklist** |
 | `author_name`, `author_url` | |
 | `html` — l'iframe `w.soundcloud.com/player/…` | |
@@ -70,9 +70,27 @@ non pour un formulaire :
   déjà abandonné sa liste blanche `.mixcloud.com` au profit de `safeFetch`,
   donc `i1.sndcdn.com` passe sans y toucher.
 
-`tags` et `tracklist` repartent vides, `durationSec` non renseigné : oEmbed ne
-les donne pas, et les inventer serait pire que de les omettre. Le formulaire
-d'upload les laisse déjà remplir à la main.
+`tracklist` repart vide et `durationSec` non renseigné : oEmbed ne les donne
+pas, et les inventer serait pire que de les omettre. Le formulaire d'upload les
+laisse déjà remplir à la main.
+
+`tags` fait exception. L'oEmbed ne donne aucun tag libre, mais il donne
+`author_name` — le nom du compte qui a publié. Il rejoint les tags par
+`withArtistTag`, exactement comme le fait l'import Mixcloud : republié sous un
+compte Tambouille, le mix garde ainsi une trace de qui l'a publié à la source.
+
+Cette fonction vivait dans `mixcloud.service.ts` et déménage dans
+`source-importer.ts` : « le nom de l'artiste devient un tag » est une règle de
+toutes les sources, pas de Mixcloud. Le dépôt a le même précédent avec
+`cover-source.ts`, sorti de `mixcloud/` le jour où il a cessé d'être spécifique.
+Deux subtilités partent avec elle : le nom va **en tête** parce que
+`MixesService.parseTags` tronque à dix et que l'artiste serait sinon le premier
+perdu sur les mix les mieux renseignés ; et la déduplication ignore la casse
+parce que l'enregistrement l'ignore aussi.
+
+Réserve assumée : sur SoundCloud, `author_name` est le nom du **compte**, pas
+nécessairement l'artiste du mix — « Radio Panik » pour une émission. Mixcloud a
+la même ambiguïté et l'ignore ; on fait pareil, faute de mieux dans l'oEmbed.
 
 `sourceRef` est **l'URL canonique de la piste ou du set**, et non un identifiant
 interne : c'est ce que le widget consomme, et c'est stable.
@@ -143,7 +161,9 @@ navigateur, sur une piste et sur un set.
 | `backend/src/imports/soundcloud.importer.ts` | nouveau |
 | `backend/src/imports/soundcloud.importer.spec.ts` | nouveau |
 | `backend/src/imports/__fixtures__/soundcloud-*.json` | nouveaux |
-| `backend/src/imports/source-importer.ts` | modifié — `sourceType` gagne `'soundcloud'` |
+| `backend/src/imports/source-importer.ts` | modifié — `sourceType` gagne `'soundcloud'`, et accueille `withArtistTag` |
+| `backend/src/imports/source-importer.spec.ts` | nouveau — les deux règles de `withArtistTag` |
+| `backend/src/mixcloud/mixcloud.service.ts` | modifié — `withArtistTag` en part |
 | `backend/src/imports/imports.module.ts` | modifié — enregistrement, avant `PodcastImporter` |
 | `backend/src/mixes/dto/create-mix.dto.ts` | modifié — `sourceType` gagne `'soundcloud'` dans `@IsIn` |
 | `backend/src/mixes/dto/update-mix.dto.ts` | modifié — idem |
@@ -165,7 +185,8 @@ qu'on aurait élargie sans lui donner sa propre garde.
 ## Hors périmètre
 
 - **Les pages de compte.** SoundCloud ne les expose pas sans clé.
-- **La durée, les tags, la tracklist à l'import.** oEmbed ne les donne pas.
+- **La durée, les tags libres, la tracklist à l'import.** oEmbed ne les donne
+  pas. Seul le nom du compte est récupéré, comme tag.
 - **`setVolume`.** Le widget l'offre, le lecteur n'en a pas l'usage — un
   contrôle de volume a été envisagé puis écarté, Mixcloud n'en ayant pas.
 - **Le téléchargement de l'audio.** Même refus que pour YouTube dans la spec

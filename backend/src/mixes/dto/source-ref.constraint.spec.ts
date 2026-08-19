@@ -29,9 +29,9 @@ describe('SourceRefConstraint', () => {
     );
   });
   it('accepts an https SoundCloud URL when the type is soundcloud', () => {
-    expect(check('soundcloud', 'https://soundcloud.com/forss/flickermood')).toBe(
-      true,
-    );
+    expect(
+      check('soundcloud', 'https://soundcloud.com/forss/flickermood'),
+    ).toBe(true);
   });
   it('refuses a javascript: URL when the type is soundcloud', () => {
     expect(check('soundcloud', 'javascript:alert(1)')).toBe(false);
