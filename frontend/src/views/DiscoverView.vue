@@ -187,45 +187,81 @@ onMounted(loadSections)
   <div class="mx-auto max-w-[1900px] px-4 py-9">
     <!-- Titre et filtres sur une seule ligne, posés sur le filet noir : c'est la
          barre qui donne son échelle à toute la page. -->
-    <div class="flex flex-wrap items-end justify-between gap-4 border-b-2 border-tambouille-rule pb-3">
+    <div
+      class="flex flex-wrap items-end justify-between gap-4 border-b-2 border-tambouille-rule pb-3"
+    >
       <h1 class="text-tambouille-title-big leading-none">Découvrir</h1>
       <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-tambouille-muted">
-        <button type="button" class="pb-2 transition" :class="sortBy === 'recent'
-            ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text text-lg'
-            : 'hover:text-tambouille-text text-lg'
-          " @click="sortBy = 'recent'">
+        <button
+          type="button"
+          class="pb-2 transition"
+          :class="
+            sortBy === 'recent'
+              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text text-lg'
+              : 'hover:text-tambouille-text text-lg'
+          "
+          @click="sortBy = 'recent'"
+        >
           Récents
         </button>
-        <button type="button" class="pb-2 transition" :class="sortBy === 'plays'
-            ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text text-lg'
-            : 'hover:text-tambouille-text text-lg'
-          " @click="sortBy = 'plays'">
+        <button
+          type="button"
+          class="pb-2 transition"
+          :class="
+            sortBy === 'plays'
+              ? 'border-b-[3px] border-tambouille-accent font-bold text-tambouille-text text-lg'
+              : 'hover:text-tambouille-text text-lg'
+          "
+          @click="sortBy = 'plays'"
+        >
           Plus écoutés
         </button>
-        <button type="button" class="pb-2 hover:text-tambouille-tex text-lg" @click="showTagsOverlay = true">
+        <button
+          type="button"
+          class="pb-2 hover:text-tambouille-tex text-lg"
+          @click="showTagsOverlay = true"
+        >
           Par tag<span v-if="selectedTags.length" class="text-tambouille-accent text-lg">
-            ({{ selectedTags.length }})</span>
+            ({{ selectedTags.length }})</span
+          >
         </button>
-        <button type="button" class="pb-2 hover:text-tambouille-text text-tambouille-jaune text-lg"
-          @click="playRandomMix">
+        <button
+          type="button"
+          class="pb-2 hover:text-tambouille-text text-tambouille-jaune text-lg"
+          @click="playRandomMix"
+        >
           Au hasard
         </button>
       </div>
     </div>
 
     <div v-if="selectedTags.length" class="mt-4 flex flex-wrap items-center gap-2">
-      <button v-for="tag in selectedTags" :key="tag" class="tb-chip tb-chip-on" @click="toggleTag(tag)">
+      <button
+        v-for="tag in selectedTags"
+        :key="tag"
+        class="tb-chip tb-chip-on"
+        @click="toggleTag(tag)"
+      >
         {{ tag }}
         <svg viewBox="0 0 24 24" class="h-3 w-3 fill-current">
           <path
-            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+          />
         </svg>
       </button>
     </div>
 
-    <TagsOverlay v-if="showTagsOverlay" :selected="selectedTags" @toggle="toggleTag" @close="showTagsOverlay = false" />
+    <TagsOverlay
+      v-if="showTagsOverlay"
+      :selected="selectedTags"
+      @toggle="toggleTag"
+      @close="showTagsOverlay = false"
+    />
 
-    <div v-if="loading && !latestMixes.length && !searchResults.length" class="py-16 text-center text-tambouille-muted">
+    <div
+      v-if="loading && !latestMixes.length && !searchResults.length"
+      class="py-16 text-center text-tambouille-muted"
+    >
       Chargement...
     </div>
 
@@ -233,25 +269,40 @@ onMounted(loadSections)
       <section v-if="userResults.length > 0" class="mt-9">
         <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
         <div class="flex flex-wrap gap-6 pt-4">
-          <RouterLink v-for="user in userResults" :key="user.id"
-            :to="{ name: 'profile', params: { username: user.username } }" class="flex items-center gap-3">
-            <img v-if="user.avatarUrl" :src="mediaUrl(user.avatarUrl)" class="h-11 w-11 object-cover" alt="" />
-            <div v-else
-              class="flex h-11 w-11 items-center justify-center bg-tambouille-accent text-sm font-bold text-white">
+          <RouterLink
+            v-for="user in userResults"
+            :key="user.id"
+            :to="{ name: 'profile', params: { username: user.username } }"
+            class="flex items-center gap-3"
+          >
+            <img
+              v-if="user.avatarUrl"
+              :src="mediaUrl(user.avatarUrl)"
+              class="h-11 w-11 object-cover"
+              alt=""
+            />
+            <div
+              v-else
+              class="flex h-11 w-11 items-center justify-center bg-tambouille-accent text-sm font-bold text-white"
+            >
               {{ user.displayName?.[0]?.toUpperCase() }}
             </div>
             <span class="min-w-0">
               <span class="block truncate font-display text-[15px] font-bold">{{
                 user.displayName
-                }}</span>
-              <span class="block truncate text-[13px] text-tambouille-muted">@{{ user.username }}</span>
+              }}</span>
+              <span class="block truncate text-[13px] text-tambouille-muted"
+                >@{{ user.username }}</span
+              >
             </span>
           </RouterLink>
         </div>
       </section>
 
-      <div v-if="searchResults.length === 0 && userResults.length === 0"
-        class="py-16 text-center text-tambouille-muted">
+      <div
+        v-if="searchResults.length === 0 && userResults.length === 0"
+        class="py-16 text-center text-tambouille-muted"
+      >
         Aucun résultat trouvé.
       </div>
 
@@ -279,10 +330,16 @@ onMounted(loadSections)
           <template v-if="featuredMix">
             <p class="tb-eyebrow">À la une</p>
             <div class="flex flex-col gap-6 border-b border-black/15 py-7 sm:flex-row">
-              <RouterLink :to="{ name: 'mix-detail', params: { id: featuredMix.id } }"
-                class="aspect-square w-full max-w-[var(--width-max-large)] shrink-0 overflow-hidden bg-tambouille-surface-hover">
-                <img v-if="featuredMix.coverUrl" :src="mediaUrl(featuredMix.coverUrl)"
-                  class="h-full w-full object-cover" alt="" />
+              <RouterLink
+                :to="{ name: 'mix-detail', params: { id: featuredMix.id } }"
+                class="aspect-square w-full max-w-[var(--width-max-large)] shrink-0 overflow-hidden bg-tambouille-surface-hover"
+              >
+                <img
+                  v-if="featuredMix.coverUrl"
+                  :src="mediaUrl(featuredMix.coverUrl)"
+                  class="h-full w-full object-cover"
+                  alt=""
+                />
               </RouterLink>
 
               <div class="flex min-w-0 flex-1 flex-col">
@@ -299,7 +356,9 @@ onMounted(loadSections)
                 <p class="flex flex-wrap items-baseline gap-x-2 pb-4 text-sm">
                   <b v-if="featuredDuration">{{ featuredDuration }}</b>
                   <span v-if="featuredDuration" class="text-tambouille-faint">·</span>
-                  <span v-if="featuredMix.tracklist.length">{{ featuredMix.tracklist.length }} morceaux</span>
+                  <span v-if="featuredMix.tracklist.length"
+                    >{{ featuredMix.tracklist.length }} morceaux</span
+                  >
                   <span v-if="featuredMix.tracklist.length" class="text-tambouille-faint">·</span>
                   <span v-for="tag in featuredMix.tags.slice(0, 3)" :key="tag" class="tb-tag">
                     {{ tag }}
@@ -358,7 +417,12 @@ onMounted(loadSections)
             <div v-if="trendingTags.length" class="pt-8">
               <p class="tb-eyebrow">Tags du moment</p>
               <div class="flex flex-wrap gap-2 pt-3.5">
-                <button v-for="tag in trendingTags" :key="tag" class="tb-chip" @click="toggleTag(tag)">
+                <button
+                  v-for="tag in trendingTags"
+                  :key="tag"
+                  class="tb-chip"
+                  @click="toggleTag(tag)"
+                >
                   {{ tag }}
                 </button>
               </div>
@@ -367,19 +431,31 @@ onMounted(loadSections)
             <div v-if="cooks.length" class="pt-8">
               <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
               <div class="flex flex-col gap-3.5 pt-3.5">
-                <RouterLink v-for="cook in cooks" :key="cook.id"
-                  :to="{ name: 'profile', params: { username: cook.username } }" class="flex items-center gap-3">
-                  <img v-if="cook.avatarUrl" :src="mediaUrl(cook.avatarUrl)" class="h-11 w-11 shrink-0 object-cover"
-                    alt="" />
-                  <span v-else
-                    class="flex h-11 w-11 shrink-0 items-center justify-center bg-tambouille-surface-hover font-display font-bold">
+                <RouterLink
+                  v-for="cook in cooks"
+                  :key="cook.id"
+                  :to="{ name: 'profile', params: { username: cook.username } }"
+                  class="flex items-center gap-3"
+                >
+                  <img
+                    v-if="cook.avatarUrl"
+                    :src="mediaUrl(cook.avatarUrl)"
+                    class="h-11 w-11 shrink-0 object-cover"
+                    alt=""
+                  />
+                  <span
+                    v-else
+                    class="flex h-11 w-11 shrink-0 items-center justify-center bg-tambouille-surface-hover font-display font-bold"
+                  >
                     {{ cook.displayName?.[0]?.toUpperCase() }}
                   </span>
                   <span class="min-w-0">
                     <span class="block truncate font-display text-[15px] font-bold">{{
                       cook.displayName
-                      }}</span>
-                    <span class="block truncate text-[12.5px] text-tambouille-muted">@{{ cook.username }}</span>
+                    }}</span>
+                    <span class="block truncate text-[12.5px] text-tambouille-muted"
+                      >@{{ cook.username }}</span
+                    >
                   </span>
                 </RouterLink>
               </div>
