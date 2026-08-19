@@ -1,6 +1,13 @@
 {
   "extends": "./tsconfig.app.json",
-  "include": ["src/**/__tests__/*", "env.d.ts"],
+  // La forme étroite ("src/**/__tests__/*") ne tient pas dès qu'un test
+  // importe du code applicatif : ce code applicatif n'entrerait alors dans
+  // aucun projet composite, et les augmentations de types qu'il charge
+  // (ex. `persist` ajouté aux stores Pinia par pinia-plugin-persistedstate)
+  // resteraient invisibles ici, faisant échouer `vue-tsc --build` sur des
+  // erreurs qui n'ont rien à voir avec les tests eux-mêmes. D'où
+  // "src/**/*" : tout le code source, pas seulement les fichiers de test.
+  "include": ["src/**/*", "src/**/*.vue", "env.d.ts"],
   "exclude": [],
   "compilerOptions": {
     "types": ["node"],
