@@ -121,6 +121,20 @@ describe('FeedsController', () => {
     });
   });
 
+  describe('description', () => {
+    it('publie la description débarrassée de son balisage', async () => {
+      prisma.mix.findMany.mockResolvedValue([
+        hosted('a', {
+          description: '<p>Deux heures de <b>dub</b></p><p>sous la pluie.</p>',
+        }),
+      ]);
+
+      const [item] = itemsOf((await request(server()).get('/api/rss')).text);
+
+      expect(item.description).toBe('Deux heures de dub\nsous la pluie.');
+    });
+  });
+
   describe('aucun mix omis', () => {
     it('garde les mix Mixcloud, sans enclosure', async () => {
       prisma.mix.findMany.mockResolvedValue([

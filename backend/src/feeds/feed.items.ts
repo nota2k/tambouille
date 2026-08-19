@@ -3,6 +3,7 @@ import {
   publicMediaUrl,
   type MediaBases,
 } from '../common/audio-source';
+import { stripHtml } from '../common/strip-html';
 import type { FeedContext } from './feed.context';
 import type { FeedItem } from './feed.types';
 
@@ -53,7 +54,13 @@ function enclosureUrl(mix: FeedMix, bases: MediaBases): string {
 export function toFeedItem(mix: FeedMix, context: FeedContext): FeedItem {
   const link = mixPageUrl(mix, context.site);
   const source = audioSourceFor(mix, context.bases);
-  const description = (mix.description ?? '').trim();
+  // Les descriptions venues d'un import sont déjà nettoyées, mais celles saisies
+  // au formulaire ne passent par aucun filtre : `Mix.description` est un champ
+  // texte, rendu comme du texte sur le site. Dans un flux, plusieurs clients
+  // interprètent la description comme du HTML — ce qui en ferait, sans ce
+  // nettoyage, le seul endroit du produit où du balisage saisi par un tiers est
+  // rendu comme tel.
+  const description = stripHtml(mix.description ?? '');
 
   return {
     // L'identifiant du mix, qui ne bouge pas de sa vie et n'est jamais
