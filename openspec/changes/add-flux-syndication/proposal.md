@@ -14,14 +14,18 @@ audio public sur R2, métadonnées, périmètres éditoriaux déjà modélisés 
   - `GET /api/users/:username/rss` — les mix d'un curateur
   - `GET /api/playlists/:id/rss` — une playlist
   - `GET /api/fournees/:numero/rss` — une fournée
-- Chaque item porte une `<enclosure>` réellement lisible par un client de
-  podcast : le flux sert à **écouter**, pas seulement à être notifié.
+- Chaque item dont l'audio est adressable porte une `<enclosure>` réellement
+  lisible par un client de podcast : le flux sert à **écouter**, pas seulement
+  à être notifié.
 - Nouvelle route de redirection `GET /api/mixes/:id/audio` → `302` vers R2 ou
   vers la source distante. C'est l'URL gravée dans les enclosures, de sorte que
   l'hébergement puisse changer sans casser les abonnés, et que les écoutes
   venues des applications de podcast soient comptabilisables.
-- Les mix `sourceType = 'mixcloud'` sont **omis** des flux : Mixcloud n'expose
-  aucun fichier audio adressable, donc aucune enclosure n'est possible.
+- **Aucun mix n'est omis d'un flux.** Les mix `sourceType = 'mixcloud'` y
+  entrent sans `<enclosure>` : Mixcloud n'expose aucun fichier audio
+  adressable, seulement une iframe. Leur item porte titre, description et lien
+  vers la page du mix, et cette page les joue. Un flux dit ce que contient son
+  périmètre ; c'est au client de podcast de décider ce qu'il en montre.
 - Le backend lit les fournées dans les fichiers markdown du frontend
   (`frontend/src/content/fournees/`), source de vérité inchangée depuis le
   change `fournee-markdown`. Le script de déploiement doit donc désormais
@@ -36,7 +40,7 @@ Hors périmètre : soumission au répertoire Apple Podcasts (elle imposerait une
 
 ### New Capabilities
 - `flux-syndication`: production de flux RSS podcast pour les quatre périmètres
-  du catalogue, sélection des mix syndicables, et résolution de l'audio derrière
+  du catalogue, traitement des mix dont l’audio n’est pas adressable, et résolution de l'audio derrière
   une URL stable.
 
 ### Modified Capabilities

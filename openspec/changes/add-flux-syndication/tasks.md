@@ -3,12 +3,12 @@
 - [ ] 1.1 Créer `backend/src/feeds/` avec `FeedsModule`, l'enregistrer dans `AppModule`
 - [ ] 1.2 Définir le contrat `FeedChannel` / `FeedItem` (`feed.types.ts`) : titre, description, lien, image, items ; un item porte guid, titre, lien, URL d'enclosure, date, description texte, durée et image optionnelles
 - [ ] 1.3 Écrire `FeedBuilder` (`feed.builder.ts`) : `FeedChannel` → XML RSS 2.0 + espace de noms `itunes`, via `XMLBuilder` de `fast-xml-parser`, avec le commentaire nommant le plafond `length="0"` et sa sortie (colonne `sizeBytes`)
-- [ ] 1.4 Test unitaire du constructeur : document bien formé, esperluette et chevrons dans un titre, durée omise quand elle est inconnue, image d'item omise quand il n'y en a pas
+- [ ] 1.4 Test unitaire du constructeur : document bien formé, esperluette et chevrons dans un titre, durée omise quand elle est inconnue, image d'item omise quand il n'y en a pas, item sans `enclosure` quand l'audio n'est pas adressable
 
-## 2. Audio syndicable
+## 2. Résolution de l’audio
 
-- [ ] 2.1 Écrire `syndicableAudioUrl(mix)` : URL publique R2 pour un mix hébergé, `sourceRef` pour `remote`, `null` pour `mixcloud` — un seul endroit décide de ce qui est syndicable
-- [ ] 2.2 Ajouter `GET /api/mixes/:id/audio` : 302 vers l'URL résolue, 404 sur mix inexistant ou non syndicable
+- [ ] 2.1 Écrire `audioUrlFor(mix)` : URL publique R2 pour un mix hébergé, `sourceRef` pour `remote`, `null` pour `mixcloud` — un seul endroit décide si l'audio est adressable ; `null` ne retire pas le mix du flux, il retire l'`enclosure` de son item
+- [ ] 2.2 Ajouter `GET /api/mixes/:id/audio` : 302 vers l'URL résolue, 404 sur mix inexistant ou dont l’audio n’est pas adressable
 - [ ] 2.3 Tests : les trois natures de source, et le mix inexistant
 
 ## 3. Rendu HTTP
@@ -20,11 +20,11 @@
 
 ## 4. Les quatre périmètres
 
-- [ ] 4.1 Résolveur site : 50 mix syndicables les plus récents, du plus récent au plus ancien
+- [ ] 4.1 Résolveur site : 50 mix les plus récents, du plus récent au plus ancien
 - [ ] 4.2 Résolveur curateur : par nom d'utilisateur, 404 si inconnu ou si le nom d'utilisateur est nul ; titre et image tirés du profil
 - [ ] 4.3 Résolveur playlist : ordre des positions, 50 premiers, 404 si inconnue
-- [ ] 4.4 Brancher les trois routes sur `FeedsController` et vérifier que les mix Mixcloud sont absents et que la description de chaque flux le signale
-- [ ] 4.5 Tests d'intégration des trois flux : périmètre mixte, périmètre entièrement Mixcloud (flux vide, pas d'erreur), 404, ordre, troncature à 50
+- [ ] 4.4 Brancher les trois routes sur `FeedsController` ; vérifier qu'aucun mix n'est omis, que l'item d'un mix Mixcloud porte lien et description sans `enclosure`, et que la description du flux annonce que certains épisodes s'écoutent sur le site
+- [ ] 4.5 Tests d'intégration des trois flux : périmètre mixte (cinq items, trois enclosures), périmètre entièrement Mixcloud (autant d'items que de mix, zéro enclosure), 404, ordre, troncature à 50
 
 ## 5. Fournées
 

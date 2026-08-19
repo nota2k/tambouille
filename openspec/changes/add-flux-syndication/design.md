@@ -67,6 +67,26 @@ chez l'abonné, pas chez nous.
 dépendance de plus pour un document de trente lignes de structure. Un gabarit
 manuel — l'échappement est exactement le piège de ce format.
 
+### Un mix Mixcloud entre dans le flux, sans `enclosure`
+
+Un flux décrit un périmètre ; il n'est pas la liste de ce que nous savons
+servir. Omettre les mix Mixcloud ferait mentir le flux d'une playlist sur son
+propre contenu, et l'abonné n'aurait aucun moyen de savoir qu'il manque quelque
+chose. Leur item porte donc titre, description, date et lien vers la page du
+mix — page qui, elle, sait les jouer via l'iframe Mixcloud.
+
+*Alternatives écartées* : les omettre — un flux qui cache une partie de son
+périmètre. Une `enclosure` pointant vers la page Mixcloud — elle annonce un
+fichier audio et livre du HTML, ce qui casse le téléchargement chez tous les
+clients au lieu de le rendre simplement indisponible. Extraire l'URL de flux
+réelle de Mixcloud — elle est obfusquée, l'extraction casserait sans préavis, et
+`mixcloud.service.ts` s'est jusqu'ici tenu à leur API publique.
+
+**Ce que fait le client**, lui, ne nous appartient pas : certains masquent un
+item sans `enclosure`, d'autres l'affichent avec un lien. Dans les deux cas la
+décision est prise chez l'abonné, sur une information complète, et non chez nous
+sur une information amputée.
+
 ### `length="0"` dans les enclosures
 
 Aucune taille n'est stockée. Trois issues étaient possibles : `HEAD` amont à
@@ -159,9 +179,11 @@ suppression, et un mix retiré resterait servi.
 - **`length="0"`** → Flux irrecevable par Apple Podcasts, et barre de
   progression parfois approximative avant le début du téléchargement. Assumé,
   avec la sortie décrite plus haut.
-- **Flux vide pour un périmètre entièrement Mixcloud** → Un abonné voit un
-  podcast sans épisode. Atténuation : la description du flux dit que les mix non
-  téléchargeables en sont absents.
+- **Items sans `enclosure`** → Certains clients de podcast les masquent, si
+  bien qu'un périmètre entièrement Mixcloud peut *paraître* vide chez l'abonné.
+  C'est une décision de son client, pas la nôtre : le flux, lui, est complet.
+  Atténuation : la description du flux annonce que certains épisodes s'écoutent
+  sur le site, et l'item porte le lien qui y mène.
 
 ## Migration Plan
 

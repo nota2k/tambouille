@@ -9,11 +9,11 @@ une playlist ou à une fournée, et y écouter les mix sans passer par le site.
 ### Requirement: Flux du site
 
 Le système MUST exposer en lecture publique, sans authentification, un flux du
-site entier contenant au plus les 50 mix syndicables les plus récents, du plus
+site entier contenant au plus les 50 mix les plus récents, du plus
 récent au plus ancien.
 
 #### Scenario: Le catalogue dépasse cinquante mix
-- **WHEN** un client demande le flux du site alors que le catalogue compte 300 mix syndicables
+- **WHEN** un client demande le flux du site alors que le catalogue compte 300 mix
 - **THEN** le flux contient exactement 50 items, les 50 plus récents par date de création, le plus récent en tête
 
 #### Scenario: Aucune authentification requise
@@ -23,7 +23,7 @@ récent au plus ancien.
 ### Requirement: Flux d'un curateur
 
 Le système MUST exposer un flux par utilisateur, désigné par son nom
-d'utilisateur, contenant au plus les 50 mix syndicables les plus récents de cet
+d'utilisateur, contenant au plus les 50 mix les plus récents de cet
 utilisateur. Le titre du flux MUST porter le nom affiché de l'utilisateur, et
 son image MUST être l'avatar de l'utilisateur lorsqu'il en a un.
 
@@ -50,7 +50,7 @@ aux 50 premiers.
 - **THEN** les items apparaissent dans l'ordre des positions de la playlist
 
 #### Scenario: Playlist de plus de cinquante titres
-- **WHEN** un client demande le flux d'une playlist de 200 titres syndicables
+- **WHEN** un client demande le flux d'une playlist de 200 titres
 - **THEN** le flux contient les 50 premiers de la playlist, et le reste est omis sans erreur
 
 #### Scenario: Playlist inconnue
@@ -84,23 +84,33 @@ peuvent le détenir.
 - **WHEN** un fichier de fournée est présent mais ne se laisse pas analyser
 - **THEN** le système répond par une erreur serveur nommant le fichier fautif, et les flux des autres périmètres continuent de fonctionner
 
-### Requirement: Sélection des mix syndicables
+### Requirement: Aucun mix n'est omis
 
-Un mix MUST être omis de tout flux lorsqu'aucune URL audio ne peut lui être
-associée. C'est le cas des mix dont la source est Mixcloud, qui n'expose aucun
-fichier audio adressable. Cette omission MUST être silencieuse : elle ne produit
-ni item dégradé, ni erreur.
+Un flux MUST contenir tous les mix de son périmètre, y compris ceux dont
+l'audio n'est pas adressable par une URL de fichier. Un mix MUST donc n'être
+absent d'un flux que parce qu'il est absent du périmètre, ou parce que la limite
+de 50 items l'a tronqué.
 
-La description de chaque flux MUST signaler que les mix non téléchargeables sont
-absents, de sorte qu'un abonné ne conclue pas à une perte.
+Un mix dont l'audio n'est pas adressable — les mix dont la source est Mixcloud,
+qui n'expose qu'un lecteur embarqué — MUST produire un item sans `enclosure`,
+portant les mêmes titre, description, date et lien que les autres. Sa
+description MUST indiquer que l'écoute se fait sur la page du mix.
+
+La description de chaque flux MUST signaler que certains épisodes s'écoutent sur
+le site plutôt que dans le client de podcast, de sorte qu'un abonné ne conclue
+ni à une panne, ni à une perte.
 
 #### Scenario: Périmètre mêlant les deux natures de source
 - **WHEN** une playlist contient trois mix hébergés et deux mix Mixcloud
-- **THEN** le flux contient trois items
+- **THEN** le flux contient cinq items, dont trois portent une `enclosure` et deux n'en portent pas
 
-#### Scenario: Périmètre entièrement non syndicable
+#### Scenario: Périmètre entièrement non adressable
 - **WHEN** une playlist ne contient que des mix Mixcloud
-- **THEN** le système répond par un flux valide et vide, et non par une erreur
+- **THEN** le flux contient un item par mix, aucun ne portant d'`enclosure`
+
+#### Scenario: Item sans enclosure
+- **WHEN** un item est produit pour un mix Mixcloud
+- **THEN** il porte un lien vers la page publique du mix, et sa description dit où l'écouter
 
 ### Requirement: Contenu d'un item
 
@@ -109,7 +119,8 @@ Chaque item d'un flux MUST porter :
 - un identifiant permanent (`guid`) dérivé de l'identifiant du mix, stable pour
   toute la vie du mix et non réattribué à un autre mix ;
 - un titre, et un lien vers la page publique du mix sur le site ;
-- une `enclosure` dont l'URL est celle de résolution d'audio décrite plus bas ;
+- une `enclosure` dont l'URL est celle de résolution d'audio décrite plus bas,
+  lorsque l'audio du mix est adressable par une URL de fichier ;
 - une date de publication reflétant la date de création du mix ;
 - la description du mix débarrassée de tout balisage HTML.
 
@@ -137,7 +148,7 @@ Toutes les URL publiées MUST être absolues.
 
 ### Requirement: Résolution de l'audio derrière une URL stable
 
-Le système MUST exposer, pour chaque mix syndicable, une URL de résolution
+Le système MUST exposer, pour chaque mix dont l’audio est adressable, une URL de résolution
 publique qui redirige vers l'emplacement réel de l'audio — objet hébergé ou
 source distante. Cette URL MUST être celle inscrite dans les `enclosure`, de
 sorte qu'un changement d'hébergement ne casse pas les abonnements déjà pris.
@@ -145,8 +156,9 @@ sorte qu'un changement d'hébergement ne casse pas les abonnements déjà pris.
 La redirection MUST être temporaire, afin que les clients ne mémorisent pas la
 destination.
 
-La résolution MUST refuser un mix non syndicable et un mix inexistant par un
-404.
+La résolution MUST refuser par un 404 un mix inexistant, ainsi qu'un mix dont
+l'audio n'est pas adressable — aucune `enclosure` ne pointe vers lui, et une
+redirection vers une page web tromperait un client qui attend un fichier.
 
 #### Scenario: Mix hébergé
 - **WHEN** un client demande la résolution d'un mix dont l'audio est hébergé
