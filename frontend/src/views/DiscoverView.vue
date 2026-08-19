@@ -402,7 +402,7 @@ onMounted(loadSections)
              et où la colonne se retrouve empilée sous le contenu. -->
         <aside class="min-w-0">
           <div class="lg:sticky lg:top-20">
-            <div class="tb-panel-dark ">
+            <div class="tb-panel-dark">
               <p class="uppercase text-lg border-b border-white pb-2.5 text-tambouille-jaune">
                 Au hasard
               </p>
