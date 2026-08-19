@@ -216,8 +216,8 @@ watch(
             <b v-if="duration">{{ duration }}</b>
             <span v-if="duration" class="text-tambouille-faint">·</span>
             <span v-if="mix.tracklist.length">{{ mix.tracklist.length }} morceaux</span>
-            <span v-if="mix.tracklist.length" class="text-tambouille-faint">·</span>
-            <span v-for="tag in mix.tags" :key="tag" class="text-tambouille-accent">{{ tag }}</span>
+            <span v-if="mix.tracklist.length" class="tb-tag">·</span>
+            <span v-for="tag in mix.tags" :key="tag" class="tb-tag">{{ tag }}</span>
           </p>
 
           <div class="flex flex-wrap items-center gap-3">

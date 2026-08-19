@@ -66,7 +66,7 @@ function play(event: Event) {
       {{ mix.title }}
     </p>
     <p class="mt-1 truncate text-[13px] text-tambouille-muted">
-      {{ credit.primary }}<template v-if="duration"> · {{ duration }}</template>
+      <span class="artiste">{{ credit.primary }}</span><template v-if="duration"> · {{ duration }}</template>
       <span v-if="credit.secondary" class="block text-tambouille-muted">
         importé par {{ credit.secondary }}
       </span>

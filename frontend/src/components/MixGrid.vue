@@ -4,8 +4,7 @@ import MixCard from './MixCard.vue'
 import type { Mix } from '@/types'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import { Navigation } from 'swiper/modules'
-import 'swiper/css'
-import 'swiper/css/navigation'
+import 'swiper/swiper.css'
 
 defineProps<{ mixes: Mix[] }>()
 

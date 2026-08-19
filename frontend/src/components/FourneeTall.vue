@@ -6,7 +6,7 @@ import { useFourneeTheme, type FourneeZone } from '@/composables/useFourneeTheme
 import FourneeMixCard from './FourneeMixCard.vue'
 import type { Fournee } from '@/types'
 import { Swiper, SwiperSlide } from 'swiper/vue'
-import 'swiper/css'
+import 'swiper/swiper.css'
 
 const props = defineProps<{ fournee: Fournee }>()
 const playerStore = usePlayerStore()
