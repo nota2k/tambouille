@@ -32,3 +32,16 @@ le parseur n'accepte que les listes en ligne.
 `exemple.md` est un gabarit d'exemple avec des identifiants de mix factices
 (des UUID quelconques) et une fenêtre passée exprès, pour qu'il reste inerte
 tout en étant parsable — voir le commentaire en tête de son corps.
+
+## Gabarits
+
+| `layout` | Forme | Mix |
+|---|---|---|
+| `large` | propos à gauche sur du papier, mix à droite sur l'aplat de saison | 4 |
+| `tall` | aplat pleine largeur, mix en bande basse | 5 |
+
+Le nombre de mix n'est pas libre : un fichier qui ne respecte pas le compte de
+son gabarit fait échouer la CI.
+
+`inverted: true` remplace le papier par du noir. La couleur de saison, elle, ne
+bouge jamais de sa moitié droite.
