@@ -23,6 +23,10 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
 </script>
 
 <template>
+  <!-- `flex flex-col` porte la mise en page interne de la carte : c'est lui qui
+       permet au bouton de se coller en bas par `mt-auto` quand la carte est
+       étirée à la hauteur de la plus haute de la bande. Sans lui, les enfants
+       s'empilent en blocs et une marge verticale `auto` vaut zéro. -->
   <li
     class="flex flex-col border-r border-b px-3 py-6 sm:px-5"
     :style="{ backgroundColor: surface, color: ink, borderColor: rule }"
@@ -30,7 +34,7 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
     <RouterLink
       :to="{ name: 'mix-detail', params: { id: mix.id } }"
       class="isolate block w-full overflow-hidden"
-      :class="layout === 'large' ? 'aspect-square' : 'aspect-3/2'"
+      :class="layout === 'large' ? 'aspect-2/3' : 'aspect-3/2'"
       :style="{ backgroundColor: zone.wash }"
     >
       <!-- Duotone : l'aplat clair donne la teinte, la pochette n'apporte que sa
@@ -57,9 +61,14 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
       <template v-if="mix.tracklist.length"> · {{ mix.tracklist.length }} morceaux</template>
     </p>
 
+    <!-- `mt-auto` sans garde-fou de largeur : la carte est étirée à la hauteur
+         de la plus haute de la bande, donc le bouton doit se coller en bas à
+         toutes les largeurs. Le `xl:` d'avant datait de la grille, où les cartes
+         ne s'alignaient qu'à cinq colonnes. L'écart minimal vient du `pb-3` du
+         paragraphe au-dessus. -->
     <button
       type="button"
-      class="mt-4.5 min-h-9 px-3.5 py-2.5 text-[16px] font-bold uppercase tracking-[0.09em] transition-opacity hover:opacity-80 xl:mt-auto"
+      class="mt-auto w-full min-h-9 px-3.5 py-2.5 text-[16px] font-bold uppercase tracking-[0.09em] transition-opacity hover:opacity-80"
       :style="
         isPlaying
           ? { backgroundColor: zone.season, color: zone.inkOnSeason }

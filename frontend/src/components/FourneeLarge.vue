@@ -5,6 +5,8 @@ import { formatDuration } from '@/utils/time'
 import { useFourneeTheme, type FourneeZone } from '@/composables/useFourneeTheme'
 import FourneeMixCard from './FourneeMixCard.vue'
 import type { Fournee } from '@/types'
+import { Swiper, SwiperSlide } from 'swiper/vue'
+import 'swiper/css'
 
 const props = defineProps<{ fournee: Fournee }>()
 
@@ -89,15 +91,20 @@ function playAll() {
            Le conteneur, plus étroit d'un pixel que la grille, coupe le filet de
            la carte de bout de rangée. -->
       <div class="overflow-hidden" :style="{ backgroundColor: season, color: inkOnSeason }">
-        <ul class="grid h-full w-[calc(100%+1px)] grid-cols-2 sm:grid-cols-4">
-          <FourneeMixCard
-            v-for="mix in fournee.mixes"
-            :key="mix.id"
-            :mix="mix"
-            :zone="zone"
-            layout="large"
-          />
-        </ul>
+        <Swiper
+          class="fournee-swiper h-full w-full"
+          :slides-per-view="1"
+          :space-between="0"
+          :breakpoints="{
+            450: { slidesPerView: 2 },
+            800: { slidesPerView: 3 },
+            1024: { slidesPerView: 4 },
+          }"
+        >
+          <SwiperSlide v-for="mix in fournee.mixes" :key="mix.id">
+            <FourneeMixCard :mix="mix" :zone="zone" layout="large" class="h-full" />
+          </SwiperSlide>
+        </Swiper>
       </div>
     </div>
   </section>

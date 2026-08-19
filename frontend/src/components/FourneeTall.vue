@@ -5,6 +5,8 @@ import { formatDuration } from '@/utils/time'
 import { useFourneeTheme, type FourneeZone } from '@/composables/useFourneeTheme'
 import FourneeMixCard from './FourneeMixCard.vue'
 import type { Fournee } from '@/types'
+import { Swiper, SwiperSlide } from 'swiper/vue'
+import 'swiper/css'
 
 const props = defineProps<{ fournee: Fournee }>()
 const playerStore = usePlayerStore()
@@ -57,7 +59,13 @@ function playAll() {
     :style="{ backgroundColor: surface, color: ink }"
     :aria-label="`La fournée n°${fournee.number} — ${fournee.title}`"
   >
-    <div class="mx-auto flex max-w-[1900px] flex-col gap-10 px-4 py-10 sm:px-8 lg:pt-11">
+    <!-- `w-full` n'est pas décoratif : la section étant `flex flex-col`, ce
+         conteneur est un item flex, donc dimensionné par son contenu et non par
+         son parent. Or `.swiper-wrapper` a une largeur intrinsèque égale à la
+         somme de ses slides, qui gonflerait le conteneur jusqu'à `max-w` et
+         pousserait la colonne de droite hors de l'écran. Une largeur définie
+         coupe cette remontée. -->
+    <div class="mx-auto flex w-full max-w-[1900px] flex-col gap-10 px-4 py-10 sm:px-8 lg:pt-11">
       <!-- Le propos : titre géant à gauche, texte et action à droite. En dessous
            de lg les deux colonnes s'empilent, le titre garde la première place. -->
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
@@ -107,9 +115,20 @@ function playAll() {
         class="overflow-hidden border-t"
         :style="{ borderColor: `color-mix(in srgb, ${ink} 30%, transparent)` }"
       >
-        <ul class="grid w-[calc(100%+1px)] grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <FourneeMixCard v-for="mix in fournee.mixes" :key="mix.id" :mix="mix" :zone="zone" />
-        </ul>
+        <Swiper
+          class="fournee-swiper w-full"
+          :slides-per-view="1"
+          :space-between="0"
+          :breakpoints="{
+            450: { slidesPerView: 1.5 },
+            800: { slidesPerView: 3 },
+            1280: { slidesPerView: 5 },
+          }"
+        >
+          <SwiperSlide v-for="mix in fournee.mixes" :key="mix.id">
+            <FourneeMixCard :mix="mix" :zone="zone" class="h-full" />
+          </SwiperSlide>
+        </Swiper>
       </div>
     </div>
   </section>

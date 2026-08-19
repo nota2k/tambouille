@@ -347,3 +347,12 @@ h6,
   border-bottom: 2px solid #000;
   padding-bottom: 0.75rem;
 }
+
+.fournee-swiper .swiper-wrapper {
+  align-items: stretch !important;
+}
+
+.fournee-swiper .swiper-slide {
+  height: auto !important;
+  display: flex;
+}
