@@ -20,6 +20,7 @@ const loading = ref(true)
 const notFound = ref(false)
 
 const title = ref('')
+const artist = ref('')
 const description = ref('')
 const tags = ref('')
 const trackRows = ref<TrackRow[]>([{ timecode: '', artist: '', title: '' }])
@@ -44,6 +45,7 @@ async function load() {
     }
 
     title.value = data.title
+    artist.value = data.artist ?? ''
     description.value = data.description ?? ''
     tags.value = data.tags.join(', ')
     existingAudioUrl.value = data.audioUrl
@@ -85,6 +87,7 @@ async function onSubmit() {
 
   const formData = new FormData()
   formData.append('title', title.value)
+  if (artist.value.trim()) formData.append('artist', artist.value.trim())
   formData.append('description', description.value)
   formData.append('tags', tags.value)
   formData.append('tracklist', JSON.stringify(tracklist.entries))
@@ -116,6 +119,11 @@ onMounted(load)
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Titre</label>
         <input v-model="title" type="text" required maxlength="120" class="w-full tb-field" />
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm text-tambouille-muted">Artiste</label>
+        <input v-model="artist" type="text" maxlength="120" class="w-full tb-field" />
       </div>
 
       <div>

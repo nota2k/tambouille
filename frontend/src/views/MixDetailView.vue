@@ -187,6 +187,11 @@ watch(
         <div class="min-w-0 flex-1">
           <h1 class="text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.05]">{{ mix.title }}</h1>
 
+          <!-- L'artiste, quand la source d'import le donne : sous le titre, en
+               clair, à côté de `UploaderCard` qui dit qui a mis en ligne — deux
+               informations différentes, pas une hiérarchie entre elles. -->
+          <p v-if="mix.artist" class="pt-1 text-lg text-tambouille-muted">par {{ mix.artist }}</p>
+
           <p class="pb-2.5 pt-3.5 text-base text-tambouille-muted">
             Mijoté par
             <RouterLink

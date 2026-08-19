@@ -11,6 +11,7 @@ import {
   soundcloudIframeSrc,
   type SoundcloudWidget,
 } from '@/utils/soundcloud'
+import { mixCredit } from '@/composables/useMixCredit'
 
 /** A cloudcast that was removed or made private never answers `ready`; fail loudly instead of hanging. */
 const WIDGET_READY_TIMEOUT_MS = 15000
@@ -64,6 +65,13 @@ const playbackError = computed(() =>
     : widgetError.value || audioError.value,
 )
 const canPlay = computed(() => !hasNoSource.value && !widgetError.value && !audioError.value)
+
+// Toujours un objet non nul : le bloc qui le lit est déjà gardé par
+// `v-if="playerStore.currentMix"` dans le template, mais le typage d'un
+// computed ne le sait pas — autant éviter les `?.` inutiles côté template.
+const credit = computed(() =>
+  playerStore.currentMix ? mixCredit(playerStore.currentMix) : { primary: '', secondary: null },
+)
 
 const currentTrack = computed(() => {
   const tracklist = playerStore.currentMix?.tracklist
@@ -671,11 +679,12 @@ function onEnded() {
         </div>
 
         <div class="flex items-baseline gap-1.5 truncate text-xs text-neutral-400">
+          <span v-if="credit.secondary">{{ credit.primary }} — </span>
           <RouterLink
             :to="{ name: 'profile', params: { username: playerStore.currentMix.user.username } }"
-            class="shrink-0 hover:underline"
+            class="hover:underline"
           >
-            {{ playerStore.currentMix.user.displayName }}
+            {{ credit.secondary ?? credit.primary }}
           </RouterLink>
           <!-- Un morceau sans aucun des deux noms n'a rien à annoncer : la
                barre garde le titre du mix, sans point médian orphelin. -->
