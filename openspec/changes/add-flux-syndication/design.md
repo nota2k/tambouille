@@ -147,12 +147,20 @@ dépôt (voir *Migration Plan*).
 un test du backend sur les fichiers réels du dépôt — si un fichier cesse d'être
 lisible par l'un des deux, la CI le dit.
 
-### `ETag` faible dérivé du périmètre
+### `ETag` faible dérivé du document rendu
 
-`ETag` = empreinte de (nombre d'items, plus grande date de modification du
-périmètre). Un ajout change le compte, une modification change la date, une
-suppression change le compte. `Cache-Control: public, max-age=900` en
-complément.
+`ETag` = empreinte du XML effectivement envoyé. `Cache-Control: public,
+max-age=900` en complément.
+
+*Corrigé pendant l'implémentation.* Le plan initial dérivait l'empreinte du
+périmètre — nombre d'items et plus grande date de modification — ce qui laissait
+passer des changements réels : réordonner une playlist ne touche ni au compte,
+ni à `Mix.updatedAt`, et les abonnés n'auraient jamais vu le nouvel ordre ; le
+titre d'une fournée, lu dans un fichier, n'a même pas de date en base. Le flux
+est de toute façon construit avant d'être comparé — une requête et un assemblage
+de chaînes. Ce que l'`ETag` économise est la transmission, pas la construction :
+autant le calculer sur ce qui part réellement, où aucun changement ne peut se
+cacher.
 
 *Alternative écartée* : `Last-Modified` seul — il ne bouge pas sur une
 suppression, et un mix retiré resterait servi.

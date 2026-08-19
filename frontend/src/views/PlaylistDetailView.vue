@@ -13,6 +13,8 @@ import {
 } from '@/utils/playlists'
 import MixListItem from '@/components/MixListItem.vue'
 import ShareButton from '@/components/ShareButton.vue'
+import FeedLink from '@/components/FeedLink.vue'
+import { feedUrl } from '@/utils/media'
 import type { Playlist } from '@/types'
 
 const route = useRoute()
@@ -183,6 +185,7 @@ watch(() => route.params.id, loadPlaylist)
                 {{ playlist.mixesCount }} {{ playlist.mixesCount > 1 ? 'mixs' : 'mix' }}
               </span>
               <ShareButton :url="playlistShareUrl(playlist.id)" />
+              <FeedLink :href="feedUrl(`/playlists/${playlist.id}/rss`)" :title="playlist.title" />
             </div>
 
             <p
