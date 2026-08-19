@@ -8,7 +8,9 @@ import type { Fournee } from '@/types'
 
 const props = defineProps<{ fournee: Fournee }>()
 const playerStore = usePlayerStore()
-const { season, inkOnSeason, paper, inkOnPaper, wash } = useFourneeTheme(() => props.fournee)
+const { season, inkOnSeason, paper, inkOnPaper, seasonOnPaper, wash } = useFourneeTheme(
+  () => props.fournee,
+)
 
 /**
  * `tall` peint tout à la couleur de saison — sauf quand la fournée s'inverse,
@@ -74,7 +76,7 @@ function playAll() {
 
           <h2
             class="max-w-[900px] pt-6 text-[clamp(2.75rem,7.5vw,8rem)] leading-[0.86] text-pretty"
-            :style="inverted ? { color: accent } : undefined"
+            :style="inverted ? { color: seasonOnPaper } : undefined"
           >
             {{ fournee.title }}
           </h2>

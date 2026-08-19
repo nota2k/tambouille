@@ -9,7 +9,9 @@ import type { Fournee } from '@/types'
 const props = defineProps<{ fournee: Fournee }>()
 
 const playerStore = usePlayerStore()
-const { season, inkOnSeason, paper, inkOnPaper, wash } = useFourneeTheme(() => props.fournee)
+const { season, inkOnSeason, paper, inkOnPaper, seasonOnPaper, wash } = useFourneeTheme(
+  () => props.fournee,
+)
 
 /**
  * `large` ne peint pas comme `tall` : la moitié gauche reste du papier — blanc,
@@ -61,7 +63,7 @@ function playAll() {
 
         <h2
           class="pt-6 text-[clamp(2.5rem,5.5vw,5.5rem)] leading-[0.9] text-pretty"
-          :style="{ color: season }"
+          :style="{ color: seasonOnPaper }"
         >
           {{ fournee.title }}
         </h2>

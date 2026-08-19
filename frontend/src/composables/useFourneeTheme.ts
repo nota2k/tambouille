@@ -38,11 +38,20 @@ function luminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
+/**
+ * Contraste WCAG entre deux couleurs, à partir de leurs luminances relatives.
+ */
+function contraste(l1: number, l2: number): number {
+  const [clair, sombre] = l1 >= l2 ? [l1, l2] : [l2, l1]
+  return (clair + 0.05) / (sombre + 0.05)
+}
+
 export function useFourneeTheme(source: MaybeRefOrGetter<Fournee>): {
   season: ComputedRef<string>
   inkOnSeason: ComputedRef<string>
   paper: ComputedRef<string>
   inkOnPaper: ComputedRef<string>
+  seasonOnPaper: ComputedRef<string>
   wash: ComputedRef<string>
 } {
   const fournee = computed(() => toValue(source))
@@ -68,7 +77,21 @@ export function useFourneeTheme(source: MaybeRefOrGetter<Fournee>): {
   const paper = computed(() => (inverted.value ? '#000000' : '#ffffff'))
   const inkOnPaper = computed(() => (inverted.value ? '#ffffff' : '#000000'))
 
+  /**
+   * La couleur de saison utilisée comme encre sur le papier — pour un titre,
+   * en gros caractères, le seuil applicable est 3:1 et non 4,5:1. Contrairement
+   * à `inkOnSeason`, rien ne garantit que la couleur du rédacteur tienne ce
+   * seuil sur le papier (une couleur claire comme `#FFD700` sur blanc ne fait
+   * que 1,4:1) : on ne l'éclaircit ni ne l'assombrit jamais — renoncer à
+   * l'appliquer est moins surprenant que la modifier — et on retombe sur
+   * `inkOnPaper`.
+   */
+  const seasonOnPaper = computed(() => {
+    const tient = contraste(luminance(season.value), luminance(paper.value)) >= 3
+    return tient ? season.value : inkOnPaper.value
+  })
+
   const wash = computed(() => `color-mix(in srgb, ${season.value} 55%, #ffffff)`)
 
-  return { season, inkOnSeason, paper, inkOnPaper, wash }
+  return { season, inkOnSeason, paper, inkOnPaper, seasonOnPaper, wash }
 }
