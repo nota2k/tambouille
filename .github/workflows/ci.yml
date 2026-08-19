@@ -52,20 +52,6 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      # npm 11, et non celui que node 22 embarque. Le verrou est écrit par npm
-      # 11 (celui des postes de développement) ; npm 10 le relit et réclame
-      # `@emnapi/core` et `@emnapi/runtime` comme « manquants », parce que les
-      # deux versions ne s'accordent pas sur l'inscription des pairs requis
-      # d'un paquet optionnel hors plateforme (`@napi-rs/wasm-runtime`, tiré par
-      # `@unrs/resolver-binding-wasm32-wasi`). Vérifié : sur le verrou tel qu'il
-      # est commité, `npm ci` passe en 11 et échoue en 10.
-      #
-      # Régénérer le verrou avec npm 10 ne tiendrait pas : le prochain
-      # `npm install` local, en npm 11, retire à nouveau les deux entrées. C'est
-      # la version de npm qu'il faut accorder, pas le fichier.
-      - name: Épingler npm 11
-        run: npm i -g npm@11
-
       # `npm ci` et non `npm install` : il échoue si le verrou et le manifeste
       # divergent, ce qui est précisément le signal recherché.
       #
@@ -110,10 +96,6 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      # Voir la tâche `backend` : le verrou exige npm 11.
-      - name: Épingler npm 11
-        run: npm i -g npm@11
 
       - run: npm ci
         working-directory: frontend
@@ -169,10 +151,6 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
-
-      # Voir la tâche `backend` : le verrou exige npm 11.
-      - name: Épingler npm 11
-        run: npm i -g npm@11
 
       - run: npm ci
         working-directory: backend
@@ -241,10 +219,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-
-      # Voir la tâche `backend` : le verrou exige npm 11.
-      - name: Épingler npm 11
-        run: npm i -g npm@11
 
       - name: Construire le backend
         working-directory: backend
