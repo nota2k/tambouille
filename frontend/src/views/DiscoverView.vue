@@ -227,7 +227,7 @@ onMounted(loadSections)
         </button>
         <button
           type="button"
-          class="pb-2 hover:text-tambouille-text text-lg"
+          class="pb-2 hover:text-tambouille-text text-tambouille-jaune text-lg"
           @click="playRandomMix"
         >
           Au hasard
@@ -402,8 +402,8 @@ onMounted(loadSections)
              et où la colonne se retrouve empilée sous le contenu. -->
         <aside class="min-w-0">
           <div class="lg:sticky lg:top-20">
-            <div class="tb-panel-dark">
-              <p class="tb-eyebrow-plain border-b border-white pb-2.5 text-neutral-400">
+            <div class="tb-panel-dark ">
+              <p class="uppercase text-lg border-b border-white pb-2.5 text-tambouille-jaune">
                 Au hasard
               </p>
               <p class="mb-4 mt-3.5 text-sm leading-relaxed">
