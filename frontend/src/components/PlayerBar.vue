@@ -5,6 +5,12 @@ import { apiClient } from '@/api/client'
 import { mediaUrl } from '@/utils/media'
 import { formatTime } from '@/utils/time'
 import { loadMixcloudWidgetApi, mixcloudIframeSrc, type MixcloudWidget } from '@/utils/mixcloud'
+import {
+  createSoundcloudWidget,
+  loadSoundcloudWidgetApi,
+  soundcloudIframeSrc,
+  type SoundcloudWidget,
+} from '@/utils/soundcloud'
 
 /** A cloudcast that was removed or made private never answers `ready`; fail loudly instead of hanging. */
 const WIDGET_READY_TIMEOUT_MS = 15000
@@ -12,6 +18,7 @@ const WIDGET_READY_TIMEOUT_MS = 15000
 const playerStore = usePlayerStore()
 const audioEl = ref<HTMLAudioElement | null>(null)
 const mixcloudFrame = ref<HTMLIFrameElement | null>(null)
+const soundcloudFrame = ref<HTMLIFrameElement | null>(null)
 const duration = ref(0)
 const widgetError = ref('')
 /**
@@ -29,6 +36,10 @@ const widgetLoading = ref(false)
 const mixcloudRef = computed(() =>
   playerStore.currentMix?.sourceType === 'mixcloud' ? playerStore.currentMix.sourceRef : null,
 )
+/** URL de page SoundCloud. Nulle sauf si ce mix passe par le widget SoundCloud. */
+const soundcloudRef = computed(() =>
+  playerStore.currentMix?.sourceType === 'soundcloud' ? playerStore.currentMix.sourceRef : null,
+)
 /**
  * A directly playable URL: R2 goes through `mediaUrl`, anything else is already
  * absolute. Both end up on the same `<audio>` element — the point of the
@@ -42,7 +53,8 @@ const audioSrc = computed(() => {
 })
 /** Neither source: the backend forbids it, but a stale payload must still not look playable. */
 const hasNoSource = computed(
-  () => playerStore.currentMix != null && !audioSrc.value && !mixcloudRef.value,
+  () =>
+    playerStore.currentMix != null && !audioSrc.value && !mixcloudRef.value && !soundcloudRef.value,
 )
 /** Set when the element itself fails, as opposed to the Mixcloud widget. */
 const audioError = ref('')
@@ -74,6 +86,7 @@ const currentTrack = computed(() => {
 // nothing in the template reads it, and reactivity would only add proxy noise.
 
 let widget: MixcloudWidget | null = null
+let soundcloudWidget: SoundcloudWidget | null = null
 /**
  * `ready` only means the widget's own API is wired up — Mixcloud may not have fetched the
  * cloudcast yet, and a `play()` sent before it has is accepted and silently dropped. This
@@ -89,6 +102,24 @@ let widgetHasPlayed = false
  * the click's own call stack, the mix-change one on the scheduler tick just after.
  */
 let playWhenLoaded = false
+
+/**
+ * Ce que `PlayerBar` demande à un moteur, et que les deux savent faire. Ni les
+ * `events` de Mixcloud ni le `bindEnded` de SoundCloud n'y figurent : chacun
+ * s'abonne à sa manière, dans sa propre mise en place.
+ */
+interface PlaybackWidget {
+  play(): Promise<void>
+  pause(): Promise<void>
+  seek(seconds: number): Promise<unknown>
+  getPosition(): Promise<number>
+  getDuration(): Promise<number>
+}
+
+/** Le moteur en place, quel qu'il soit. Null tant qu'aucun n'est monté. */
+function activeWidget(): PlaybackWidget | null {
+  return soundcloudWidget ?? widget
+}
 
 /**
  * Reads the browser's transient activation. Both callers run within the originating
@@ -148,6 +179,8 @@ function teardownWidget() {
   // `playWhenLoaded` is deliberately left alone: it records a user's intent, not a widget's
   // lifetime, and the mix-change watcher tears the old widget down *after* the click that
   // set it has already been seen.
+  soundcloudWidget?.destroy()
+  soundcloudWidget = null
 }
 
 /**
@@ -284,6 +317,62 @@ async function setupWidget(mixId: string, key: string) {
   await awaitCloudcast(created)
 }
 
+/** Le pendant SoundCloud de `setupWidget`. Même forme, mêmes gardes. */
+async function setupSoundcloud(mixId: string, pageUrl: string) {
+  teardownWidget()
+  widgetLoading.value = true
+
+  await nextTick()
+  const frame = soundcloudFrame.value
+  if (!frame || !isCurrentMix(mixId)) return
+
+  let api
+  try {
+    api = await loadSoundcloudWidgetApi()
+  } catch {
+    if (!isCurrentMix(mixId)) return
+    widgetError.value = "Le lecteur SoundCloud n'a pas pu être chargé."
+    widgetLoading.value = false
+    playerStore.pause()
+    return
+  }
+  if (!isCurrentMix(mixId)) return
+
+  frame.src = soundcloudIframeSrc(pageUrl)
+  const created = createSoundcloudWidget(api, frame)
+
+  let readyTimer: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([
+      created.ready,
+      new Promise<never>((_, reject) => {
+        readyTimer = setTimeout(() => reject(new Error('ready timed out')), WIDGET_READY_TIMEOUT_MS)
+      }),
+    ])
+  } catch {
+    if (!isCurrentMix(mixId)) return
+    // Une piste dont l'ayant droit a désactivé l'intégration n'annonce jamais
+    // `ready` : c'est le seul échec qui survient après un import réussi.
+    widgetError.value =
+      'Ce mix ne peut pas être lu ici — SoundCloud en interdit peut-être l’intégration.'
+    widgetLoading.value = false
+    playerStore.pause()
+    return
+  } finally {
+    clearTimeout(readyTimer)
+  }
+
+  soundcloudWidget = created
+  widgetLoaded = true
+  widgetLoading.value = false
+
+  created.bindEnded(() => onEnded())
+  duration.value = await created.getDuration()
+  playerStore.setDuration(duration.value)
+  applyPendingSeek()
+  if (playWhenLoaded) void created.play()
+}
+
 // --- Shared transport -----------------------------------------------------
 
 /**
@@ -308,8 +397,9 @@ function applyPendingSeek() {
   const seconds = playerStore.pendingSeekSec
   if (seconds == null) return
 
-  if (widget && widgetLoaded) {
-    void Promise.resolve(widget.seek(seconds)).catch(() => {})
+  const engine = activeWidget()
+  if (engine && widgetLoaded) {
+    void Promise.resolve(engine.seek(seconds)).catch(() => {})
   } else if (audioEl.value) {
     audioEl.value.currentTime = seconds
   } else {
@@ -341,6 +431,8 @@ watch(
     // First use of a Mixcloud-hosted mix is what pulls the widget script down.
     const mix = playerStore.currentMix
     if (mix?.sourceType === 'mixcloud' && mix.sourceRef) void setupWidget(mix.id, mix.sourceRef)
+    if (mix?.sourceType === 'soundcloud' && mix.sourceRef)
+      void setupSoundcloud(mix.id, mix.sourceRef)
   },
 )
 
@@ -350,7 +442,8 @@ watch(
     if (seconds == null) return
     // Seek right away when the backend is ready for it; otherwise `onLoadedMetadata`
     // (audio) or `awaitCloudcast` (Mixcloud) picks the pending seek up on arrival.
-    if (widget && widgetLoaded) {
+    const engine = activeWidget()
+    if (engine && widgetLoaded) {
       applyPendingSeek()
     } else if (audioEl.value && audioEl.value.readyState >= 1) {
       applyPendingSeek()
@@ -361,20 +454,24 @@ watch(
 watch(
   () => playerStore.isPlaying,
   (isPlaying) => {
-    if (mixcloudRef.value) {
+    // Élargi à SoundCloud : sans ce `||`, ce watcher ne pilote plus jamais play/pause
+    // pour ce moteur une fois le widget monté, faute de <audio> pour prendre le relais.
+    if (mixcloudRef.value || soundcloudRef.value) {
       if (!isPlaying) {
         playWhenLoaded = false
         // Whatever was still coming up, the user has stopped asking for it. Dropping the
         // loading state here is also the escape hatch from a widget that never emits
         // `play`: the pause button always ends the claim that something is starting.
         widgetLoading.value = false
-        if (widget) void Promise.resolve(widget.pause()).catch(() => {})
+        const engine = activeWidget()
+        if (engine) void Promise.resolve(engine.pause()).catch(() => {})
         return
       }
       // Only a real gesture may record an intent to play. The call this eventually leads
       // to is not itself in-gesture — `awaitCloudcast` explains why it lands anyway.
       if (!hasUserActivation()) return
-      if (widget && widgetLoaded) void Promise.resolve(widget.play()).catch(() => {})
+      const engine = activeWidget()
+      if (engine && widgetLoaded) void Promise.resolve(engine.play()).catch(() => {})
       else playWhenLoaded = true
       // Either way, sound has not started yet: the bar says "loading" until `play` arrives.
       widgetLoading.value = true
@@ -408,8 +505,9 @@ function onLoadedMetadata() {
 
 function onSeek(event: Event) {
   const value = Number((event.target as HTMLInputElement).value)
-  if (widget) {
-    void Promise.resolve(widget.seek(value)).catch(() => {})
+  const engine = activeWidget()
+  if (engine) {
+    void Promise.resolve(engine.seek(value)).catch(() => {})
     playerStore.setCurrentTime(value)
   } else if (audioEl.value) {
     audioEl.value.currentTime = value
@@ -440,6 +538,16 @@ function onEnded() {
       :key="playerStore.currentMix.id"
       ref="mixcloudFrame"
       title="Lecteur Mixcloud"
+      aria-hidden="true"
+      tabindex="-1"
+      allow="autoplay"
+      class="pointer-events-none absolute h-px w-px border-0 opacity-0"
+    ></iframe>
+    <iframe
+      v-else-if="soundcloudRef"
+      :key="playerStore.currentMix.id"
+      ref="soundcloudFrame"
+      title="Lecteur SoundCloud"
       aria-hidden="true"
       tabindex="-1"
       allow="autoplay"

@@ -35,7 +35,7 @@ const coverSourceUrl = ref<string | null>(null)
 // already validated and read. A hand-filled form leaves it null and is never
 // offered the hosting choice — there would be nothing to point at.
 const importedSource = ref<{
-  type: 'mixcloud' | 'remote'
+  type: 'mixcloud' | 'remote' | 'soundcloud'
   ref: string
   label: string
   pageUrl?: string

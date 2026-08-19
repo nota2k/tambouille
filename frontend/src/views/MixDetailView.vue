@@ -49,6 +49,7 @@ const sourceLabel = computed(() => {
   const current = mix.value
   if (!current?.sourceRef) return null
   if (current.sourceType === 'mixcloud') return 'Mixcloud'
+  if (current.sourceType === 'soundcloud') return 'SoundCloud'
   try {
     const host = new URL(current.sourceRef).hostname.replace(/^www\./, '')
     return SOURCE_NAMES[host] ?? host
