@@ -53,11 +53,11 @@ function playAll() {
 
 <template>
   <section
-    class="w-full"
+    class="w-full min-h-[80vh] flex flex-col justify-center align-stretch"
     :style="{ backgroundColor: surface, color: ink }"
     :aria-label="`La fournée n°${fournee.number} — ${fournee.title}`"
   >
-    <div class="mx-auto flex max-w-[1900px] flex-col gap-10 px-4 pt-10 sm:px-8 lg:pt-11">
+    <div class="mx-auto flex max-w-[1900px] flex-col gap-10 px-4 py-10 sm:px-8 lg:pt-11">
       <!-- Le propos : titre géant à gauche, texte et action à droite. En dessous
            de lg les deux colonnes s'empilent, le titre garde la première place. -->
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">

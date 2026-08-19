@@ -29,7 +29,7 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
   >
     <RouterLink
       :to="{ name: 'mix-detail', params: { id: mix.id } }"
-      class="isolate block aspect-3/2 w-full overflow-hidden"
+      class="isolate block aspect-2.5/3 w-full overflow-hidden"
       :style="{ backgroundColor: zone.wash }"
     >
       <!-- Duotone : l'aplat clair donne la teinte, la pochette n'apporte que sa
@@ -50,7 +50,7 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
       {{ mix.title }}
     </RouterLink>
 
-    <p class="pt-1.5 text-[13px] leading-[1.45] opacity-75">
+    <p class="pt-4 pb-3 text-[13px] leading-[1.45] opacity-75">
       {{ mix.user.displayName }}<br />
       <b :style="{ color: ink }">{{ formatDuration(mix.durationSec) ?? 'durée inconnue' }}</b>
       <template v-if="mix.tracklist.length"> · {{ mix.tracklist.length }} morceaux</template>
@@ -58,11 +58,11 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
 
     <button
       type="button"
-      class="mt-4.5 min-h-9 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.09em] transition-opacity hover:opacity-80 xl:mt-auto"
+      class="mt-4.5 min-h-9 px-3.5 py-2.5 text-[16px] font-bold uppercase tracking-[0.09em] transition-opacity hover:opacity-80 xl:mt-auto"
       :style="
         isPlaying
           ? { backgroundColor: zone.season, color: zone.inkOnSeason }
-          : { border: `1px solid ${ink}`, color: ink }
+          : { border: `2px solid ${ink}`, color: ink }
       "
       @click="playerStore.play(mix)"
     >
