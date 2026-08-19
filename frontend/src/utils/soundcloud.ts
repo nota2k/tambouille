@@ -20,7 +20,7 @@ const IFRAME_BASE_URL = 'https://w.soundcloud.com/player/'
 export interface SoundcloudApi {
   Widget: {
     (frame: HTMLIFrameElement): RawSoundcloudWidget
-    Events: { READY: string; FINISH: string; ERROR: string }
+    Events: { READY: string; FINISH: string; ERROR: string; PLAY_PROGRESS: string }
   }
 }
 
@@ -43,6 +43,8 @@ export interface SoundcloudWidget {
   getPosition(): Promise<number>
   getDuration(): Promise<number>
   bindEnded(handler: () => void): void
+  /** S'abonne à la progression de lecture, en secondes — l'événement natif rapporte des millisecondes. */
+  bindProgress(handler: (seconds: number) => void): void
   destroy(): void
 }
 
@@ -131,10 +133,16 @@ export function createSoundcloudWidget(
     getPosition: () => ask((cb) => raw.getPosition(cb)),
     getDuration: () => ask((cb) => raw.getDuration(cb)),
     bindEnded: (handler: () => void) => raw.bind(api.Widget.Events.FINISH, handler),
+    bindProgress: (handler: (seconds: number) => void) =>
+      raw.bind(api.Widget.Events.PLAY_PROGRESS, (...args: unknown[]) => {
+        const data = args[0] as { currentPosition: number }
+        handler(data.currentPosition / 1000)
+      }),
     destroy: () => {
       raw.unbind(api.Widget.Events.READY)
       raw.unbind(api.Widget.Events.FINISH)
       raw.unbind(api.Widget.Events.ERROR)
+      raw.unbind(api.Widget.Events.PLAY_PROGRESS)
     },
   }
 }

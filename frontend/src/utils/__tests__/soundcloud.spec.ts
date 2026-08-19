@@ -58,7 +58,7 @@ describe('createSoundcloudWidget', () => {
     mockRaw.seekTo = (ms: number) => seekCalls.push(ms)
 
     const Widget = Object.assign(() => mockRaw, {
-      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error' },
+      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error', PLAY_PROGRESS: 'progress' },
     })
     const mockApi: SoundcloudApi = { Widget }
 
@@ -74,7 +74,7 @@ describe('createSoundcloudWidget', () => {
     mockRaw.getPosition = (callback: (ms: number) => void) => callback(5000)
 
     const Widget = Object.assign(() => mockRaw, {
-      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error' },
+      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error', PLAY_PROGRESS: 'progress' },
     })
     const mockApi: SoundcloudApi = { Widget }
 
@@ -90,7 +90,7 @@ describe('createSoundcloudWidget', () => {
     mockRaw.getDuration = (callback: (ms: number) => void) => callback(120000)
 
     const Widget = Object.assign(() => mockRaw, {
-      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error' },
+      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error', PLAY_PROGRESS: 'progress' },
     })
     const mockApi: SoundcloudApi = { Widget }
 
@@ -104,7 +104,7 @@ describe('createSoundcloudWidget', () => {
     const { mockRaw, emit } = createMockRawWidget()
 
     const Widget = Object.assign(() => mockRaw, {
-      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error' },
+      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error', PLAY_PROGRESS: 'progress' },
     })
     const mockApi: SoundcloudApi = { Widget }
 
@@ -118,7 +118,7 @@ describe('createSoundcloudWidget', () => {
     const { mockRaw, emit } = createMockRawWidget()
 
     const Widget = Object.assign(() => mockRaw, {
-      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error' },
+      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error', PLAY_PROGRESS: 'progress' },
     })
     const mockApi: SoundcloudApi = { Widget }
 
@@ -132,7 +132,7 @@ describe('createSoundcloudWidget', () => {
     const { mockRaw, listeners } = createMockRawWidget()
 
     const Widget = Object.assign(() => mockRaw, {
-      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error' },
+      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error', PLAY_PROGRESS: 'progress' },
     })
     const mockApi: SoundcloudApi = { Widget }
 
@@ -144,5 +144,22 @@ describe('createSoundcloudWidget', () => {
     const finishHandlers = listeners.get('finish')
     expect(finishHandlers).toBeDefined()
     expect(finishHandlers).toContain(endedHandler)
+  })
+
+  it('convertit PLAY_PROGRESS(currentPosition en ms) en secondes pour bindProgress', () => {
+    const { mockRaw, emit } = createMockRawWidget()
+
+    const Widget = Object.assign(() => mockRaw, {
+      Events: { READY: 'ready', FINISH: 'finish', ERROR: 'error', PLAY_PROGRESS: 'progress' },
+    })
+    const mockApi: SoundcloudApi = { Widget }
+
+    const widget = createSoundcloudWidget(mockApi, {} as HTMLIFrameElement)
+
+    const positions: number[] = []
+    widget.bindProgress((seconds) => positions.push(seconds))
+
+    emit('progress', { currentPosition: 5000 })
+    expect(positions).toEqual([5])
   })
 })

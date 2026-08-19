@@ -250,6 +250,29 @@ function isCurrentMix(mixId: string): boolean {
 }
 
 /**
+ * Attend `ready`, ou le délai `WIDGET_READY_TIMEOUT_MS`, le premier des deux qui gagne.
+ * Rend `true` si `ready` a gagné, `false` si le délai a expiré. Factorise la course
+ * commune à `setupWidget` et `setupSoundcloud` — chaque appelant garde son propre
+ * message d'échec, qui n'est pas le même selon le moteur.
+ */
+async function raceReady(ready: Promise<unknown>): Promise<boolean> {
+  let readyTimer: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([
+      ready,
+      new Promise<never>((_, reject) => {
+        readyTimer = setTimeout(() => reject(new Error('ready timed out')), WIDGET_READY_TIMEOUT_MS)
+      }),
+    ])
+    return true
+  } catch {
+    return false
+  } finally {
+    clearTimeout(readyTimer)
+  }
+}
+
+/**
  * Builds the widget for the mix `mixId`, whose cloudcast is `key`.
  *
  * The order below is not incidental. `PlayerWidget()` completes its handshake by catching the
@@ -282,28 +305,18 @@ async function setupWidget(mixId: string, key: string) {
   const created = api.PlayerWidget(frame)
   frame.src = mixcloudIframeSrc(key)
 
-  // The timeout handle is local to this run, and cleared the moment the race settles.
-  // It was module-level once, which meant concurrent runs shared one slot: a run that
-  // finished first cleared whatever timer the run after it had just armed, and that
-  // later run — the current one — then waited on a `ready` that would never resolve,
-  // with nothing left to reject it. A dead cloudcast reported no error at all, and the
-  // bar sat at 0:00 forever. Anything that outlives one run must not be shared by name.
-  let readyTimer: ReturnType<typeof setTimeout> | undefined
-  try {
-    await Promise.race([
-      created.ready,
-      new Promise<never>((_, reject) => {
-        readyTimer = setTimeout(() => reject(new Error('ready timed out')), WIDGET_READY_TIMEOUT_MS)
-      }),
-    ])
-  } catch {
+  // The timeout handle used to be module-level once, which meant concurrent runs shared
+  // one slot: a run that finished first cleared whatever timer the run after it had just
+  // armed, and that later run — the current one — then waited on a `ready` that would
+  // never resolve, with nothing left to reject it. A dead cloudcast reported no error at
+  // all, and the bar sat at 0:00 forever. `raceReady` keeps its timer local to each call.
+  const ready = await raceReady(created.ready)
+  if (!ready) {
     if (!isCurrentMix(mixId)) return
     widgetError.value = 'Ce mix est introuvable sur Mixcloud — il a peut-être été retiré.'
     widgetLoading.value = false
     playerStore.pause()
     return
-  } finally {
-    clearTimeout(readyTimer)
   }
   if (!isCurrentMix(mixId)) return
 
@@ -341,15 +354,8 @@ async function setupSoundcloud(mixId: string, pageUrl: string) {
   frame.src = soundcloudIframeSrc(pageUrl)
   const created = createSoundcloudWidget(api, frame)
 
-  let readyTimer: ReturnType<typeof setTimeout> | undefined
-  try {
-    await Promise.race([
-      created.ready,
-      new Promise<never>((_, reject) => {
-        readyTimer = setTimeout(() => reject(new Error('ready timed out')), WIDGET_READY_TIMEOUT_MS)
-      }),
-    ])
-  } catch {
+  const ready = await raceReady(created.ready)
+  if (!ready) {
     if (!isCurrentMix(mixId)) return
     // Une piste dont l'ayant droit a désactivé l'intégration n'annonce jamais
     // `ready` : c'est le seul échec qui survient après un import réussi.
@@ -358,16 +364,21 @@ async function setupSoundcloud(mixId: string, pageUrl: string) {
     widgetLoading.value = false
     playerStore.pause()
     return
-  } finally {
-    clearTimeout(readyTimer)
   }
+  // Un changement de mix pendant l'attente de `ready` a pu réveiller cette exécution
+  // après coup : sans cette garde, `soundcloudWidget` serait réassigné au widget du
+  // mix précédent, écrasant la durée affichée et pouvant relancer sa lecture.
+  if (!isCurrentMix(mixId)) return
 
   soundcloudWidget = created
   widgetLoaded = true
   widgetLoading.value = false
 
   created.bindEnded(() => onEnded())
+  created.bindProgress((position) => playerStore.setCurrentTime(position))
   duration.value = await created.getDuration()
+  // Même raison qu'au-dessus : `getDuration` est un autre point de suspension.
+  if (!isCurrentMix(mixId)) return
   playerStore.setDuration(duration.value)
   applyPendingSeek()
   if (playWhenLoaded) void created.play()
