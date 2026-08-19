@@ -84,6 +84,34 @@ npm run dev
 
 L'app tourne sur `http://localhost:5173`. En dev, Vite proxy `/api` vers le backend (voir `vite.config.ts`), donc pas besoin de configurer CORS côté frontend. En revanche, l'URL publique R2 doit être configurée explicitement : voir `frontend/.env.example` et renseigner `VITE_R2_PUBLIC_URL` avec l'URL publique du bucket R2.
 
+## Flux de syndication
+
+Quatre flux RSS podcast, publics, servis par l'API :
+
+| URL | ce qu'elle contient |
+|---|---|
+| `/api/rss` | les mix les plus récents du site |
+| `/api/users/:username/rss` | les mix d'un curateur |
+| `/api/playlists/:id/rss` | une playlist, dans son ordre |
+| `/api/fournees/:numero/rss` | une fournée, dans l'ordre du fichier |
+
+Chacun est plafonné à 50 items — un client de podcast tronque de lui-même au
+delà, et le site en compte des milliers.
+
+**Aucun mix n'en est omis.** Ceux qui viennent de Mixcloud y figurent sans
+`enclosure` : Mixcloud n'expose qu'un lecteur embarqué, aucun fichier
+téléchargeable. Leur item porte titre, description et lien vers la page du mix,
+qui sait les jouer. Un client de podcast peut choisir de masquer ces items —
+c'est sa décision, prise sur un flux complet.
+
+Les `enclosure` pointent vers `/api/mixes/:id/audio`, qui redirige (302) vers R2
+ou vers la source distante, jamais vers l'hébergement directement : ces URL
+vivent des années dans la base locale de chaque abonné, et le stockage du projet
+a déjà changé une fois.
+
+Deux variables les concernent, décrites dans [`backend/.env.example`](backend/.env.example) :
+`R2_PUBLIC_URL` et `FOURNEES_DIR`.
+
 ## Notes techniques
 
 - Prisma 7 nécessite un driver adapter explicite (`@prisma/adapter-pg`) et le générateur client est configuré en `moduleFormat = "cjs"` pour rester compatible avec la compilation CommonJS de NestJS.

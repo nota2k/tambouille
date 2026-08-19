@@ -3,12 +3,13 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
-import { mediaUrl } from '@/utils/media'
+import { feedUrl, mediaUrl } from '@/utils/media'
 import { formatDuration } from '@/utils/time'
 import { toggleUserFollow } from '@/utils/follows'
 import MixListItem from '@/components/MixListItem.vue'
 import PlaylistCard from '@/components/PlaylistCard.vue'
 import AvatarStack from '@/components/AvatarStack.vue'
+import FeedLink from '@/components/FeedLink.vue'
 import { createPlaylist, fetchUserPlaylists } from '@/utils/playlists'
 import type { AuthorSummary, Mix, PlaylistSummary, UserProfile } from '@/types'
 
@@ -263,6 +264,10 @@ onMounted(loadProfile)
           </div>
 
           <div class="flex shrink-0 flex-wrap gap-3 sm:pb-2">
+            <FeedLink
+              :href="feedUrl(`/users/${profile.username}/rss`)"
+              :title="profile.displayName"
+            />
             <RouterLink v-if="isOwnProfile" :to="{ name: 'settings' }" class="tb-btn-outline">
               Modifier le profil
             </RouterLink>

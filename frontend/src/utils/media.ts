@@ -18,3 +18,13 @@ export function mediaUrl(path: string | null | undefined): string | undefined {
   if (path.startsWith('/uploads/')) return `${API_BASE_URL}${path}`
   return `${MEDIA_BASE_URL}/${path}`
 }
+
+/**
+ * L'URL absolue d'un flux de syndication, servi par l'API.
+ *
+ * En développement la base est vide et l'URL reste relative, donc le proxy de
+ * Vite la prend en charge comme le reste de `/api`.
+ */
+export function feedUrl(path: string): string {
+  return `${API_BASE_URL}/api${path}`
+}
