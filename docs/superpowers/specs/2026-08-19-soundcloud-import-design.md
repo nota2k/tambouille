@@ -19,9 +19,16 @@ migration.**
 
 Mesuré le 19 août 2026, pas supposé.
 
-**Les inscriptions à l'API SoundCloud sont fermées** depuis des années : pas de
-`client_id`, donc `api.soundcloud.com` est hors d'atteinte. Il reste l'endpoint
-oEmbed, public et sans clé :
+**L'API existe et ses inscriptions sont ouvertes** — je l'avais d'abord écrit
+fermées, sur une réputation que je n'avais pas vérifiée. La doc décrit une
+inscription immédiate, sans file d'attente ni délai. Mais elle exige un
+abonnement payant : *« You need a SoundCloud Artist Pro subscription to
+register API applications. »*
+
+**On s'en passe ici, délibérément.** Un abonnement à souscrire, deux secrets à
+porter jusqu'en production, et un flux `client_credentials` avec jeton expirant
+à obtenir, mettre en cache et renouveler — pour une source de plus parmi cinq.
+L'oEmbed, public et sans clé, suffit à ce qu'on lui demande :
 
 ```
 https://soundcloud.com/oembed?format=json&url=<url encodée>
@@ -47,6 +54,21 @@ Et, vérifié sur de vraies URL :
 Mixcloud, dont l'importeur rend une liste de cloudcasts à choisir. SoundCloud
 n'aura pas cette branche : `resolve` rend toujours un `MixImport`, jamais un
 `SourceItem[]`.
+
+### Ce que l'API donnerait en plus, le jour où on la prendrait
+
+Ce qui manque ci-dessus manque à *l'oEmbed*, pas à SoundCloud. L'API expose un
+endpoint `/resolve` qui convertit un permalien en ressource complète, et surtout
+un champ **`metadata_artist`** — *« the artist name shown on SoundCloud when it
+differs from the uploader's profile name »*. C'est précisément ce qui lèverait
+l'ambiguïté consignée plus bas entre le nom du compte et celui de l'artiste. La
+durée, le genre et les tags y sont vraisemblablement aussi, mais je ne les ai
+pas vérifiés : la page de l'explorateur est une application JS qui ne rend rien
+sans identifiants.
+
+Passer à l'API est donc une évolution possible et documentée, pas un mur. Elle
+demande l'abonnement, les secrets et la gestion du jeton — et l'oEmbed resterait
+un repli utile quand les identifiants ne sont pas configurés.
 
 ## L'importeur
 
@@ -90,7 +112,9 @@ parce que l'enregistrement l'ignore aussi.
 
 Réserve assumée : sur SoundCloud, `author_name` est le nom du **compte**, pas
 nécessairement l'artiste du mix — « Radio Panik » pour une émission. Mixcloud a
-la même ambiguïté et l'ignore ; on fait pareil, faute de mieux dans l'oEmbed.
+la même ambiguïté et l'ignore ; on fait pareil, faute de mieux **dans l'oEmbed**.
+L'API, elle, a `metadata_artist` pour exactement ce cas : c'est le premier gain
+qu'apporterait le passage à l'API.
 
 `sourceRef` est **l'URL canonique de la piste ou du set**, et non un identifiant
 interne : c'est ce que le widget consomme, et c'est stable.

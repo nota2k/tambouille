@@ -4,7 +4,7 @@
 
 **Goal:** Importer une piste ou un set SoundCloud depuis son URL, et le lire dans le lecteur Tambouille.
 
-**Architecture:** Un troisième `SourceImporter` côté backend, qui interroge l'oEmbed public de SoundCloud — sans clé, les inscriptions à leur API étant fermées. Un troisième moteur de lecture côté frontend, un iframe caché piloté par le widget SoundCloud, calqué sur ce que `mixcloud.ts` fait déjà. Aucune migration : `sourceType` est une chaîne libre en base.
+**Architecture:** Un troisième `SourceImporter` côté backend, qui interroge l'oEmbed public de SoundCloud — sans clé. L'API existe et ses inscriptions sont ouvertes, mais elle exige un abonnement Artist Pro payant, deux secrets en production et un jeton à renouveler : on s'en passe pour une source de plus parmi cinq. Un troisième moteur de lecture côté frontend, un iframe caché piloté par le widget SoundCloud, calqué sur ce que `mixcloud.ts` fait déjà. Aucune migration : `sourceType` est une chaîne libre en base.
 
 **Tech Stack:** NestJS + Jest côté backend ; Vue 3 (`<script setup>`, TS) + Vitest côté frontend.
 
@@ -263,10 +263,11 @@ const OEMBED_MAX_BYTES = 256 * 1024;
 const FETCH_TIMEOUT_MS = 10_000;
 
 /**
- * Les inscriptions à l'API SoundCloud sont fermées depuis des années : il n'y
- * a pas de `client_id` à obtenir, donc `api.soundcloud.com` est hors
- * d'atteinte. Reste l'oEmbed, public et sans clé — qui répond sur une piste et
- * sur un set, mais renvoie 404 sur une page de compte.
+ * L'API SoundCloud existe et ses inscriptions sont ouvertes, mais elle exige un
+ * abonnement Artist Pro payant, deux secrets jusqu'en production et un jeton
+ * `client_credentials` à renouveler. On s'en passe : l'oEmbed est public et
+ * sans clé, et répond sur une piste comme sur un set — il renvoie seulement 404
+ * sur une page de compte.
  *
  * D'où un importeur sans branche « liste à choisir » : `resolve` rend toujours
  * un `MixImport`. Et d'où l'absence de durée, de tags et de tracklist, que

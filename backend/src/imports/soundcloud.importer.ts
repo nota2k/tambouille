@@ -15,10 +15,17 @@ const OEMBED_MAX_BYTES = 256 * 1024;
 const FETCH_TIMEOUT_MS = 10_000;
 
 /**
- * Les inscriptions à l'API SoundCloud sont fermées depuis des années : il n'y
- * a pas de `client_id` à obtenir, donc `api.soundcloud.com` est hors
- * d'atteinte. Reste l'oEmbed, public et sans clé — qui répond sur une piste et
- * sur un set, mais renvoie 404 sur une page de compte.
+ * L'API SoundCloud existe et ses inscriptions sont ouvertes — mais elle exige
+ * un abonnement Artist Pro payant, deux secrets à porter jusqu'en production,
+ * et un jeton `client_credentials` à obtenir puis renouveler. On s'en passe
+ * pour une source de plus parmi cinq : l'oEmbed est public et sans clé, et
+ * répond sur une piste comme sur un set — il ne renvoie 404 que sur une page
+ * de compte.
+ *
+ * Ce que ça coûte est consigné : pas de durée, pas de tags libres, pas de
+ * tracklist, et `author_name` est le nom du compte là où l'API a
+ * `metadata_artist`. Le jour où l'abonnement existe, `/resolve` remplace cet
+ * appel sans rien changer à l'interface.
  *
  * D'où un importeur sans branche « liste à choisir » : `resolve` rend toujours
  * un `MixImport`. Et d'où l'absence de durée, de tags et de tracklist, que
