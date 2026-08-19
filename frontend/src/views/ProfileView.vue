@@ -177,7 +177,7 @@ onMounted(loadProfile)
 
 <template>
   <div>
-    <div v-if="loading" class="mx-auto max-w-7xl px-4 py-16 text-center text-tambouille-muted">
+    <div v-if="loading" class="mx-auto max-w-6xl px-4 py-16 text-center text-tambouille-muted">
       Chargement...
     </div>
 
@@ -185,7 +185,7 @@ onMounted(loadProfile)
       <!-- Bandeau court : c'est ici, et seulement ici, que le motif topographique
            survit. À 120 px il ne mange plus le premier écran, et les mix
            commencent au-dessus de la ligne de flottaison. -->
-      <div class="relative h-[120px] overflow-hidden sm:h-[150px]">
+      <div class="relative h-[120px] overflow-hidden sm:h-[250px]">
         <img
           v-if="profile.coverUrl"
           :src="mediaUrl(profile.coverUrl)"
@@ -211,15 +211,15 @@ onMounted(loadProfile)
         />
       </div>
 
-      <div class="mx-auto max-w-7xl px-4 pb-12">
+      <div class="mx-auto max-w-[1900px] px-4 pb-12">
         <div
-          class="flex flex-col items-start gap-5 border-b-2 border-tambouille-rule pb-6 sm:flex-row sm:items-end sm:gap-7"
+          class="flex flex-col items-start gap-5 border-b-2 border-tambouille-rule pb-6 sm:flex-row sm:items-end sm:gap-7 align-start mt-30px"
         >
-          <div class="relative -mt-14 shrink-0 sm:-mt-[56px]">
+          <div class="relative -mt-[100px] shrink-0 sm:-mt-[100px]">
             <img
               v-if="profile.avatarUrl"
               :src="mediaUrl(profile.avatarUrl)"
-              class="h-[120px] w-[120px] border-4 border-white object-cover sm:h-[150px] sm:w-[150px]"
+              class="h-[120px] w-[120px] border-4 border-white object-cover sm:h-[350px] sm:w-[350px]"
               alt=""
             />
             <div

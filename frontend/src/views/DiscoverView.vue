@@ -8,6 +8,7 @@ import { mediaUrl } from '@/utils/media'
 import { formatDate } from '@/utils/date'
 import { formatDuration } from '@/utils/time'
 import MixListItem from '@/components/MixListItem.vue'
+import MixGrid from '@/components/MixGrid.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
 import FourneeBanner from '@/components/FourneeBanner.vue'
 import { useFournee } from '@/composables/useFournee'
@@ -226,7 +227,7 @@ onMounted(loadSections)
         </button>
         <button
           type="button"
-          class="pb-2 hover:text-tambouille-text text-lg"
+          class="pb-2 hover:text-tambouille-text text-tambouille-jaune text-lg"
           @click="playRandomMix"
         >
           Au hasard
@@ -359,11 +360,7 @@ onMounted(loadSections)
                     >{{ featuredMix.tracklist.length }} morceaux</span
                   >
                   <span v-if="featuredMix.tracklist.length" class="text-tambouille-faint">·</span>
-                  <span
-                    v-for="tag in featuredMix.tags.slice(0, 3)"
-                    :key="tag"
-                    class="text-tambouille-accent"
-                  >
+                  <span v-for="tag in featuredMix.tags.slice(0, 3)" :key="tag" class="tb-tag">
                     {{ tag }}
                   </span>
                 </p>
@@ -394,65 +391,74 @@ onMounted(loadSections)
 
           <section v-if="recentlyPlayedMixes.length" class="pt-10">
             <p class="tb-eyebrow">Repris là où tu t'es arrêté⋅e</p>
-            <MixListItem v-for="mix in recentlyPlayedMixes" :key="mix.id" :mix="mix" />
+            <MixGrid :mixes="recentlyPlayedMixes" class="mt-4" />
           </section>
         </div>
 
+        <!-- L'`aside` est un item de grille : il s'étire sur toute la hauteur de
+             la rangée, et c'est lui qui donne sa fin de course au bloc collant.
+             Le `top-20` dégage les 64 px de la barre de navigation, elle-même
+             en `sticky top-0`. Rien avant `lg`, où la grille n'a qu'une colonne
+             et où la colonne se retrouve empilée sous le contenu. -->
         <aside class="min-w-0">
-          <div class="tb-panel-dark">
-            <p class="tb-eyebrow-plain border-b border-white pb-2.5 text-neutral-400">Au hasard</p>
-            <p class="mb-4 mt-3.5 text-sm leading-relaxed">
-              Pas d'idée&nbsp;? On te sert un mix au pif. L'arbitraire y est roi.
-            </p>
-            <button class="tb-btn" :disabled="!knownMixes.length" @click="playRandomMix">
-              Sers-moi quelque chose
-            </button>
-          </div>
-
-          <div v-if="trendingTags.length" class="pt-8">
-            <p class="tb-eyebrow">Tags du moment</p>
-            <div class="flex flex-wrap gap-2 pt-3.5">
-              <button
-                v-for="tag in trendingTags"
-                :key="tag"
-                class="tb-chip"
-                @click="toggleTag(tag)"
-              >
-                {{ tag }}
+          <div class="lg:sticky lg:top-20">
+            <div class="tb-panel-dark ">
+              <p class="uppercase text-lg border-b border-white pb-2.5 text-tambouille-jaune">
+                Au hasard
+              </p>
+              <p class="mb-4 mt-3.5 text-sm leading-relaxed">
+                Pas d'idée&nbsp;? On te sert un mix au pif. L'arbitraire y est roi.
+              </p>
+              <button class="tb-btn" :disabled="!knownMixes.length" @click="playRandomMix">
+                Sers-moi quelque chose
               </button>
             </div>
-          </div>
 
-          <div v-if="cooks.length" class="pt-8">
-            <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
-            <div class="flex flex-col gap-3.5 pt-3.5">
-              <RouterLink
-                v-for="cook in cooks"
-                :key="cook.id"
-                :to="{ name: 'profile', params: { username: cook.username } }"
-                class="flex items-center gap-3"
-              >
-                <img
-                  v-if="cook.avatarUrl"
-                  :src="mediaUrl(cook.avatarUrl)"
-                  class="h-11 w-11 shrink-0 object-cover"
-                  alt=""
-                />
-                <span
-                  v-else
-                  class="flex h-11 w-11 shrink-0 items-center justify-center bg-tambouille-surface-hover font-display font-bold"
+            <div v-if="trendingTags.length" class="pt-8">
+              <p class="tb-eyebrow">Tags du moment</p>
+              <div class="flex flex-wrap gap-2 pt-3.5">
+                <button
+                  v-for="tag in trendingTags"
+                  :key="tag"
+                  class="tb-chip"
+                  @click="toggleTag(tag)"
                 >
-                  {{ cook.displayName?.[0]?.toUpperCase() }}
-                </span>
-                <span class="min-w-0">
-                  <span class="block truncate font-display text-[15px] font-bold">{{
-                    cook.displayName
-                  }}</span>
-                  <span class="block truncate text-[12.5px] text-tambouille-muted"
-                    >@{{ cook.username }}</span
+                  {{ tag }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="cooks.length" class="pt-8">
+              <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
+              <div class="flex flex-col gap-3.5 pt-3.5">
+                <RouterLink
+                  v-for="cook in cooks"
+                  :key="cook.id"
+                  :to="{ name: 'profile', params: { username: cook.username } }"
+                  class="flex items-center gap-3"
+                >
+                  <img
+                    v-if="cook.avatarUrl"
+                    :src="mediaUrl(cook.avatarUrl)"
+                    class="h-11 w-11 shrink-0 object-cover"
+                    alt=""
+                  />
+                  <span
+                    v-else
+                    class="flex h-11 w-11 shrink-0 items-center justify-center bg-tambouille-surface-hover font-display font-bold"
                   >
-                </span>
-              </RouterLink>
+                    {{ cook.displayName?.[0]?.toUpperCase() }}
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block truncate font-display text-[15px] font-bold">{{
+                      cook.displayName
+                    }}</span>
+                    <span class="block truncate text-[12.5px] text-tambouille-muted"
+                      >@{{ cook.username }}</span
+                    >
+                  </span>
+                </RouterLink>
+              </div>
             </div>
           </div>
         </aside>
