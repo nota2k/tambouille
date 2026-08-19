@@ -1,4 +1,3 @@
-import { withArtistTag } from '../imports/source-importer';
 import {
   BadGatewayException,
   BadRequestException,
@@ -212,9 +211,9 @@ export function toCloudcastImport(raw: unknown): CloudcastImport {
     title: typeof cloudcast.name === 'string' ? cloudcast.name : '',
     description:
       typeof cloudcast.description === 'string' ? cloudcast.description : '',
-    // Le nom de l'artiste rejoint les tags : le mix appartiendra au compte Tambouille
-    // qui l'importe, donc sans ça plus rien dans la fiche ne dit de qui il est.
-    tags: withArtistTag(parseTags(cloudcast.tags), artist?.name),
+    // Les tags de la source, sans plus : l'artiste part par `artist`, juste
+    // en dessous, et n'a plus à être replié ici.
+    tags: parseTags(cloudcast.tags),
     coverSourceUrl: pickPictureUrl(cloudcast.pictures),
     tracklist: parseSections(cloudcast.sections),
     artist,

@@ -45,7 +45,8 @@ describe('SoundcloudImporter.resolve', () => {
       title: 'Flickermood',
       description:
         'From the Soulhack album, recently featured in this ad https://www.dswshoes.com/tv_commercial.jsp?m=october2007',
-      tags: ['Forss'],
+      artist: 'Forss',
+      tags: [],
       coverSourceUrl:
         'https://i1.sndcdn.com/artworks-000067273316-smsiqx-t500x500.jpg',
       tracklist: [],
@@ -54,6 +55,17 @@ describe('SoundcloudImporter.resolve', () => {
       sourceLabel: 'SoundCloud',
       sourcePageUrl: 'https://soundcloud.com/forss/flickermood',
     });
+  });
+
+  it('met l’artiste dans son champ et non dans les tags', async () => {
+    answerWith('soundcloud-track.json');
+    const imported = (await new SoundcloudImporter().resolve(
+      new URL('https://soundcloud.com/forss/flickermood'),
+    )) as { artist?: string; tags: string[] };
+
+    expect(imported.artist).toBe('Forss');
+    // Deux sources pour la même information, c'est une divergence en attente.
+    expect(imported.tags).toEqual([]);
   });
 
   it('importe un set sous la même forme', async () => {

@@ -14,6 +14,8 @@ export interface MixImport {
   title: string;
   description: string;
   tags: string[];
+  /** Le nom de l'artiste, quand la source le donne. */
+  artist?: string;
   coverSourceUrl?: string;
   durationSec?: number;
   tracklist: { artist: string; title: string; timecodeSec: number }[];

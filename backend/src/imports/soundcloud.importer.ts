@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { safeFetch } from '../common/safe-fetch';
 import {
-  withArtistTag,
   type MixImport,
   type SourceImporter,
   type SourceItem,
@@ -71,13 +70,10 @@ export class SoundcloudImporter implements SourceImporter {
     return {
       title: stripAuthorSuffix(oembed.title, oembed.author_name),
       description: htmlToText(oembed.description ?? ''),
-      // L'oEmbed ne donne ni tags, ni durée, ni tracklist : le formulaire
-      // d'upload les laisse remplir à la main plutôt que de les inventer.
-      // L'oEmbed ne donne aucun tag libre — mais il donne le nom du compte,
-      // qui rejoint les tags comme le fait l'import Mixcloud : republié sous
-      // un compte Tambouille, le mix garde ainsi une trace de qui l'a publié
-      // à la source.
-      tags: withArtistTag([], oembed.author_name),
+      // L'oEmbed ne donne aucun tag libre. Le nom du compte, lui, est connu et
+      // part dans son propre champ.
+      tags: [],
+      artist: oembed.author_name,
       coverSourceUrl: oembed.thumbnail_url,
       tracklist: [],
       sourceType: 'soundcloud',
