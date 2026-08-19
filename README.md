@@ -84,6 +84,42 @@ npm run dev
 
 L'app tourne sur `http://localhost:5173`. En dev, Vite proxy `/api` vers le backend (voir `vite.config.ts`), donc pas besoin de configurer CORS côté frontend. En revanche, l'URL publique R2 doit être configurée explicitement : voir `frontend/.env.example` et renseigner `VITE_R2_PUBLIC_URL` avec l'URL publique du bucket R2.
 
+## Aperçu des propositions de fusion
+
+Chaque poussée sur une proposition de fusion **issue d'une branche de ce dépôt**
+déploie le site sur <https://tambouille-apercu.onrender.com> et commente la
+proposition avec le commit demandé. Une proposition venue d'un fork n'en obtient
+pas : la tâche lit des secrets, et rien qui lise un secret ne s'exécute sur du
+code venu de l'extérieur.
+
+L'emplacement est **unique**. Une poussée sur une autre proposition le prend, et
+l'adresse sert alors autre chose — d'où le commit nommé dans le commentaire.
+
+La base et le bucket sont propres à l'aperçu : rien de ce qu'on y fait n'atteint
+la production. Ils sont peuplés par `backend/prisma/seed.ts` à chaque
+déploiement, depuis les fixtures d'importeurs du dépôt. On s'y connecte par mot
+de passe — `nelly` / `apercu-tambouille` — parce que ni Google ni le realm
+Keycloak ne reconnaissent cette adresse et ne le feront pas : Google n'accepte
+pas de joker dans ses URI de redirection.
+
+Le service s'endort après quinze minutes sans visite ; le premier chargement
+peut demander une minute.
+
+### Ce que l'aperçu ne vérifie pas
+
+Deux choses, et il vaut mieux les savoir que les découvrir :
+
+- **`app.set('trust proxy', 1)`** — la valeur vaut pour l'Apache d'o2switch, et
+  le limiteur de `PasswordResetService` en dépend. Devant Render, le saut n'est
+  pas le même. C'est précisément la ligne qu'un aperçu ne peut pas exercer.
+- **`/uploads`** — les mixes antérieurs à la migration R2 portent des chemins
+  servis depuis un disque qui n'existe que sur o2switch. Le peuplement ne
+  fabrique que des clés R2, donc la question ne se pose pas ; en revanche
+  refléter les données de production dans l'aperçu est hors de portée.
+
+L'aperçu ne bloque jamais une fusion : son échec est consultable et ne change
+le verdict d'aucune vérification.
+
 ## Notes techniques
 
 - Prisma 7 nécessite un driver adapter explicite (`@prisma/adapter-pg`) et le générateur client est configuré en `moduleFormat = "cjs"` pour rester compatible avec la compilation CommonJS de NestJS.

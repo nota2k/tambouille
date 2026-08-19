@@ -1,0 +1,82 @@
+# Les deux services de l'aperçu des propositions de fusion.
+#
+# Ce fichier DÉCRIT ce qui a été créé à la main dans l'interface Render ; il
+# n'est pas appliqué automatiquement. Sa raison d'être est qu'une configuration
+# qui ne vit que dans une interface tierce n'est ni relisible ni comparable :
+# le jour où l'aperçu se comporte autrement qu'attendu, la question « qu'est-ce
+# qui a changé » doit avoir une réponse dans le dépôt.
+#
+# L'adopter comme Blueprint créerait des services distincts de ceux déjà en
+# place. Si c'est un jour souhaité, il faudra supprimer les premiers d'abord.
+#
+# Aucun secret ici : `sync: false` demande la valeur à Render au lieu de la
+# lire dans le dépôt.
+
+databases:
+  - name: tambouille-apercu-db
+    plan: free
+
+services:
+  # ── L'API ────────────────────────────────────────────────────────────────
+  - type: web
+    name: tambouille-apercu-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    # `npm ci` et non `npm install` : il échoue si le verrou et le manifeste
+    # divergent, comme dans la vérification.
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    # La CI décide quand et sur quel commit. Laissé à `true`, Render déploierait
+    # aussi sur `main`, et l'aperçu servirait deux choses à la fois.
+    autoDeploy: false
+    envVars:
+      # Le backend ne déclare pas de champ `engines` — seul le frontend en a un.
+      # Sans cette variable, rien n'imposerait la version que la production
+      # exécute.
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tambouille-apercu-db
+          property: connectionString
+      # L'origine autorisée par le CORS de `main.ts`. Une divergence d'un
+      # caractère et le front se charge sans qu'aucun appel n'aboutisse.
+      - key: FRONTEND_URL
+        value: https://tambouille-apercu.onrender.com
+      - key: JWT_SECRET
+        generateValue: true
+      - key: R2_BUCKET_NAME
+        value: tambouille-apercu
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      # Rien pour le SMTP, ni pour Google, ni pour Keycloak : ces trois-là ne
+      # sont lus qu'à la première tentative d'usage et n'empêchent pas l'API de
+      # démarrer. L'aperçu n'envoie pas de courrier et se connecte par mot de
+      # passe.
+
+  # ── Le front ─────────────────────────────────────────────────────────────
+  - type: web
+    name: tambouille-apercu
+    runtime: static
+    rootDir: frontend
+    # `build-only` et non `build` : ce dernier enchaîne `vue-tsc` par `run-p`,
+    # et le contrôle de typage est déjà bloquant dans la vérification. Le
+    # refaire ici ne ferait que retarder l'aperçu.
+    buildCommand: npm ci && npm run build-only -- --mode apercu
+    staticPublishPath: dist
+    autoDeploy: false
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+    routes:
+      # `vue-router` en mode history : sans cette réécriture, toute adresse
+      # autre que la racine renvoie 404 — c'est-à-dire tout lien qu'un
+      # relecteur pourrait vouloir ouvrir directement.
+      - type: rewrite
+        source: /*
+        destination: /index.html

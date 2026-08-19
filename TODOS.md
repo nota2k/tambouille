@@ -106,6 +106,34 @@ Delete this entry once the ruleset is in place.
 **Priority:** P1
 **Depends on:** PR #5 merged; admin rights on the repository
 
+### Watch the preview database disappear, and decide whether it matters
+
+**What:** Render's free Postgres is deleted after about 30 days. Observe what
+that actually costs on this project, then either do nothing or move the preview
+database to a provider whose free tier does not expire (Neon).
+
+**Why:** The single fixed preview slot was chosen partly on a property the free
+tier takes away — "seed once, then let the database accumulate: a comment
+written while reviewing one pull request is still there for the next one". A
+database that dies every month accumulates nothing. The answer taken was to
+make `backend/prisma/seed.ts` complete and idempotent so the disappearance is a
+non-event: nothing human is deposited there, so nothing human is lost. That is
+a bet, not a proof — it holds only as long as nobody wants to keep anything in
+the preview.
+
+**Context:** Deliberate trade-off from `add-pr-preview-environment`, taken with
+the cost constraint stated ("il faut absolument que ces previews ne coûtent
+rien"). Moving the database is cheap if the bet turns out wrong: point
+`APERCU_DATABASE_URL` and the service's `DATABASE_URL` at Neon, change nothing
+else. The seed, the workflow and the two Render services are unaffected.
+
+Delete this entry once a month or two has passed and the answer is known either
+way.
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** `add-pr-preview-environment` merged
+
 ### Clear the static-analysis backlog, then make eslint blocking
 
 **What:** Fix what `eslint` reports on both packages, then move `lint:check` out of `continue-on-error` in `.github/workflows/ci.yml`.

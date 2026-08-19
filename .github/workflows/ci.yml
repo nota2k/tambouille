@@ -165,6 +165,182 @@ jobs:
           DATABASE_URL: postgresql://tambouille:tambouille@localhost:5432/tambouille?schema=public
 
   # ─────────────────────────────────────────────────────────────────────────
+  # L'aperçu de la proposition, sur Render.
+  #
+  # UN SEUL EMPLACEMENT, à adresse fixe, réécrit à chaque poussée. Le groupe de
+  # concurrence ne porte pas `github.ref` — c'est délibéré, et c'est toute la
+  # conception : deux propositions ne peuvent pas être vues en même temps, la
+  # plus récemment poussée prend la place. En échange, l'adresse est constante,
+  # donc inscriptible en dur dans `frontend/.env.apercu` — ce que Vite exige,
+  # puisqu'il fige `import.meta.env` à la construction.
+  #
+  # LA CONDITION NOMME SES CAS EN POSITIF. Cette tâche lit des secrets ; écrite
+  # en négatif — « sauf les forks » — une évolution du workflow pourrait l'ouvrir
+  # à du code venu de l'extérieur sans qu'on l'ait voulu. Les trois tâches de
+  # vérification, elles, ne changent pas et restent exécutables sur une
+  # proposition de fork : c'est la propriété que cette condition protège.
+  #
+  # ELLE NE BLOQUE JAMAIS. `continue-on-error`, et absente de tout `needs` :
+  # faire dépendre une fusion d'un hébergeur tiers gratuit reviendrait à
+  # importer sa disponibilité dans le verdict.
+  # ─────────────────────────────────────────────────────────────────────────
+  apercu:
+    name: apercu
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    concurrency:
+      group: apercu
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+
+    env:
+      APERCU_FRONT: https://tambouille-apercu.onrender.com
+      APERCU_API: https://tambouille-apercu-api.onrender.com
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+        working-directory: backend
+
+      # Le peuplement s'exécute compilé — `node dist/prisma/seed.js`. Le client
+      # généré par Prisma 7 est du TypeScript dont les imports portent des
+      # suffixes `.js`, que `ts-node` en CommonJS ne ramène pas sur les `.ts`
+      # voisins. Voir `backend/prisma.config.ts`.
+      - run: npm run build
+        working-directory: backend
+
+      # ── La base ──────────────────────────────────────────────────────────
+      #
+      # Migrée DEPUIS LE RUNNER, et non depuis Render : c'est ici qu'on tient la
+      # chaîne de connexion externe, et migrer avant de redémarrer est la règle
+      # déjà retenue pour la production — l'ancien code sur le nouveau schéma
+      # est sûr tant que les migrations sont additives, l'inverse ne l'est
+      # jamais.
+      #
+      # Le peuplement est idempotent : rejoué sur une base qu'il a déjà peuplée,
+      # il rend le même site. C'est ce qui rend supportable la disparition
+      # périodique des bases gratuites de Render — rien d'humain n'y est déposé,
+      # donc rien n'y est perdu.
+      - name: Migrer et peupler la base d'aperçu
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.APERCU_DATABASE_URL }}
+          R2_ACCOUNT_ID: ${{ secrets.APERCU_R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.APERCU_R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.APERCU_R2_SECRET_ACCESS_KEY }}
+          # Le bucket D'APERÇU, jamais celui de la production. C'est la seule
+          # ligne qui sépare une relecture d'une suppression irréversible dans
+          # les 222 Mo d'`uploads/` que rien ne sauvegarde par ailleurs.
+          R2_BUCKET_NAME: tambouille-apercu
+          # Exigé à la construction du graphe de modules, jamais utilisé ici :
+          # le peuplement ouvre un contexte applicatif, il n'écoute sur aucun
+          # port et ne signe aucun jeton.
+          JWT_SECRET: peuplement-sans-signature
+        run: |
+          set -euo pipefail
+          npx prisma migrate deploy
+          node dist/prisma/seed.js
+
+      # ── Le déploiement ───────────────────────────────────────────────────
+      #
+      # Render clone lui-même la proposition au commit demandé : aucun artefact
+      # ne transite par ici. `--fail-with-body` plutôt qu'un `curl` nu — un
+      # appel dont on ne vérifie pas le statut ne vérifie rien, leçon déjà payée
+      # par `VersionControl/update` dans la tâche `deploy` ci-dessous.
+      - name: Déclencher les deux déploiements
+        env:
+          HOOK_API: ${{ secrets.APERCU_HOOK_API }}
+          HOOK_FRONT: ${{ secrets.APERCU_HOOK_FRONT }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          declencher() {
+            local nom=$1 hook=$2
+            # Le crochet est un secret : on n'affiche jamais l'URL, seulement le
+            # nom du service.
+            curl -sS --fail-with-body --max-time 60 "$hook?ref=$SHA" -o /dev/null
+            echo "  $nom : déploiement demandé pour ${SHA:0:7}"
+          }
+          declencher api "$HOOK_API"
+          declencher front "$HOOK_FRONT"
+
+      # ── Attendre ─────────────────────────────────────────────────────────
+      #
+      # CE QUE CETTE ÉTAPE PROUVE, ET CE QU'ELLE NE PROUVE PAS : elle constate
+      # que les deux services répondent, pas qu'ils servent CE commit. Un
+      # déploiement en échec laisserait la version précédente debout, qui
+      # répondrait 200 tout pareil. Le distinguer demanderait d'interroger l'API
+      # de Render — donc un secret de plus — ou d'inscrire le commit dans la
+      # réponse de l'application, donc de modifier le code applicatif, ce que ce
+      # chantier s'interdit. Le commentaire ci-dessous dit donc « demandé pour »
+      # et non « sert », ce qui est la seule chose vraie.
+      #
+      # Le premier réveil d'un service gratuit endormi prend près d'une minute,
+      # et une construction complète plusieurs — d'où quinze minutes de patience
+      # avant de renoncer.
+      - name: Attendre que l'aperçu réponde
+        run: |
+          set -uo pipefail
+          code() { curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$1" || echo 000; }
+          for _ in $(seq 1 60); do
+            api=$(code "$APERCU_API/api/mixes")
+            front=$(code "$APERCU_FRONT/")
+            if [ "$api" = 200 ] && [ "$front" = 200 ]; then
+              echo "  api $api · front $front"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::aperçu injoignable après 15 minutes (api $api, front $front)"
+          exit 1
+
+      # ── Le dire sur la proposition ───────────────────────────────────────
+      #
+      # `--edit-last --create-if-none` : un seul commentaire, réécrit à chaque
+      # poussée, plutôt qu'une pile qui repousse la conversation vers le bas.
+      #
+      # Le commit est nommé parce que l'adresse, elle, est constante : une
+      # proposition qui a perdu l'emplacement garde un lien qui sert le code
+      # d'une autre. On n'empêche pas la collision, on la rend lisible.
+      - name: Commenter la proposition
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMERO: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          gh pr comment "$NUMERO" --edit-last --create-if-none --body "$(cat <<TEXTE
+          ### Aperçu
+
+          $APERCU_FRONT — demandé pour \`${SHA:0:7}\`
+
+          Un compte de démonstration : \`nelly\` / \`apercu-tambouille\`. La connexion
+          par mot de passe est le seul chemin ouvert ici : ni Google ni la carte de
+          membre ne reconnaissent cette adresse.
+
+          L'emplacement est unique. Une poussée sur une autre proposition le prend,
+          et ce lien servira alors autre chose — le commit ci-dessus dit ce qui a
+          été demandé pour cette proposition-ci.
+
+          Le service s'endort après quinze minutes sans visite : le premier
+          chargement peut demander une minute.
+          TEXTE
+          )"
+
+  # ─────────────────────────────────────────────────────────────────────────
   # Déploiement vers o2switch, par le déploiement git de cPanel.
   #
   # `needs` sur les trois vérifications : déployer sans qu'elles soient vertes

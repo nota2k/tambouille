@@ -7,6 +7,13 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
+    // `node dist/prisma/seed.js`, et non `ts-node prisma/seed.ts` : le client
+    // généré par Prisma 7 est du TypeScript dont les imports portent des
+    // suffixes `.js`, que `ts-node` en CommonJS ne sait pas ramener sur les
+    // `.ts` voisins — « Cannot find module './internal/class.js' ». Le seul
+    // chemin qui charge ce client est celui que l'application emprunte
+    // elle-même : compiler d'abord. `nest build` émet déjà `dist/prisma/`.
+    seed: "node dist/prisma/seed.js",
   },
   datasource: {
     url: process.env["DATABASE_URL"],
