@@ -53,7 +53,7 @@ function playAll() {
 
 <template>
   <section
-    class="w-full min-h-[80vh] flex flex-col justify-center align-stretch"
+    class="w-full min-h-[80vh] flex flex-col justify-center align-stretch mb-15"
     :style="{ backgroundColor: surface, color: ink }"
     :aria-label="`La fournée n°${fournee.number} — ${fournee.title}`"
   >

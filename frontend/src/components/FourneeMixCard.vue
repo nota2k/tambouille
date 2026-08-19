@@ -6,7 +6,7 @@ import { formatDuration } from '@/utils/time'
 import type { FourneeZone } from '@/composables/useFourneeTheme'
 import type { Mix } from '@/types'
 
-const props = defineProps<{ mix: Mix; zone: FourneeZone }>()
+const props = defineProps<{ mix: Mix; zone: FourneeZone; layout?: 'large' | 'tall' }>()
 
 const playerStore = usePlayerStore()
 const isPlaying = computed(() => playerStore.currentMix?.id === props.mix.id)
@@ -29,7 +29,8 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
   >
     <RouterLink
       :to="{ name: 'mix-detail', params: { id: mix.id } }"
-      class="isolate block aspect-2.5/3 w-full overflow-hidden"
+      class="isolate block w-full overflow-hidden"
+      :class="layout === 'large' ? 'aspect-square' : 'aspect-3/2'"
       :style="{ backgroundColor: zone.wash }"
     >
       <!-- Duotone : l'aplat clair donne la teinte, la pochette n'apporte que sa

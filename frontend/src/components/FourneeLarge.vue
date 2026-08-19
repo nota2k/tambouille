@@ -42,11 +42,11 @@ function playAll() {
 
 <template>
   <section
-    class="w-full"
+    class="w-full my-15"
     :style="{ backgroundColor: paper, color: inkOnPaper }"
     :aria-label="`La fournée n°${fournee.number} — ${fournee.title}`"
   >
-    <div class="mx-auto grid max-w-[1900px] grid-cols-1 lg:grid-cols-[1fr_760px]">
+    <div class="mx-auto grid max-w-[1900px] grid-cols-1 lg:grid-cols-[1fr_1.5fr]">
       <!-- Le propos. L'action est collée en bas par `mt-auto`, comme au gabarit. -->
       <div class="flex flex-col px-4 py-10 sm:px-8">
         <div class="flex flex-wrap items-center gap-3">
@@ -62,18 +62,18 @@ function playAll() {
         </div>
 
         <h2
-          class="pt-6 text-[clamp(2.5rem,5.5vw,5.5rem)] leading-[0.9] text-pretty"
+          class="pt-6 text-[clamp(2.5rem,6.5vw,7.5rem)] leading-[0.9] text-pretty"
           :style="{ color: seasonOnPaper }"
         >
           {{ fournee.title }}
         </h2>
 
-        <p class="max-w-[460px] pt-4.5 text-base leading-[1.6]">{{ fournee.intro }}</p>
+        <p class="max-w-[460px] pt-4.5 text-md leading-[1.6]">{{ fournee.intro }}</p>
 
         <div class="mt-auto flex flex-wrap items-center gap-4.5 pt-8">
           <button
             type="button"
-            class="min-h-11 px-6.5 py-3.5 text-xs font-bold uppercase tracking-[0.09em] transition-opacity hover:opacity-80"
+            class="min-h-11 px-6.5 py-3.5 text-lg font-bold uppercase tracking-[0.09em] transition-opacity hover:opacity-80"
             :style="{ backgroundColor: season, color: inkOnSeason }"
             @click="playAll"
           >
@@ -89,8 +89,14 @@ function playAll() {
            Le conteneur, plus étroit d'un pixel que la grille, coupe le filet de
            la carte de bout de rangée. -->
       <div class="overflow-hidden" :style="{ backgroundColor: season, color: inkOnSeason }">
-        <ul class="grid w-[calc(100%+1px)] grid-cols-2 sm:grid-cols-4">
-          <FourneeMixCard v-for="mix in fournee.mixes" :key="mix.id" :mix="mix" :zone="zone" />
+        <ul class="grid h-full w-[calc(100%+1px)] grid-cols-2 sm:grid-cols-4">
+          <FourneeMixCard
+            v-for="mix in fournee.mixes"
+            :key="mix.id"
+            :mix="mix"
+            :zone="zone"
+            layout="large"
+          />
         </ul>
       </div>
     </div>
