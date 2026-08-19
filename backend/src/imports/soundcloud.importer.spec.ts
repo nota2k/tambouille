@@ -77,8 +77,9 @@ describe('SoundcloudImporter.resolve', () => {
       new URL('https://soundcloud.com/forss/flickermood'),
     );
 
-    expect((safeFetch as jest.Mock).mock.calls[0][0]).toBe(
+    expect(safeFetch).toHaveBeenCalledWith(
       'https://soundcloud.com/oembed?format=json&url=https%3A%2F%2Fsoundcloud.com%2Fforss%2Fflickermood',
+      expect.anything(),
     );
   });
 
