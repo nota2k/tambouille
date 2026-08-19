@@ -9,6 +9,8 @@ import { formatDate } from '@/utils/date'
 import { formatDuration } from '@/utils/time'
 import MixListItem from '@/components/MixListItem.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
+import FourneeBanner from '@/components/FourneeBanner.vue'
+import { useFournee } from '@/composables/useFournee'
 import type { Mix, MixListResponse, AuthorSummary } from '@/types'
 
 const authStore = useAuthStore()
@@ -61,6 +63,8 @@ const featuredDuration = computed(() => formatDuration(featuredMix.value?.durati
 
 /** Tous les mix chargés, pour en tirer les tags et les cuisinier⋅ère⋅s de la colonne. */
 const knownMixes = computed(() => [...latestMixes.value, ...topMixes.value])
+
+const { fournee } = useFournee()
 
 /** Les tags les plus portés par les mix affichés — pas un classement, une porte d'entrée. */
 const trendingTags = computed(() => {
@@ -174,6 +178,11 @@ onMounted(loadSections)
 </script>
 
 <template>
+  <!-- Hors du conteneur paginé, délibérément : l'aplat de saison va d'un bord à
+       l'autre de la fenêtre, seul son contenu s'aligne sur la grille de la page.
+       Masqué pendant une recherche, où la home cède la place aux résultats. -->
+  <FourneeBanner v-if="fournee && !isSearching" :fournee="fournee" />
+
   <div class="mx-auto max-w-[1900px] px-4 py-9">
     <!-- Titre et filtres sur une seule ligne, posés sur le filet noir : c'est la
          barre qui donne son échelle à toute la page. -->

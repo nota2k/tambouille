@@ -1,0 +1,3 @@
+# Les fichiers de fournée sont saisis à la main et lus par un parseur qui
+# n'accepte que les listes en ligne. Prettier les reformaterait.
+src/content/fournees/

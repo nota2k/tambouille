@@ -103,6 +103,9 @@ jobs:
       - run: npm run format:check
         working-directory: frontend
 
+      - run: npm test
+        working-directory: frontend
+
       # `build` enchaîne `vue-tsc --build` et `vite build` par `run-p`, donc le
       # contrôle de typage est couvert sans étape séparée.
       - run: npm run build
