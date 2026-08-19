@@ -1,3 +1,5 @@
+import type { FourneeLayout } from '@/content/fournees'
+
 export interface AuthorSummary {
   id: string
   username: string
@@ -172,6 +174,8 @@ export type ResolveResponse =
  * provenance, pour qu'une API puisse s'y substituer sans le toucher.
  */
 export interface Fournee {
+  /** Le gabarit de mise en page. */
+  layout: FourneeLayout
   /** Affiché « LA FOURNÉE N°18 ». */
   number: number
   /** Période libre, rendue en capitales : « TOUT L'HIVER ». */
