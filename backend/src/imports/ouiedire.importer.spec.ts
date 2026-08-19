@@ -5,10 +5,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   isEmissionUrl,
+  OuiedireImporter,
   parseEmissionPage,
   parseOuiedireTitle,
   parseTimecode,
 } from './ouiedire.importer';
+
+jest.mock('../common/safe-fetch', () => ({ safeFetch: jest.fn() }));
+import { safeFetch } from '../common/safe-fetch';
 
 function fixture(name: string): string {
   return readFileSync(join(__dirname, '__fixtures__', name), 'utf8');
@@ -227,5 +231,56 @@ describe('parseEmissionPage', () => {
         <audio><source src="http://x.test/a.mp3" type="audio/mp3" /></audio>
         </body></html>`),
     ).toThrow();
+  });
+});
+
+/**
+ * Ces tests-ci manquaient, et c'est par là que l'artiste est passé : tout le
+ * fichier couvrait `parseEmissionPage`, la fonction pure, et rien ne regardait
+ * le `MixImport` que l'importeur finit par rendre.
+ */
+describe('OuiedireImporter.resolve', () => {
+  beforeEach(() => {
+    (safeFetch as jest.Mock).mockReset();
+    (safeFetch as jest.Mock).mockResolvedValue({
+      body: Buffer.from(RECENT, 'utf8'),
+    });
+  });
+
+  it("déclare l'auteur de la page comme artiste", async () => {
+    const imported = await new OuiedireImporter().resolve(
+      new URL('https://ouiedire.net/emission/ailleurs-331'),
+    );
+
+    expect(imported).toMatchObject({
+      title: 'La Pompa Chalor Vol 3',
+      artist: 'Rachitik Data',
+      // L'artiste a son champ : le répéter dans les tags ferait deux sources
+      // pour la même information.
+      tags: ['Ouïedire'],
+      sourceType: 'remote',
+      sourceLabel: 'Ouïedire',
+      sourcePageUrl: 'https://ouiedire.net/emission/ailleurs-331',
+    });
+  });
+
+  it("laisse l'artiste vide quand le titre de la page n'en donne pas", async () => {
+    (safeFetch as jest.Mock).mockResolvedValue({
+      body: Buffer.from(
+        `<html><head>
+          <meta property="og:title" content="Ouïedire Ailleurs - Émission #001 : Sans auteur" />
+          </head><body>
+          <audio><source src="https://x.test/a.mp3" type="audio/mp3" /></audio>
+          </body></html>`,
+        'utf8',
+      ),
+    });
+
+    const imported = (await new OuiedireImporter().resolve(
+      new URL('https://ouiedire.net/emission/ailleurs-1'),
+    )) as { artist?: string; tags: string[] };
+
+    expect(imported.artist).toBeUndefined();
+    expect(imported.tags).toEqual(['Ouïedire']);
   });
 });

@@ -131,7 +131,7 @@ onUnmounted(() => {
       aria-label="Ajouter à une playlist"
       @click="toggleMenu"
     >
-      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current">
+      <svg viewBox="0 0 24 24" class="h-10 w-10 fill-current">
         <path
           d="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm13-6v4h-4v2h4v4h2v-4h4v-2h-4v-4h-2z"
         />
@@ -178,7 +178,7 @@ onUnmounted(() => {
                 </svg>
               </span>
               <span class="min-w-0 flex-1 truncate">{{ playlist.title }}</span>
-              <span class="shrink-0 text-xs text-tambouille-muted">{{ playlist.mixesCount }}</span>
+              <span class="shrink-0 text-lg text-tambouille-muted">{{ playlist.mixesCount }}</span>
             </button>
           </li>
         </ul>

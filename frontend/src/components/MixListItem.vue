@@ -58,7 +58,7 @@ function onToggle(event: Event) {
 
       <!-- Auteur, durée, nombre de morceaux : la ligne que la maquette réclamait. -->
       <p class="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-sm text-tambouille-muted">
-        <span>
+        <span class="artiste">
           {{ credit.primary }}
           <span v-if="credit.secondary" class="text-tambouille-muted">
             — importé par {{ credit.secondary }}

@@ -137,7 +137,8 @@ let OuiedireImporter = class OuiedireImporter {
         return {
             title: emission.title,
             description: '',
-            tags: emission.author ? [emission.author, 'Ouïedire'] : ['Ouïedire'],
+            tags: ['Ouïedire'],
+            artist: emission.author,
             coverSourceUrl: emission.coverUrl,
             tracklist: emission.tracklist,
             sourceType: 'remote',

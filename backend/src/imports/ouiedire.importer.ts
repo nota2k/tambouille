@@ -217,9 +217,13 @@ export class OuiedireImporter implements SourceImporter {
     return {
       title: emission.title,
       description: '',
-      // Le nom de l'auteur rejoint les tags : le mix appartiendra au compte
-      // Tambouille qui l'importe, donc sans ça plus rien ne dit de qui il est.
-      tags: emission.author ? [emission.author, 'Ouïedire'] : ['Ouïedire'],
+      // L'artiste a désormais son champ : le laisser aussi dans les tags ferait
+      // deux sources pour la même information, et la question de laquelle gagne
+      // quand elles divergent.
+      tags: ['Ouïedire'],
+      // La page écrit l'auteur dans son titre, et `parseOuiedireTitle` l'en
+      // sort déjà — il n'était simplement jamais déclaré ici.
+      artist: emission.author,
       coverSourceUrl: emission.coverUrl,
       tracklist: emission.tracklist,
       sourceType: 'remote',

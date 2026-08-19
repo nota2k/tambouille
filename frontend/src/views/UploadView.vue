@@ -317,9 +317,10 @@ async function onSubmit() {
             <input v-model="artist" type="text" maxlength="120" class="tb-field" />
             <!-- Comme pour les tags : un champ qui se remplit tout seul sans que
                  rien ne dise d'où il vient est une surprise, pas un service. -->
-            <!-- Archive.org, Ouïedire, podcast et LYL ne donnent aucun artiste :
-                 sans le `&& artist`, la mention s'afficherait quand même,
-                 pointant vers un champ resté vide. -->
+            <!-- Archive.org et les podcasts ne donnent aucun artiste : sans le
+                 `&& artist`, la mention s'afficherait quand même, pointant vers
+                 un champ resté vide. Mixcloud, SoundCloud, Ouïedire et LYL le
+                 donnent, eux. -->
             <p v-if="importedSource && artist" class="mt-1.5 text-xs text-tambouille-muted">
               Repris de {{ importedSource.label }}. Vide si tu es l'artiste.
             </p>
@@ -341,9 +342,12 @@ async function onSubmit() {
               class="tb-field"
             />
             <!-- Sans cette ligne, un tag apparaîtrait dans le champ sans que rien n'explique
-                 d'où il vient. Le champ reste éditable : c'est une proposition, pas un verrou. -->
-            <p v-if="importedSource" class="mt-1.5 text-xs text-tambouille-muted">
-              Le nom de l'auteur d'origine a été ajouté aux tags d'après {{ importedSource.label }}.
+                 d'où il vient. Le champ reste éditable : c'est une proposition, pas un verrou.
+                 L'auteur n'y figure plus — il a son propre champ Artiste — donc la mention
+                 parle des tags eux-mêmes. Et SoundCloud n'en donne aucun : sans le `&& tags`,
+                 elle s'afficherait au-dessus d'un champ resté vide. -->
+            <p v-if="importedSource && tags" class="mt-1.5 text-xs text-tambouille-muted">
+              Tags repris de {{ importedSource.label }}.
             </p>
           </div>
 
