@@ -38,6 +38,9 @@ const deleting = ref(false)
 const SOURCE_NAMES: Record<string, string> = {
   'archive.org': 'Archive.org',
   'ouiedire.net': 'Ouïedire',
+  // LYL sert ses mp3 depuis un sous-domaine de fichiers, jamais depuis lyl.live :
+  // sans cette entrée le lien vers la source s'annoncerait « static.lyl.live ».
+  'static.lyl.live': 'LYL Radio',
 }
 
 /**
