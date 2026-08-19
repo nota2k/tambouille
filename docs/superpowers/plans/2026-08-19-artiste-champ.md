@@ -41,7 +41,7 @@ particulier :
 
 **Files:**
 - Modify: `backend/prisma/schema.prisma`
-- Create: `backend/prisma/migrations/20260819000000_mix_artist/migration.sql`
+- Create: `backend/prisma/migrations/20260819000000_mix_artist/migration.sql` (écrite à la main — voir l'étape 2)
 - Modify: `backend/src/mixes/dto/create-mix.dto.ts`
 - Modify: `backend/src/mixes/dto/update-mix.dto.ts`
 - Modify: `backend/src/mixes/mixes.service.ts`
@@ -63,45 +63,103 @@ Dans `backend/prisma/schema.prisma`, dans `model Mix`, juste après `description
   artist       String?
 ```
 
-- [ ] **Step 2: Créer la migration**
+- [ ] **Step 2: Écrire la migration à la main, et l'appliquer sans réinitialiser**
 
-```bash
-npx prisma migrate dev --name mix_artist
+⚠️ **N'utilise pas `npx prisma migrate dev`.** La base locale contient 20 mix et
+`prisma migrate status` rapporte « 0 applied » alors que deux migrations existent
+sur le disque : Prisma y voit une dérive et **propose de réinitialiser la base**,
+ce qui effacerait tout. C'est vérifié, pas supposé.
+
+Créer `backend/prisma/migrations/20260819000000_mix_artist/migration.sql` :
+
+```sql
+-- Colonne nullable : aucun mix existant n'a d'artiste connu, et rien n'est
+-- rétro-rempli. Voir la spec, section « Le modèle ».
+ALTER TABLE "mixes" ADD COLUMN "artist" TEXT;
 ```
 
-Attendu : une migration qui ajoute une colonne nullable, donc sans perte ni valeur par défaut. Vérifier que le SQL généré est bien `ALTER TABLE "mixes" ADD COLUMN "artist" TEXT;` et rien d'autre.
+L'appliquer à la base locale sans passer par Prisma :
+
+```bash
+docker exec tambouille-postgres psql -U tambouille -d tambouille -c 'ALTER TABLE "mixes" ADD COLUMN "artist" TEXT;'
+```
+
+Puis régénérer le client, sans quoi le code ne connaîtra pas le champ :
+
+```bash
+npx prisma generate
+```
+
+Vérifier que la colonne est là et que les mix sont intacts :
+
+```bash
+docker exec tambouille-postgres psql -U tambouille -d tambouille -tAc "select count(*) from mixes;"
+docker exec tambouille-postgres psql -U tambouille -d tambouille -tAc "select column_name from information_schema.columns where table_name='mixes' and column_name='artist';"
+```
+
+Attendu : `20` et `artist`. Si le compte n'est pas 20, arrête tout et signale-le.
 
 - [ ] **Step 3: Écrire les tests de l'API**
 
-Dans `backend/src/mixes/mixes.service.spec.ts`, ajouter :
+`mixes.service.spec.ts` est un test **unitaire** : Prisma y est bouchonné, il n'y
+a pas de base. On vérifie donc ce qui est **passé à Prisma**, jamais ce qu'une
+requête trouverait. La signature réelle est `service.create(USER_ID, dto, files)`,
+à trois arguments.
+
+Ajouter, dans `describe('MixesService', …)` :
 
 ```ts
-describe('artist', () => {
-  it('enregistre l’artiste quand il est fourni', async () => {
-    const created = await service.create(userId, {
-      title: 'Antimythes',
-      artist: 'Dj PUTE ACIER',
-    } as CreateMixDto);
-    expect(created.artist).toBe('Dj PUTE ACIER');
-  });
+  describe('artist', () => {
+    it('écrit l’artiste sur le mix', async () => {
+      await service.create(USER_ID, { title: 'A mix', artist: 'Dj PUTE ACIER' }, {});
 
-  it('laisse `artist` à null quand il ne l’est pas', async () => {
-    const created = await service.create(userId, {
-      title: 'Sans artiste',
-    } as CreateMixDto);
-    expect(created.artist).toBeNull();
-  });
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ artist: 'Dj PUTE ACIER' }),
+        }),
+      );
+    });
 
-  it('trouve un mix par son artiste, sans tenir compte de la casse', async () => {
-    await service.create(userId, {
-      title: 'Antimythes',
-      artist: 'Dj PUTE ACIER',
-    } as CreateMixDto);
-    const found = await service.findAll({ q: 'pute acier' });
-    expect(found.items.map((m) => m.title)).toContain('Antimythes');
+    it('n’invente pas d’artiste quand le formulaire n’en donne pas', async () => {
+      await service.create(USER_ID, { title: 'A mix' }, {});
+
+      // La clé est passée, valant `undefined` : Prisma laisse alors la colonne
+      // à NULL, ce qui est l'état de tout mix déposé à la main.
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ artist: undefined }),
+        }),
+      );
+    });
+
+    it('cherche aussi dans l’artiste, sans tenir compte de la casse', async () => {
+      prisma.mix.findMany.mockResolvedValue([]);
+      prisma.mix.count.mockResolvedValue(0);
+
+      await service.findAll({ q: 'pute acier' } as QueryMixesDto);
+
+      // Sans cette clause, chercher un artiste cesserait de trouver les mix
+      // importés après ce changement, tout en continuant à trouver les anciens
+      // dont l'artiste est resté dans les tags.
+      expect(prisma.mix.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { artist: { contains: 'pute acier', mode: 'insensitive' } },
+                ]),
+              }),
+            ]),
+          }),
+        }),
+      );
+    });
   });
-});
 ```
+
+`QueryMixesDto` s'importe depuis `./dto/query-mixes.dto` si ce n'est pas déjà
+fait en tête du fichier.
 
 - [ ] **Step 4: Lancer les tests pour les voir échouer**
 
