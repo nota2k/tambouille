@@ -169,6 +169,7 @@ export class MixesService {
       data: {
         title: dto.title,
         description: dto.description,
+        artist: dto.artist,
         tags: parseTags(dto.tags),
         audioUrl,
         sourceType,
@@ -203,6 +204,7 @@ export class MixesService {
                     mode: 'insensitive' as const,
                   },
                 },
+                { artist: { contains: query.q, mode: 'insensitive' as const } },
               ],
             }
           : {},
@@ -275,6 +277,7 @@ export class MixesService {
     const data: Record<string, unknown> = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
+    if (dto.artist !== undefined) data.artist = dto.artist;
     if (dto.tags !== undefined) data.tags = parseTags(dto.tags);
     if (coverUrl !== undefined) data.coverUrl = coverUrl;
     if (dto.tracklist !== undefined) {

@@ -24,6 +24,16 @@ export class CreateMixDto {
   @MaxLength(2000)
   description?: string;
 
+  /**
+   * Le nom de l'artiste. Purement affiché — jamais rendu dans un `href` ni
+   * passé à un `fetch` —, donc échappé par Vue et sans garde de protocole,
+   * contrairement à `sourceRef`.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  artist?: string;
+
   /** Comma-separated list of tags, e.g. "house,deep-house,live" */
   @IsOptional()
   @IsString()

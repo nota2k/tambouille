@@ -15,6 +15,7 @@ import {
 import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { deleteFromR2 } from '../common/upload.utils';
+import { QueryMixesDto } from './dto/query-mixes.dto';
 
 /**
  * Prisma is mocked: these cover the service's own rule — that a mix carries
@@ -634,6 +635,66 @@ describe('MixesService', () => {
 
       await expect(service.listSuggestions('nope', 3)).rejects.toBeInstanceOf(
         NotFoundException,
+      );
+    });
+  });
+
+  // Chaque test ici passe `{ audioUrl: AUDIO_KEY }` en troisième argument
+  // uniquement pour satisfaire assertExactlyOneAudioSource, une règle
+  // préexistante et sans rapport avec l'artiste : sans source, service.create
+  // lève avant même d'atteindre Prisma. Ce n'est qu'un figurant.
+  describe('artist', () => {
+    it('écrit l’artiste sur le mix', async () => {
+      await service.create(
+        USER_ID,
+        { title: 'A mix', artist: 'Dj PUTE ACIER' },
+        { audioUrl: AUDIO_KEY },
+      );
+
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ artist: 'Dj PUTE ACIER' }),
+        }),
+      );
+    });
+
+    it('n’invente pas d’artiste quand le formulaire n’en donne pas', async () => {
+      await service.create(
+        USER_ID,
+        { title: 'A mix' },
+        { audioUrl: AUDIO_KEY },
+      );
+
+      // La clé est passée, valant `undefined` : Prisma laisse alors la colonne
+      // à NULL, ce qui est l'état de tout mix déposé à la main.
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ artist: undefined }),
+        }),
+      );
+    });
+
+    it('cherche aussi dans l’artiste, sans tenir compte de la casse', async () => {
+      prisma.mix.findMany.mockResolvedValue([]);
+      prisma.mix.count.mockResolvedValue(0);
+
+      await service.findAll({ q: 'pute acier' } as QueryMixesDto);
+
+      // Sans cette clause, chercher un artiste cesserait de trouver les mix
+      // importés après ce changement, tout en continuant à trouver les anciens
+      // dont l'artiste est resté dans les tags.
+      expect(prisma.mix.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { artist: { contains: 'pute acier', mode: 'insensitive' } },
+                ]),
+              }),
+            ]),
+          }),
+        }),
       );
     });
   });
