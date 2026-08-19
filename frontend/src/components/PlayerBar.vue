@@ -351,6 +351,11 @@ async function setupSoundcloud(mixId: string, pageUrl: string) {
   }
   if (!isCurrentMix(mixId)) return
 
+  // Ordre inverse de `setupWidget` : ici le `src` est assigné avant que le
+  // widget ne soit construit. Le widget SoundCloud s'accroche à la frame par
+  // référence DOM (`Widget(frame)`), pas à un message de handshake initial
+  // qu'il faudrait intercepter avant qu'il ne passe — construire le widget
+  // après avoir lancé le chargement du script ne rate donc aucun événement.
   frame.src = soundcloudIframeSrc(pageUrl)
   const created = createSoundcloudWidget(api, frame)
 
@@ -376,12 +381,20 @@ async function setupSoundcloud(mixId: string, pageUrl: string) {
 
   created.bindEnded(() => onEnded())
   created.bindProgress((position) => playerStore.setCurrentTime(position))
-  duration.value = await created.getDuration()
-  // Même raison qu'au-dessus : `getDuration` est un autre point de suspension.
-  if (!isCurrentMix(mixId)) return
-  playerStore.setDuration(duration.value)
-  applyPendingSeek()
+  // Éteint le chargement au départ effectif du son, y compris après une pause
+  // puis une relance — `bindEnded`/`bindProgress` n'y suffisent pas seuls.
+  created.bindPlay(onWidgetPlay)
+  // Rien n'oblige à connaître la durée pour lancer la lecture demandée : ce
+  // départ ne doit pas attendre `getDuration`, qui peut ne jamais rappeler.
   if (playWhenLoaded) void created.play()
+  const total = await created.getDuration()
+  // Même raison qu'au-dessus : `getDuration` est un autre point de suspension.
+  // On écrit `duration` seulement après cette garde, pour qu'une exécution
+  // périmée n'écrase pas la durée du mix courant.
+  if (!isCurrentMix(mixId)) return
+  duration.value = total
+  playerStore.setDuration(total)
+  applyPendingSeek()
 }
 
 // --- Shared transport -----------------------------------------------------

@@ -45,12 +45,13 @@ export class CreateMixDto {
   coverSourceUrl?: string;
 
   /**
-   * Which player engine the audio needs: 'mixcloud' or 'remote'. Paired with
-   * `sourceRef`; `MixesService` refuses one without the other.
+   * Which player engine the audio needs: 'mixcloud', 'remote' or
+   * 'soundcloud'. Paired with `sourceRef`; `MixesService` refuses one without
+   * the other.
    */
   @IsOptional()
   @IsString()
-  @IsIn(['mixcloud', 'remote'])
+  @IsIn(['mixcloud', 'remote', 'soundcloud'])
   sourceType?: string;
 
   /**

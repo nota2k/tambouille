@@ -367,9 +367,13 @@ async function onSubmit() {
                   {{ importedSource.label }}, via les commandes de Tambouille. L'audio
                   <strong>n'est pas copié</strong>&nbsp;: s'il disparaît ou passe en privé sur
                   {{ importedSource.label }}, le mix cesse de fonctionner ici.
-                  <template v-if="importedSource.type === 'mixcloud'">
-                    Les écoutes sont comptées par Mixcloud et ne sont donc pas affichées sur
-                    Tambouille.
+                  <template
+                    v-if="
+                      importedSource.type === 'mixcloud' || importedSource.type === 'soundcloud'
+                    "
+                  >
+                    Les écoutes sont comptées par {{ importedSource.label }} et ne sont donc pas
+                    affichées sur Tambouille.
                   </template>
                   La pochette, elle, est bien importée.
                 </span>

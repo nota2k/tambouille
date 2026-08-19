@@ -20,7 +20,13 @@ const IFRAME_BASE_URL = 'https://w.soundcloud.com/player/'
 export interface SoundcloudApi {
   Widget: {
     (frame: HTMLIFrameElement): RawSoundcloudWidget
-    Events: { READY: string; FINISH: string; ERROR: string; PLAY_PROGRESS: string }
+    Events: {
+      READY: string
+      FINISH: string
+      ERROR: string
+      PLAY_PROGRESS: string
+      PLAY: string
+    }
   }
 }
 
@@ -45,6 +51,12 @@ export interface SoundcloudWidget {
   bindEnded(handler: () => void): void
   /** S'abonne à la progression de lecture, en secondes — l'événement natif rapporte des millisecondes. */
   bindProgress(handler: (seconds: number) => void): void
+  /**
+   * S'abonne au départ effectif du son. Sans lui, rien n'éteint le
+   * chargement de `PlayerBar` après une pause puis une relance : côté
+   * Mixcloud c'est son propre `events.play` qui joue ce rôle.
+   */
+  bindPlay(handler: () => void): void
   destroy(): void
 }
 
@@ -121,9 +133,21 @@ export function createSoundcloudWidget(
     raw.bind(api.Widget.Events.ERROR, () => reject(new Error('SoundCloud widget error')))
   })
 
-  /** Les accesseurs rendent des millisecondes par un rappel ; ici, des secondes. */
+  /** Un rappel qui ne vient jamais ne doit pas bloquer la lecture — voir `ask`. */
+  const ASK_TIMEOUT_MS = 3000
+
+  /**
+   * Les accesseurs rendent des millisecondes par un rappel ; ici, des secondes.
+   * Bornée par un délai : rien ne garantit que le rappel arrive, et sans cette
+   * limite un `getDuration()` sans réponse bloquerait indéfiniment tout ce qui
+   * l'attend. Une durée à zéro dégrade le curseur ; elle ne doit jamais
+   * empêcher le son.
+   */
   const ask = (read: (cb: (ms: number) => void) => void) =>
-    new Promise<number>((resolve) => read((ms) => resolve(ms / 1000)))
+    Promise.race([
+      new Promise<number>((resolve) => read((ms) => resolve(ms / 1000))),
+      new Promise<number>((resolve) => setTimeout(() => resolve(0), ASK_TIMEOUT_MS)),
+    ])
 
   return {
     ready,
@@ -135,14 +159,19 @@ export function createSoundcloudWidget(
     bindEnded: (handler: () => void) => raw.bind(api.Widget.Events.FINISH, handler),
     bindProgress: (handler: (seconds: number) => void) =>
       raw.bind(api.Widget.Events.PLAY_PROGRESS, (...args: unknown[]) => {
-        const data = args[0] as { currentPosition: number }
-        handler(data.currentPosition / 1000)
+        // La forme de cet objet vient de la documentation, jamais confrontée
+        // au script réel : on ne suppose ni sa présence, ni celle du champ.
+        const data = args[0] as { currentPosition?: number } | undefined
+        const ms = data?.currentPosition
+        if (typeof ms === 'number' && Number.isFinite(ms)) handler(ms / 1000)
       }),
+    bindPlay: (handler: () => void) => raw.bind(api.Widget.Events.PLAY, handler),
     destroy: () => {
       raw.unbind(api.Widget.Events.READY)
       raw.unbind(api.Widget.Events.FINISH)
       raw.unbind(api.Widget.Events.ERROR)
       raw.unbind(api.Widget.Events.PLAY_PROGRESS)
+      raw.unbind(api.Widget.Events.PLAY)
     },
   }
 }

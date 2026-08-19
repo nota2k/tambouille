@@ -145,13 +145,22 @@ navigateur, sur une piste et sur un set.
 | `backend/src/imports/__fixtures__/soundcloud-*.json` | nouveaux |
 | `backend/src/imports/source-importer.ts` | modifié — `sourceType` gagne `'soundcloud'` |
 | `backend/src/imports/imports.module.ts` | modifié — enregistrement, avant `PodcastImporter` |
+| `backend/src/mixes/dto/create-mix.dto.ts` | modifié — `sourceType` gagne `'soundcloud'` dans `@IsIn` |
+| `backend/src/mixes/dto/update-mix.dto.ts` | modifié — idem |
+| `backend/src/mixes/dto/source-ref.constraint.ts` | modifié — branche de validation dédiée à `'soundcloud'` |
 | `frontend/src/utils/soundcloud.ts` | nouveau — chargement et typage du widget |
 | `frontend/src/components/PlayerBar.vue` | modifié — troisième moteur |
 | `frontend/src/views/MixDetailView.vue` | modifié — nom de la source |
 | `frontend/src/types/index.ts` | modifié — l'union `sourceType` s'élargit |
 
 Aucune migration : `sourceType` est une chaîne libre en base, choisie ainsi
-précisément pour qu'ajouter une source n'en demande pas.
+précisément pour qu'ajouter une source n'en demande pas. Ça, c'est vrai de la
+base — ça ne l'est pas de l'API : `CreateMixDto`/`UpdateMixDto` valident
+`sourceType` par liste blanche (`@IsIn`), et `SourceRefConstraint` dispatche
+la validation de `sourceRef` sur cette même valeur avec une branche dédiée
+par source. Une nouvelle source doit donc toucher les trois, sous peine
+d'être refusée en 400 — ou pire, acceptée par une branche `return false`
+qu'on aurait élargie sans lui donner sa propre garde.
 
 ## Hors périmètre
 

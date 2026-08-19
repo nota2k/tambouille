@@ -41,6 +41,19 @@ export class SoundcloudImporter implements SourceImporter {
   }
 
   async importItem(pageUrl: string): Promise<MixImport> {
+    // `POST /imports/item` est atteignable avec un `ref` arbitraire — un
+    // `soundcloud:<n'importe quoi>` y arrive sans jamais passer par `matches()`.
+    // On revalide donc ici, plutôt que de faire confiance à l'appelant.
+    let url: URL;
+    try {
+      url = new URL(pageUrl);
+    } catch {
+      throw new BadRequestException('Référence SoundCloud invalide');
+    }
+    if (!this.matches(url)) {
+      throw new BadRequestException('Référence SoundCloud invalide');
+    }
+
     const oembed = await this.readOembed(pageUrl);
 
     return {
@@ -76,11 +89,28 @@ export class SoundcloudImporter implements SourceImporter {
       throw new BadGatewayException('Réponse illisible depuis SoundCloud');
     }
 
-    const candidate = parsed as Partial<OembedResponse>;
+    const candidate = parsed as Partial<Record<keyof OembedResponse, unknown>>;
     if (typeof candidate?.title !== 'string') {
       throw new BadGatewayException('Réponse inattendue depuis SoundCloud');
     }
-    return candidate as OembedResponse;
+    // Seul `title` était vérifié jusqu'ici. Un `description` non-chaîne ferait
+    // planter `htmlToText` sur `.replace` (500 au lieu du 502 attendu), et un
+    // `thumbnail_url` non-chaîne partirait tel quel en `coverSourceUrl`.
+    return {
+      title: candidate.title,
+      description:
+        typeof candidate.description === 'string'
+          ? candidate.description
+          : undefined,
+      thumbnail_url:
+        typeof candidate.thumbnail_url === 'string'
+          ? candidate.thumbnail_url
+          : undefined,
+      author_name:
+        typeof candidate.author_name === 'string'
+          ? candidate.author_name
+          : undefined,
+    };
   }
 }
 
