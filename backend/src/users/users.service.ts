@@ -16,6 +16,19 @@ const userSummarySelect = {
   avatarUrl: true,
 } as const;
 
+// Prisma's unique-constraint violation. Not importing Prisma's own error
+// class here to keep this check working against the plain mock objects the
+// test suite throws, as well as the real `PrismaClientKnownRequestError` —
+// same helper as `auth.service.ts`'s `isUniqueConstraintError`, duplicated
+// rather than shared across modules for this one small check.
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'P2002'
+  );
+}
+
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -110,10 +123,24 @@ export class UsersService {
       // se délier.
       data.incongruesUsername = dto.incongruesUsername.trim() || null;
     }
-    await this.prisma.user.update({
-      where: { id: userId },
-      data,
-    });
+    try {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data,
+      });
+    } catch (error) {
+      // Pas de vérification préalable ici : l'index unique est ce qui tient
+      // sous concurrence (voir le commentaire du champ dans schema.prisma),
+      // donc ce catch est la seule ligne de défense — et il doit rester
+      // spécifique à ce doublon-là, sous peine de transformer toute panne
+      // Prisma en un 409 trompeur.
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'Ce pseudo Musiques Incongrues est déjà lié à un autre compte',
+        );
+      }
+      throw error;
+    }
     return this.getPublicProfile(username);
   }
 

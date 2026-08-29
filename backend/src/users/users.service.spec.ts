@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -80,6 +81,29 @@ describe('UsersService', () => {
       await expect(service.getProfile(USER_ID)).resolves.toEqual(
         expect.objectContaining({ incongruesUsername: 'nota' }),
       );
+    });
+
+    // Le compte A a déjà lié « nota ». Le compte B tente le même pseudo :
+    // l'index unique refuse l'écriture, et cette erreur doit devenir un 409
+    // parlant plutôt qu'un 500 brut.
+    it('refuse un pseudo déjà lié à un autre compte', async () => {
+      prisma.user.update.mockRejectedValue({ code: 'P2002' });
+
+      const error = await service
+        .updateProfile(USER_ID, { incongruesUsername: 'nota' })
+        .catch((e: Error) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+    });
+
+    // Seul le P2002 sur ce champ est traduit : toute autre erreur Prisma doit
+    // continuer de remonter telle quelle plutôt que d'être avalée en 409.
+    it('laisse passer une erreur Prisma qui ne relève pas d’un doublon', async () => {
+      prisma.user.update.mockRejectedValue(new Error('connection lost'));
+
+      await expect(
+        service.updateProfile(USER_ID, { incongruesUsername: 'nota' }),
+      ).rejects.not.toBeInstanceOf(ConflictException);
     });
   });
 });
