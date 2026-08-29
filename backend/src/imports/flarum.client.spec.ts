@@ -24,6 +24,16 @@ function repond(name: string) {
   });
 }
 
+// Sérialise un objet JS en corps de réponse — pour les tests qui construisent
+// leur payload à la main plutôt que de le lire d'une fixture figée.
+function repondAvec(objet: unknown) {
+  mockSafeFetch.mockResolvedValue({
+    url: new URL('https://www.musiques-incongrues.net/api/posts'),
+    contentType: 'application/json',
+    body: Buffer.from(JSON.stringify(objet)),
+  });
+}
+
 describe('FlarumClient.listByAuthor', () => {
   beforeEach(() => mockSafeFetch.mockReset());
 
@@ -149,5 +159,52 @@ describe('FlarumClient.getDiscussion', () => {
       expect.stringContaining('a%20b%2Fc'),
       expect.anything(),
     );
+  });
+});
+
+describe('FlarumClient.listPostsByAuthor', () => {
+  beforeEach(() => mockSafeFetch.mockReset());
+
+  it('demande les messages les plus RÉCENTS de cet auteur', async () => {
+    repondAvec({ data: [] });
+    await new FlarumClient().listPostsByAuthor('nota');
+
+    const [url] = mockSafeFetch.mock.calls[0];
+    expect(url).toContain('filter%5Bauthor%5D=nota');
+    // Le tri par défaut de Flarum est chronologique CROISSANT : sans ce
+    // paramètre, on lirait les messages de 2012 et jamais celui qui vient
+    // d'être publié.
+    expect(url).toContain('sort=-createdAt');
+  });
+
+  it('rend le contenu de chaque message', async () => {
+    repondAvec({
+      data: [
+        {
+          type: 'posts',
+          id: '1',
+          attributes: {
+            contentHtml: '<p>tambouille-7f3a9c</p>',
+            createdAt: '2026-08-30T10:00:00+00:00',
+          },
+        },
+      ],
+    });
+    const messages = await new FlarumClient().listPostsByAuthor('nota');
+
+    expect(messages).toEqual([
+      {
+        id: '1',
+        contentHtml: '<p>tambouille-7f3a9c</p>',
+        createdAt: '2026-08-30T10:00:00+00:00',
+      },
+    ]);
+  });
+
+  it('rend une liste vide quand l’auteur n’a aucun message', async () => {
+    repondAvec({ data: [] });
+    await expect(
+      new FlarumClient().listPostsByAuthor('inconnu'),
+    ).resolves.toEqual([]);
   });
 });

@@ -57,6 +57,47 @@ export class FlarumClient {
     return this.lire(`${FORUM_ORIGIN}/api/discussions?${params}`);
   }
 
+  /**
+   * Les messages les plus récents d'un auteur, pour la vérification de
+   * possession de compte : le membre publie un jeton quelque part sur le
+   * forum, et c'est parmi ces messages qu'on le cherche.
+   *
+   * `limit` par défaut à 20 : assez pour que le membre ne soit pas obligé de
+   * vérifier dans la seconde qui suit sa publication, assez peu pour que la
+   * requête reste légère.
+   */
+  async listPostsByAuthor(
+    username: string,
+    limit = 20,
+  ): Promise<{ id: string; contentHtml: string; createdAt: string }[]> {
+    const params = versQueryString({
+      'filter[author]': username,
+      'page[limit]': String(limit),
+      // Le tri par défaut de Flarum est chronologique CROISSANT : sans ce
+      // paramètre, on lirait les messages les plus anciens de l'auteur et
+      // jamais celui qu'il vient de publier pour la preuve.
+      sort: '-createdAt',
+    });
+    const { body } = await safeFetch(`${FORUM_ORIGIN}/api/posts?${params}`, {
+      maxBytes: API_MAX_BYTES,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      accept: 'application/json',
+    });
+
+    let document: { data?: JsonApiRessource[] };
+    try {
+      document = JSON.parse(body.toString('utf8')) as typeof document;
+    } catch {
+      throw new BadGatewayException('Réponse illisible du forum');
+    }
+
+    return (document.data ?? []).map((brute) => ({
+      id: brute.id,
+      contentHtml: String(brute.attributes?.contentHtml ?? ''),
+      createdAt: String(brute.attributes?.createdAt ?? ''),
+    }));
+  }
+
   async getDiscussion(id: string): Promise<FlarumDiscussion> {
     const params = versQueryString({ include: 'firstPost,taxonomyTerms' });
     const [discussion] = await this.lire(
