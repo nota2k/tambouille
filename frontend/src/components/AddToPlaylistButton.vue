@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -10,9 +10,26 @@ import {
 } from '@/utils/playlists'
 import type { PlaylistSummary } from '@/types'
 
-const props = withDefaults(defineProps<{ mixId: string; variant?: 'overlay' | 'pill' }>(), {
-  variant: 'pill',
-})
+const props = withDefaults(
+  defineProps<{
+    mixId: string
+    variant?: 'overlay' | 'pill'
+    /**
+     * De quel bord le menu part.
+     *
+     * Il fait 256 pixels de large : posé près du bord droit d'une ligne, un
+     * menu aligné à gauche sortirait de l'écran. L'appelant est le seul à
+     * savoir où il a mis le bouton, donc c'est lui qui tranche.
+     *
+     * Par défaut il suit la variante : `overlay` vit dans le coin haut droit
+     * d'une carte, donc à droite ; `pill` en début de ligne, donc à gauche.
+     */
+    align?: 'left' | 'right'
+  }>(),
+  { variant: 'pill', align: undefined },
+)
+
+const alignement = computed(() => props.align ?? (props.variant === 'overlay' ? 'right' : 'left'))
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -115,14 +132,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <!-- In overlay mode the card itself is the positioning context, so this wrapper
-       must not create a box of its own. -->
-  <div ref="root" :class="variant === 'overlay' ? 'contents' : 'relative'">
+  <!--
+    `relative` dans les deux variantes, désormais.
+    ───────────────────────────────────────────────────────────────────────
+    En `overlay`, le bouton se posait lui-même en `absolute right-2 top-11` et
+    son menu en `right-2 top-20`, deux coordonnées mesurées à la main sur la
+    carte. Le bouton fait maintenant partie d'un groupe que l'appelant place
+    (voir `MixCard`), donc ces valeurs ne veulent plus rien dire.
+
+    En rendant l'enveloppe positionnée, le menu s'accroche AU BOUTON — `top-full`
+    — et suit où qu'on mette le groupe. Rien à recalculer si la colonne bouge.
+  -->
+  <div ref="root" class="relative">
     <button
       ref="trigger"
       :class="
         variant === 'overlay'
-          ? 'absolute right-2 top-11 flex h-8 w-8 items-center rounded-xl justify-center rounded-none bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
+          ? 'flex h-8 w-8 shrink-0 items-center justify-center bg-black/60 text-white shadow-lg backdrop-blur-sm transition hover:bg-black/80'
           : 'tb-btn-outline tb-btn-icone rounded-full'
       "
       :aria-expanded="open"
@@ -131,7 +157,12 @@ onUnmounted(() => {
       aria-label="Ajouter à une playlist"
       @click="toggleMenu"
     >
-      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current">
+      <!-- Deux pixels de plus que le cœur et le partage, qui sont à 18 : ce
+           dessin est fait de trois filets fins et d'une croix, là où les deux
+           autres sont des formes pleines. À taille égale il paraissait plus
+           petit qu'eux. La boîte du bouton, elle, ne bouge pas — voir
+           `.tb-btn-icone`. -->
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current">
         <path
           d="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm13-6v4h-4v2h4v4h2v-4h4v-2h-4v-4h-2z"
         />
@@ -140,8 +171,8 @@ onUnmounted(() => {
 
     <div
       v-if="open"
-      class="absolute z-30 mt-2 w-64 overflow-hidden rounded-none border border-tambouille-border bg-tambouille-surface shadow-lg"
-      :class="variant === 'overlay' ? 'right-2 top-20' : 'left-0 top-full'"
+      class="absolute top-full z-30 mt-2 w-64 overflow-hidden rounded-none border border-tambouille-border bg-tambouille-surface shadow-lg"
+      :class="alignement === 'right' ? 'right-0' : 'left-0'"
       @click.stop
     >
       <p v-if="loading" class="px-4 py-3 text-sm text-tambouille-muted">Chargement...</p>

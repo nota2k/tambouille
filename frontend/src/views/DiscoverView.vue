@@ -11,6 +11,10 @@ import { formatDuration } from '@/utils/time'
 import MixListItem from '@/components/MixListItem.vue'
 import MixListItemSkeleton from '@/components/MixListItemSkeleton.vue'
 import MixGrid from '@/components/MixGrid.vue'
+import FavoriteButton from '@/components/FavoriteButton.vue'
+import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
+import ShareButton from '@/components/ShareButton.vue'
+import { mixShareUrl } from '@/utils/share'
 import TagsOverlay from '@/components/TagsOverlay.vue'
 import FourneeBanner from '@/components/FourneeBanner.vue'
 import FeedLink from '@/components/FeedLink.vue'
@@ -73,6 +77,25 @@ useSeo(() => ({
     },
   },
 }))
+
+/**
+ * Retire tous les tags d'un coup.
+ *
+ * Les enlever un par un demandait autant de clics qu'on en avait posés, et la
+ * rangée se réorganisait à chaque fois — la cible suivante n'était plus là où
+ * on venait de cliquer.
+ *
+ * Même suite que `toggleTag` : retour à la première page, puis rechargement.
+ * La requête part même quand il ne reste plus rien à chercher, exactement comme
+ * lorsqu'on retire le dernier tag à la main ; `isSearching` repasse à faux et
+ * l'accueil reprend la main sur l'affichage.
+ */
+function reinitialiserLesTags() {
+  if (!selectedTags.value.length) return
+  selectedTags.value = []
+  page.value = 1
+  loadSearchResults()
+}
 
 function toggleTag(tag: string) {
   const idx = selectedTags.value.indexOf(tag)
@@ -293,7 +316,20 @@ onMounted(loadSections)
     >
       <div class="flex items-center gap-3">
         <h1 class="text-tambouille-title-big leading-none">Découvrir</h1>
-        <FeedLink :href="feedUrl('/rss')" title="Tambouille" />
+        <!--
+          Un seul bouton de flux ici, celui de la fournée.
+          ─────────────────────────────────────────────────────────────────────
+          Ils étaient deux, jumeaux exacts — même icône, même taille — et rien à
+          l'œil ne disait lequel menait où. Seuls le `title` au survol et
+          l'`aria-label` les distinguaient, ce qui laissait de côté qui regarde
+          la page.
+
+          `head-only` sur celui du site : il garde sa balise
+          `<link rel="alternate">`, par laquelle les lecteurs RSS et les
+          extensions le trouvent. On perd un bouton, pas un abonnement — et
+          c'est ce qui rend le choix sans conséquence pour qui veut tout suivre.
+        -->
+        <FeedLink head-only :href="feedUrl('/rss')" title="Tambouille" />
         <FeedLink
           v-if="fournee"
           :href="feedUrl(`/fournees/${fournee.number}/rss`)"
@@ -365,12 +401,26 @@ onMounted(loadSections)
           />
         </svg>
       </button>
+
+      <!-- Après les tags et non avant : on lit ce qui est filtré, puis le moyen
+           de tout défaire. Souligné plutôt que cerclé — ce n'est pas un filtre
+           de plus, et une quatrième pastille dans la rangée se serait lue comme
+           un tag qu'on peut activer. -->
+      <button
+        v-if="selectedTags.length > 1"
+        type="button"
+        class="ml-1 text-sm text-tambouille-muted underline hover:text-tambouille-text"
+        @click="reinitialiserLesTags"
+      >
+        Tout effacer
+      </button>
     </div>
 
     <TagsOverlay
       v-if="showTagsOverlay"
       :selected="selectedTags"
       @toggle="toggleTag"
+      @reset="reinitialiserLesTags"
       @close="showTagsOverlay = false"
     />
 
@@ -528,7 +578,16 @@ onMounted(loadSections)
                 </p>
 
                 <p class="pb-1.5 pt-2.5 text-[17px] text-tambouille-muted">
-                  {{ featuredMix.user.displayName }} · {{ formatDate(featuredMix.createdAt) }}
+                  <!-- Le compte mène à son profil, comme sur les cartes et les
+                       lignes. Pas de lien étendu à contourner ici : ce bloc
+                       n'est pas enveloppé dans un lien, la pochette et le titre
+                       portent chacun le leur. -->
+                  <RouterLink
+                    :to="{ name: 'profile', params: { username: featuredMix.user.username } }"
+                    class="font-bold hover:underline"
+                  >
+                    {{ featuredMix.user.displayName }} </RouterLink
+                  >· {{ formatDate(featuredMix.createdAt) }}
                 </p>
 
                 <p class="flex flex-wrap items-baseline gap-x-2 pb-4 text-sm">
@@ -545,6 +604,13 @@ onMounted(loadSections)
 
                 <div class="mt-auto flex flex-wrap items-center gap-4">
                   <button class="tb-btn" @click="playerStore.play(featuredMix)">Écouter</button>
+                  <!-- Les trois mêmes commandes qu'ailleurs, à la suite du
+                       bouton principal — l'ordre de la page d'un mix. -->
+                  <div class="flex items-center gap-3">
+                    <FavoriteButton :mix="featuredMix" />
+                    <AddToPlaylistButton :mix-id="featuredMix.id" />
+                    <ShareButton :url="mixShareUrl(featuredMix)" />
+                  </div>
                   <span v-if="featuredMix.audioUrl" class="text-[13px] text-tambouille-muted">
                     {{ featuredMix.playsCount }} écoutes
                   </span>

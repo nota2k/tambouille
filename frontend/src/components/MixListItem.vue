@@ -7,6 +7,10 @@ import CoverImage from '@/components/CoverImage.vue'
 import { formatDuration } from '@/utils/time'
 import { mixCredit } from '@/composables/useMixCredit'
 import WaveformPlayer from '@/components/WaveformPlayer.vue'
+import FavoriteButton from '@/components/FavoriteButton.vue'
+import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
+import ShareButton from '@/components/ShareButton.vue'
+import { mixShareUrl } from '@/utils/share'
 import type { Mix } from '@/types'
 
 const props = defineProps<{ mix: Mix }>()
@@ -16,6 +20,12 @@ const duration = computed(() => formatDuration(props.mix.durationSec))
 const credit = computed(() => mixCredit(props.mix))
 const isCurrent = computed(() => playerStore.currentMix?.id === props.mix.id)
 
+/** Le profil du compte qui a déposé le mix — jamais celui de l'artiste, qui est un champ libre. */
+const profileRoute = computed(() => ({
+  name: 'profile',
+  params: { username: props.mix.user.username },
+}))
+
 /**
  * Deux tags au maximum dans le flux : cinq pastilles grises identiques par mix
  * n'en laissent primer aucune. Le reste attend sur la page du mix.
@@ -24,9 +34,17 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
 </script>
 
 <template>
-  <RouterLink
-    :to="mixRoute(mix)"
-    class="-mx-4 flex items-center gap-4 border-b border-black/12 px-4 py-4 transition sm:gap-5"
+  <!--
+    Une `div`, et non plus un lien qui enveloppe toute la ligne.
+
+    Rendre le nom du compte cliquable aurait mis un lien DANS un lien : le HTML
+    l'interdit, et le navigateur répare en sortant le second du premier — le
+    balisage rendu n'est plus celui qu'on a écrit. Le lien du titre porte donc
+    un `::after` qui couvre la ligne, et ce qui doit rester atteignable
+    par-dessus est posé en `relative z-10`. Même montage que sur les cartes.
+  -->
+  <div
+    class="relative -mx-4 flex items-center gap-4 border-b border-black/12 px-4 py-4 transition sm:gap-5"
     :class="isCurrent ? 'bg-tambouille-accent-wash' : 'hover:bg-tambouille-surface-hover'"
   >
     <div
@@ -64,18 +82,37 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
         zone de survol serait une bande allant jusqu'au bord droit, bien
         au-delà du texte.
       -->
-      <h3
-        class="inline-block font-display text-[24px] font-bold leading-tight text-tambouille-text transition-colors hover:text-tambouille-text-hover sm:text-2xl"
-      >
-        {{ mix.title }}
+      <h3>
+        <!-- `after:absolute after:inset-0` : c'est CE lien qui rend toute la
+             ligne cliquable. `after:content-['']` est indispensable — sans
+             contenu, même vide, le pseudo-élément n'est pas généré. -->
+        <RouterLink
+          :to="mixRoute(mix)"
+          class="inline-block font-display text-[24px] font-bold leading-tight text-tambouille-text transition-colors after:absolute after:inset-0 after:content-[''] hover:text-tambouille-text-hover sm:text-2xl"
+        >
+          {{ mix.title }}
+        </RouterLink>
       </h3>
 
       <!-- Auteur, durée, nombre de morceaux : la ligne que la maquette réclamait. -->
       <p class="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-sm text-tambouille-muted">
         <span class="artiste">
-          {{ credit.primary }}
+          <!-- Sans artiste distinct, `primary` EST le compte : c'est alors lui
+               qui mène au profil. Avec un artiste, `primary` est un champ libre
+               qui ne désigne aucun compte. -->
+          <RouterLink
+            v-if="!credit.secondary"
+            :to="profileRoute"
+            class="relative z-10 font-bold hover:underline"
+          >
+            {{ credit.primary }}
+          </RouterLink>
+          <template v-else>{{ credit.primary }}</template>
           <span v-if="credit.secondary" class="text-tambouille-muted">
-            — importé par {{ credit.secondary }}
+            — importé par
+            <RouterLink :to="profileRoute" class="relative z-10 font-bold hover:underline">
+              {{ credit.secondary }}
+            </RouterLink>
           </span>
         </span>
         <template v-if="duration">
@@ -92,7 +129,29 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
         </template>
       </p>
 
-      <WaveformPlayer :mix="mix" class="mt-2" />
+      <WaveformPlayer :mix="mix" class="relative z-10 mt-2" />
+
+      <!--
+        Les trois mêmes commandes que sur la page d'un mix et sur les cartes,
+        sous la forme d'onde et alignées à droite.
+
+        Elles ont été un temps SUR la ligne de l'onde, à sa droite. Elles lui
+        prenaient 134 pixels : sur une fenêtre de 1024, où la colonne latérale
+        rétrécit déjà la liste, l'onde tombait de 406 à 272 pixels de large.
+        Sous elle, l'onde retrouve toute la largeur et les boutons gardent leur
+        bord droit.
+
+        Variante `pill` et non `overlay` : l'overlay est un bouton sombre fait
+        pour se poser SUR une pochette. Sur le fond clair d'une ligne, il ferait
+        trois pastilles noires au milieu du texte.
+      -->
+      <div class="relative z-10 mt-2 flex items-center justify-end gap-2">
+        <FavoriteButton :mix="mix" />
+        <!-- Aligné à droite : le bouton touche le bord de la ligne, un menu
+             parti vers la droite sortirait de l'écran. -->
+        <AddToPlaylistButton :mix-id="mix.id" align="right" />
+        <ShareButton :url="mixShareUrl(mix)" />
+      </div>
     </div>
 
     <!-- Pas de bouton « Lire » au bout de la ligne : le `WaveformPlayer`
@@ -100,5 +159,5 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
          commandes pour la même action sur une même ligne de liste, c'est
          surtout deux fois plus de choses à lire avant de cliquer. La teinte du
          fond continue de dire quel mix est en cours. -->
-  </RouterLink>
+  </div>
 </template>

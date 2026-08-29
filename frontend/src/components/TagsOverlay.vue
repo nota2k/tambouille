@@ -5,6 +5,7 @@ import { apiClient } from '@/api/client'
 const props = defineProps<{ selected: string[] }>()
 const emit = defineEmits<{
   toggle: [tag: string]
+  reset: []
   close: []
 }>()
 
@@ -34,8 +35,20 @@ function onToggle(tag: string) {
     <div class="absolute inset-0 bg-black/40" @click="emit('close')" />
 
     <div class="relative z-10 w-full max-w-lg rounded-none bg-tambouille-surface p-6 shadow-2xl">
-      <div class="mb-4 flex items-center justify-between">
+      <div class="mb-4 flex items-center justify-between gap-4">
         <h2 class="text-lg font-semibold">Filtrer par tags</h2>
+        <!-- La remise à zéro est ici aussi, et pas seulement sous les filtres :
+             c'est dans cette fenêtre qu'on coche, donc c'est ici qu'on se rend
+             compte d'en avoir trop coché. La refermer pour aller tout décocher
+             ailleurs serait un détour. -->
+        <button
+          v-if="selected.length"
+          type="button"
+          class="ml-auto text-sm text-tambouille-muted underline hover:text-tambouille-text"
+          @click="emit('reset')"
+        >
+          Tout effacer
+        </button>
         <button
           class="flex h-8 w-8 items-center justify-center rounded-none hover:bg-tambouille-surface-hover"
           @click="emit('close')"

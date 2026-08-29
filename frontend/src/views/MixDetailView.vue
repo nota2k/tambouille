@@ -9,13 +9,13 @@ import { mediaSrcset, mediaUrl } from '@/utils/media'
 import CoverImage from '@/components/CoverImage.vue'
 import { formatTime, formatDuration, isoDuration } from '@/utils/time'
 import { formatDate } from '@/utils/date'
-import { toggleMixFavorite } from '@/utils/favorites'
 import UploaderCard from '@/components/UploaderCard.vue'
 import CommentsSection from '@/components/CommentsSection.vue'
 import MixCard from '@/components/MixCard.vue'
 import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
+import FavoriteButton from '@/components/FavoriteButton.vue'
 import { mixEmbedUrl, mixShareUrl } from '@/utils/share'
 import { HAUTEUR_EMBED_MIX } from '@/utils/embed'
 import { nomDeLaSource } from '@/utils/source'
@@ -119,15 +119,6 @@ async function loadAll() {
 
 function playFromTrack(entry: TracklistEntry) {
   if (mix.value) playerStore.playAt(mix.value, entry.timecodeSec)
-}
-
-function toggleFavorite() {
-  if (!mix.value) return
-  if (!authStore.isAuthenticated) {
-    router.push({ name: 'login' })
-    return
-  }
-  toggleMixFavorite(mix.value).catch(() => {})
 }
 
 async function removeMix() {
@@ -355,33 +346,9 @@ watch(
                identiques à trente pixels l'une de l'autre ne donnent pas le
                choix, elles font douter qu'elles fassent la même chose. -->
           <div class="flex flex-wrap items-center gap-3">
-            <!-- Le libellé passe dans `aria-label` et `title` : sans texte
-                 visible, ce sont eux qui portent l'action et son état. Le cœur
-                 plein ou creux dit lequel des deux à qui voit l'icône. -->
-            <button
-              class="tb-btn-outline tb-btn-icone rounded-full"
-              :class="{ '!border-tambouille-accent !text-tambouille-accent': mix.isFavorited }"
-              :aria-pressed="mix.isFavorited"
-              :aria-label="mix.isFavorited ? 'Retirer des favoris' : 'Mettre en favori'"
-              :title="mix.isFavorited ? 'Retirer des favoris' : 'Mettre en favori'"
-              @click="toggleFavorite"
-            >
-              <svg v-if="mix.isFavorited" viewBox="0 0 24 24" class="h-4 w-4 fill-current">
-                <path
-                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                />
-              </svg>
-              <svg
-                v-else
-                viewBox="0 0 24 24"
-                class="h-4 w-4 fill-none stroke-current"
-                stroke-width="2"
-              >
-                <path
-                  d="M12 20.6l-1.1-1C5.9 15 2.8 12.2 2.8 8.7 2.8 5.9 5 3.8 7.7 3.8c1.6 0 3.1.7 4.3 2 1.2-1.3 2.7-2 4.3-2 2.7 0 4.9 2.1 4.9 4.9 0 3.5-3.1 6.3-8.1 10.9l-1.1 1z"
-                />
-              </svg>
-            </button>
+            <!-- Le cœur vit dans son propre composant depuis que les cartes le
+                 portent aussi : deux copies auraient fini par diverger. -->
+            <FavoriteButton :mix="mix" />
             <AddToPlaylistButton :mix-id="mix.id" />
             <ShareButton
               :url="mixShareUrl(mix)"

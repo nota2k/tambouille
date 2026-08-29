@@ -553,10 +553,51 @@ h6,
  * qui met les quatre boutons de la page d'un mix à la même hauteur sans les
  * mettre à la même largeur.
  */
+/*
+ * Les boutons qui ne portent qu'une icône : favori, playlist, partage.
+ *
+ * Ils héritaient du rembourrage des boutons à texte — 0,75 rem partout, soit
+ * 42 pixels de côté pour une icône de 16. Autour d'un pictogramme, cet air-là
+ * n'aide pas à lire : il éloigne le cercle de ce qu'il contient. À 0,5 rem le
+ * bouton fait 34 pixels, reste au-dessus de la cible tactile confortable, et
+ * se tient.
+ *
+ * La bordure passe au gris clair de la palette. En noir plein, trois cercles
+ * côte à côte pesaient autant que le titre au-dessus d'eux, alors qu'ils sont
+ * des commandes secondaires. Elle redevient noire au survol, où le bouton se
+ * remplit : un cerclage clair sur un aplat noir se lirait comme un défaut.
+ */
 .tb-btn-icone {
+  /*
+   * Les deux minimums sont désarmés, pas seulement la largeur.
+   *
+   * `min-width: 160px` était bien remis à zéro, mais le `min-height` du même
+   * bloc — calculé pour une ligne de texte, 42,8 px — restait. Le bouton
+   * mesurait donc 34 × 43 : le rembourrage réduit se voyait en largeur et pas
+   * en hauteur, et le cercle était un ovale.
+   */
   min-width: 0;
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
+  min-height: 0;
+  /*
+   * Une boîte FIXE, et non un rembourrage autour du contenu.
+   *
+   * Tant que la taille venait du contenu, changer une icône changeait son
+   * bouton : passer celle de la playlist de 16 à 18 pixels l'aurait fait
+   * mesurer 38 au milieu de voisines à 34, et la rangée n'aurait plus été
+   * alignée. Ici les trois boutons font le même carré quoi qu'on mette dedans,
+   * et le `justify-content: center` du bloc de base y centre l'icône.
+   *
+   * 2,125 rem, soit 34 pixels : c'est ce que donnait l'ancien rembourrage de
+   * 0,5 rem autour d'une icône de 16, valeur qui convenait.
+   */
+  padding: 0;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-color: var(--color-tambouille-border);
+}
+
+.tb-btn-icone:hover:not(:disabled) {
+  border-color: #000;
 }
 
 /* Puce cerclée : les tags de la colonne latérale et des filtres. */
