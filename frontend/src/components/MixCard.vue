@@ -7,6 +7,7 @@ import { formatDuration } from '@/utils/time'
 import { mixCredit } from '@/composables/useMixCredit'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
+import FavoriteButton from '@/components/FavoriteButton.vue'
 import { mixShareUrl } from '@/utils/share'
 import { mixRoute } from '@/utils/routes'
 import type { Mix } from '@/types'
@@ -18,6 +19,12 @@ const playerStore = usePlayerStore()
 
 const duration = computed(() => formatDuration(props.mix.durationSec))
 const credit = computed(() => mixCredit(props.mix))
+
+/** Le profil du compte qui a déposé le mix — jamais celui de l'artiste, qui est un champ libre. */
+const profileRoute = computed(() => ({
+  name: 'profile',
+  params: { username: props.mix.user.username },
+}))
 
 function play(event: Event) {
   event.preventDefault()
@@ -33,10 +40,23 @@ function play(event: Event) {
     largeur de la carte — pour que deux mix côte à côte n'aient jamais deux
     silhouettes différentes.
   -->
-  <RouterLink
-    :to="mixRoute(mix)"
-    :class="['group relative block shrink-0', landscape ? 'w-full' : 'w-40 sm:w-48']"
-  >
+  <!--
+    ─────────────────────────────────────────────────────────────────────────
+    UNE `div`, ET NON PLUS UN LIEN QUI ENVELOPPE TOUT
+    ─────────────────────────────────────────────────────────────────────────
+
+    La carte entière était un `RouterLink`. Rendre le nom du compte cliquable
+    aurait mis un lien DANS un lien : le HTML l'interdit, et le navigateur
+    répare en sortant le second du premier — le balisage rendu n'est plus celui
+    qu'on a écrit, et le clic ne va nulle part de fiable.
+
+    Le lien du titre porte donc un `::after` qui couvre la carte : on clique
+    n'importe où, on va au mix, comme avant. Tout ce qui doit rester atteignable
+    par-dessus ce voile — les trois boutons, le lien du profil — est posé en
+    `relative z-10`. C'est ce qui permet à deux destinations de coexister sur
+    une même carte sans imbriquer quoi que ce soit.
+  -->
+  <div :class="['group relative block shrink-0', landscape ? 'w-full' : 'w-40 sm:w-48']">
     <div class="relative aspect-square w-full overflow-hidden bg-tambouille-surface-hover">
       <!--
         `hover:` sur l'image, et NON `group-hover:`.
@@ -67,7 +87,7 @@ function play(event: Event) {
       </CoverImage>
 
       <button
-        class="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center bg-tambouille-accent text-tambouille-ink-on-accent opacity-0 transition group-hover:opacity-100 hover:bg-tambouille-accent-hover"
+        class="absolute bottom-0 right-0 z-10 flex h-11 w-11 items-center justify-center bg-tambouille-accent text-tambouille-ink-on-accent opacity-0 transition group-hover:opacity-100 hover:bg-tambouille-accent-hover"
         aria-label="Lire ce mix"
         @click="play"
       >
@@ -77,20 +97,55 @@ function play(event: Event) {
       </button>
     </div>
 
-    <ShareButton :url="mixShareUrl(mix)" variant="overlay" />
-    <AddToPlaylistButton :mix-id="mix.id" variant="overlay" />
+    <!--
+      Les trois mêmes commandes que sur la page d'un mix — favori, playlist,
+      partage — groupées en une colonne que la carte place une fois pour toutes.
 
-    <p
-      class="mt-2.5 font-display text-[15px] font-bold leading-snug text-tambouille-text transition-colors hover:text-tambouille-text-hover"
+      HORS de la boîte de la pochette, et c'est nécessaire : celle-ci est en
+      `overflow-hidden` pour recadrer l'image, et le menu des playlists, plus
+      large que la carte, y serait tranché. Le repère de positionnement est donc
+      le lien de la carte, qui est `relative`.
+
+      L'opacité est portée ici et non par chaque bouton : ils apparaissent et
+      disparaissent ensemble. `focus-within` les fait aussi venir au clavier,
+      sans quoi on les atteindrait en tabulant sans jamais les voir.
+    -->
+    <div
+      class="absolute right-2 top-2 z-10 flex flex-col items-end gap-2 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100"
+    >
+      <FavoriteButton :mix="mix" variant="overlay" />
+      <AddToPlaylistButton :mix-id="mix.id" variant="overlay" />
+      <!-- Pas d'`embed-url` ici : la fenêtre à onglets est réservée aux pages
+           de détail, une carte se contente de copier le lien d'un clic. -->
+      <ShareButton :url="mixShareUrl(mix)" variant="overlay" />
+    </div>
+
+    <!-- `after:absolute after:inset-0` : c'est CE lien qui rend toute la carte
+         cliquable. `after:content-['']` est indispensable — sans contenu, même
+         vide, le pseudo-élément n'est pas généré. -->
+    <RouterLink
+      :to="mixRoute(mix)"
+      class="mt-2.5 block font-display text-[15px] font-bold leading-snug text-tambouille-text transition-colors after:absolute after:inset-0 after:content-[''] hover:text-tambouille-text-hover"
     >
       {{ mix.title }}
-    </p>
+    </RouterLink>
     <p class="mt-1 truncate text-[13px] text-tambouille-muted">
-      <span class="artiste hover:underline">{{ credit.primary }}</span
+      <!-- Sans artiste distinct, `primary` EST le compte : c'est alors lui qui
+           mène au profil. Avec un artiste, `primary` est un champ libre qui ne
+           désigne aucun compte, et c'est `secondary` qui est cliquable. -->
+      <RouterLink
+        v-if="!credit.secondary"
+        :to="profileRoute"
+        class="artiste relative z-10 font-bold hover:underline"
+        >{{ credit.primary }}</RouterLink
+      ><span v-else class="artiste">{{ credit.primary }}</span
       ><template v-if="duration"> · {{ duration }}</template>
       <span v-if="credit.secondary" class="block text-tambouille-muted">
-        importé par {{ credit.secondary }}
+        importé par
+        <RouterLink :to="profileRoute" class="relative z-10 font-bold hover:underline">{{
+          credit.secondary
+        }}</RouterLink>
       </span>
     </p>
-  </RouterLink>
+  </div>
 </template>
