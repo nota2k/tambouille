@@ -27,6 +27,10 @@ function createPrismaMock() {
   return {
     mix: {
       findUnique: jest.fn(),
+      // `create` interroge les slugs déjà pris du compte avant d'en choisir un.
+      // Sans valeur par défaut, chaque test de création devrait s'en occuper
+      // alors qu'aucun ne parle de slug : `null` veut dire « la place est libre ».
+      findFirst: jest.fn().mockResolvedValue(null),
       findMany: jest.fn(),
       count: jest.fn(),
       create: jest.fn(),
@@ -658,6 +662,61 @@ describe('MixesService', () => {
       );
     });
 
+    it('pose un slug tiré du titre', async () => {
+      await service.create(
+        USER_ID,
+        { title: 'Souvenir des séquelles' },
+        { audioUrl: AUDIO_KEY },
+      );
+
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ slug: 'souvenir-des-sequelles' }),
+        }),
+      );
+    });
+
+    /**
+     * Le doublon existe déjà en base — « HzBen - mix 57 » est publié deux fois
+     * par le même compte. Le second ne doit pas écraser l'adresse du premier.
+     */
+    it('décline le slug quand ce compte l’utilise déjà', async () => {
+      prisma.mix.findFirst
+        .mockResolvedValueOnce({ id: 'un-autre' }) // « hzben-mix-57 » est pris
+        .mockResolvedValueOnce(null); // « hzben-mix-57-2 » est libre
+
+      await service.create(
+        USER_ID,
+        { title: 'HzBen - mix 57' },
+        { audioUrl: AUDIO_KEY },
+      );
+
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ slug: 'hzben-mix-57-2' }),
+        }),
+      );
+    });
+
+    /**
+     * L'unicité est par compte, pas globale : la recherche d'une place libre
+     * doit donc être filtrée sur le compte, sans quoi deux personnes ne
+     * pourraient pas publier « mix 57 » chacune de leur côté.
+     */
+    it('ne cherche une place libre que parmi les mix de ce compte', async () => {
+      await service.create(
+        USER_ID,
+        { title: 'Vorwerk' },
+        { audioUrl: AUDIO_KEY },
+      );
+
+      expect(prisma.mix.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: USER_ID, slug: 'vorwerk' },
+        }),
+      );
+    });
+
     it('n’invente pas d’artiste quand le formulaire n’en donne pas', async () => {
       await service.create(
         USER_ID,
@@ -687,6 +746,37 @@ describe('MixesService', () => {
       );
     });
 
+    /**
+     * Le slug est figé à la création. Un titre corrigé ne doit pas changer
+     * l'adresse : les liens déjà partagés valent plus qu'une URL exactement à
+     * jour. C'est une décision, et une omission dans le code — d'où ce test,
+     * qui la rend visible.
+     */
+    it('ne touche pas au slug quand le titre change', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: USER_ID,
+        audioUrl: AUDIO_KEY,
+        sourceType: null,
+        sourceRef: null,
+      });
+
+      await service.update(MIX_ID, USER_ID, { title: 'Un tout autre titre' });
+
+      expect(prisma.mix.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ title: 'Un tout autre titre' }),
+        }),
+      );
+      // L'absence de la clé, et non une valeur : le slug ne doit pas être
+      // réécrit, fût-ce avec sa propre valeur.
+      expect(prisma.mix.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({ slug: expect.anything() }),
+        }),
+      );
+    });
+
     it('à la mise à jour, un artiste vidé retombe à NULL plutôt qu’à une chaîne vide', async () => {
       prisma.mix.findUnique.mockResolvedValue({
         id: MIX_ID,
@@ -709,7 +799,7 @@ describe('MixesService', () => {
       prisma.mix.findMany.mockResolvedValue([]);
       prisma.mix.count.mockResolvedValue(0);
 
-      await service.findAll({ q: 'pute acier' } as QueryMixesDto);
+      await service.findAll({ q: 'pute acier' });
 
       // Sans cette clause, chercher un artiste cesserait de trouver les mix
       // importés après ce changement, tout en continuant à trouver les anciens

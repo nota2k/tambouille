@@ -77,6 +77,11 @@ model PasswordResetToken {
 model Mix {
   id           String   @id @default(uuid())
   title        String
+  /// Le titre rendu passable dans une URL : `/mixes/<compte>/<slug>`. Figé à la
+  /// création et jamais recalculé — un titre corrigé ne doit pas casser les liens
+  /// déjà partagés. Unique par compte seulement : deux personnes ont le droit de
+  /// publier « mix 57 ». Voir `src/common/slug.ts`.
+  slug         String
   description  String?
   /// Le nom de l'artiste tel que la source l'écrit, casse comprise. Null sur
   /// les mix déposés à la main, où l'artiste est le compte lui-même — et sur
@@ -110,6 +115,7 @@ model Mix {
   playlistItems PlaylistItem[]
   comments      Comment[]
 
+  @@unique([userId, slug])
   @@index([userId])
   @@index([createdAt])
   @@map("mixes")

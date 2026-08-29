@@ -98,6 +98,28 @@ export class MixesController {
     return this.mixesService.findAllTags();
   }
 
+  /**
+   * Un mix par son compte et son slug, ce que sert `/mixes/<compte>/<slug>`.
+   *
+   * ── Pourquoi trois segments et pas `:username/:slug` ───────────────────────
+   *
+   * `/mixes/:username/:slug` entrerait en concurrence avec `/mixes/:id/audio`
+   * et `/mixes/:id/suggestions`, qui ont la même forme. Nest tranche par ordre
+   * de déclaration, et le segment fixe gagnerait : un mix intitulé « Audio »,
+   * dont le slug vaut `audio`, deviendrait inatteignable. Le préfixe rend la
+   * route unique par sa longueur, sans dépendre d'un ordre qu'une refonte
+   * pourrait défaire sans bruit.
+   */
+  @Get('by-slug/:username/:slug')
+  @UseGuards(OptionalJwtAuthGuard)
+  findBySlug(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @OptionalUserId() currentUserId?: string,
+  ) {
+    return this.mixesService.findBySlug(username, slug, currentUserId);
+  }
+
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
   findOne(@Param('id') id: string, @OptionalUserId() currentUserId?: string) {

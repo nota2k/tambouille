@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { deleteFromR2 } from '../common/upload.utils';
 import { audioSourceFor, type MediaBases } from '../common/audio-source';
+import { slugUnique } from '../common/slug';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
@@ -47,17 +48,17 @@ function parseTracklist(tracklist?: string): TracklistEntryInput[] {
     if (
       typeof entry !== 'object' ||
       entry === null ||
-      typeof (entry as any).artist !== 'string' ||
-      typeof (entry as any).title !== 'string' ||
-      typeof (entry as any).timecodeSec !== 'number'
+      typeof entry.artist !== 'string' ||
+      typeof entry.title !== 'string' ||
+      typeof entry.timecodeSec !== 'number'
     ) {
       throw new BadRequestException(
         `Invalid tracklist entry at index ${index}`,
       );
     }
-    const artist = (entry as any).artist.trim().slice(0, 200);
-    const title = (entry as any).title.trim().slice(0, 200);
-    const timecodeSec = Math.max(0, Math.round((entry as any).timecodeSec));
+    const artist = entry.artist.trim().slice(0, 200);
+    const title = entry.title.trim().slice(0, 200);
+    const timecodeSec = Math.max(0, Math.round(entry.timecodeSec));
     // Neither name is required. Imported tracklists carry rows a source left
     // half-filled — "Intro" with nobody to credit — and rejecting the request
     // over one of them lost the entire mix. An absent name is stored as the
@@ -169,6 +170,7 @@ export class MixesService {
     const mix = await this.prisma.mix.create({
       data: {
         title: dto.title,
+        slug: await this.slugLibrePour(userId, dto.title),
         description: dto.description,
         // Normalisé à NULL plutôt qu'à une chaîne vide : `UploadView` n'envoie
         // le champ que non vide, mais un import peut fournir des espaces
@@ -191,6 +193,25 @@ export class MixesService {
       ...buildMixInclude(userId),
     });
     return toMixResponse(mix);
+  }
+
+  /**
+   * Le slug de ce titre, décliné jusqu'à en trouver un que ce compte n'utilise
+   * pas. L'unicité n'est pas globale : deux personnes peuvent publier « mix 57 ».
+   *
+   * L'index unique `(userId, slug)` reste l'autorité — deux créations
+   * simultanées sous le même titre passeraient toutes deux cette vérification.
+   * C'est un cas assez improbable, et assez bien rattrapé par l'erreur de
+   * contrainte, pour ne pas justifier un verrou.
+   */
+  private slugLibrePour(userId: string, titre: string): Promise<string> {
+    return slugUnique(titre, async (slug) => {
+      const existe = await this.prisma.mix.findFirst({
+        where: { userId, slug },
+        select: { id: true },
+      });
+      return existe !== null;
+    });
   }
 
   async findAll(query: QueryMixesDto, currentUserId?: string) {
@@ -254,6 +275,28 @@ export class MixesService {
     };
   }
 
+  /**
+   * Un mix par son compte et son slug : la requête que sert chaque page de mix
+   * depuis que l'adresse est `/mixes/<compte>/<slug>`.
+   *
+   * L'username est comparé sans égard à la casse, comme partout ailleurs où il
+   * est lu depuis une URL : une adresse recopiée à la main ne doit pas échouer
+   * sur une majuscule.
+   */
+  async findBySlug(username: string, slug: string, currentUserId?: string) {
+    const mix = await this.prisma.mix.findFirst({
+      where: {
+        slug,
+        user: { username: { equals: username, mode: 'insensitive' } },
+      },
+      ...buildMixInclude(currentUserId),
+    });
+    if (!mix) {
+      throw new NotFoundException('Mix not found');
+    }
+    return toMixResponse(mix);
+  }
+
   async findOne(id: string, currentUserId?: string) {
     const mix = await this.prisma.mix.findUnique({
       where: { id },
@@ -306,6 +349,9 @@ export class MixesService {
     }
 
     const data: Record<string, unknown> = {};
+    // Le titre change, le slug non : c'est une omission délibérée. Recalculer
+    // l'adresse à chaque correction de titre casserait les liens déjà partagés,
+    // et une faute de frappe rectifiée en vaut rarement le prix.
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
     // Vide ou fait d'espaces vaut effacement : `EditMixView` envoie toujours
