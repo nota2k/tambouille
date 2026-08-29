@@ -10,6 +10,7 @@ import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
 import type { Mix } from '@/types'
 import { useSeo } from '@/composables/useSeo'
+import { apiErrorMessage } from '@/utils/apiError'
 
 // Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
 // de toute façon la même page vide à un robot, faute de session.
@@ -110,8 +111,8 @@ async function onSubmit() {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     router.push({ name: 'mix-detail', params: { id: mixId } })
-  } catch (err: any) {
-    error.value = err.response?.data?.message ?? 'Échec de la mise à jour'
+  } catch (err) {
+    error.value = apiErrorMessage(err, 'Échec de la mise à jour')
   } finally {
     saving.value = false
   }

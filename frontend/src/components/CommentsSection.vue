@@ -7,6 +7,7 @@ import { usePlayerStore } from '@/stores/player'
 import { formatTime, parseTimecode } from '@/utils/time'
 import CommentItem from './CommentItem.vue'
 import type { Comment, CommentReply, Mix } from '@/types'
+import { apiErrorMessage } from '@/utils/apiError'
 
 const props = defineProps<{ mix: Mix }>()
 
@@ -82,8 +83,8 @@ async function postComment() {
     emit('count-changed', 1)
     body.value = ''
     manualTimecode.value = ''
-  } catch (err: any) {
-    error.value = err.response?.data?.message ?? "Échec de l'envoi du commentaire"
+  } catch (err) {
+    error.value = apiErrorMessage(err, "Échec de l'envoi du commentaire")
   } finally {
     posting.value = false
   }

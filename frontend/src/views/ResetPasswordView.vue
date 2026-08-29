@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSeo } from '@/composables/useSeo'
+import { apiErrorStatus } from '@/utils/apiError'
 
 // Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
 // de toute façon la même page vide à un robot, faute de session.
@@ -70,10 +71,10 @@ async function onSubmit() {
     // that the person at the keyboard is the one who asked, so it never
     // becomes a session on its own. The new password is what signs them in.
     router.push({ name: 'login', query: { reinitialise: '1' } })
-  } catch (err: any) {
+  } catch (err) {
     // The API refuses unknown, expired and already-used links with one
     // message, so there is one message to show.
-    error.value = err.response?.status === 400 ? LINK_REFUSED : 'Une erreur est survenue.'
+    error.value = apiErrorStatus(err) === 400 ? LINK_REFUSED : 'Une erreur est survenue.'
   } finally {
     loading.value = false
   }
