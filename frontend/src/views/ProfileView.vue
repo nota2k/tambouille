@@ -382,7 +382,7 @@ onMounted(loadProfile)
 
           <aside class="min-w-0">
             <template v-if="profile.bio">
-              <p class="tb-eyebrow">Sa cuisine</p>
+              <p class="tb-eyebrow">Bio</p>
               <p class="mb-8 mt-4 whitespace-pre-line text-sm leading-relaxed">{{ profile.bio }}</p>
             </template>
             <RouterLink
