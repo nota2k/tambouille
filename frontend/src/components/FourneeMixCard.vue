@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
+import CoverImage from '@/components/CoverImage.vue'
 import { formatDuration } from '@/utils/time'
 import { mixCredit } from '@/composables/useMixCredit'
 import type { FourneeZone } from '@/composables/useFourneeTheme'
@@ -58,14 +59,10 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
     >
       <!-- Duotone : l'aplat clair donne la teinte, la pochette n'apporte que sa
            luminance. Sans pochette il ne reste que l'aplat. -->
-      <img
-        v-if="mix.coverUrl"
+      <CoverImage
         :src="mediaUrl(mix.coverUrl)"
-        :loading="priority ? 'eager' : 'lazy'"
-        :fetchpriority="priority ? 'high' : 'auto'"
-        decoding="async"
-        class="h-full w-full object-cover mix-blend-luminosity"
-        alt=""
+        :priority="priority"
+        img-class="mix-blend-luminosity"
       />
     </RouterLink>
 

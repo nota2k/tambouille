@@ -13,6 +13,7 @@ import MixGrid from '@/components/MixGrid.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
 import FourneeBanner from '@/components/FourneeBanner.vue'
 import FeedLink from '@/components/FeedLink.vue'
+import CoverImage from '@/components/CoverImage.vue'
 import { useFournee } from '@/composables/useFournee'
 import { mixCredit } from '@/composables/useMixCredit'
 import { useSeo } from '@/composables/useSeo'
@@ -445,14 +446,7 @@ onMounted(loadSections)
                 aria-hidden="true"
                 tabindex="-1"
               >
-                <img
-                  v-if="featuredMix.coverUrl"
-                  :src="mediaUrl(featuredMix.coverUrl)"
-                  fetchpriority="high"
-                  decoding="async"
-                  class="h-full w-full object-cover"
-                  alt=""
-                />
+                <CoverImage :src="mediaUrl(featuredMix.coverUrl)" priority />
               </RouterLink>
 
               <div class="flex min-w-0 flex-1 flex-col">

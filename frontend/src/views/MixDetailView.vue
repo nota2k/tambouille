@@ -6,6 +6,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
 import { mixCredit } from '@/composables/useMixCredit'
 import { mediaUrl } from '@/utils/media'
+import CoverImage from '@/components/CoverImage.vue'
 import { formatTime, formatDuration, isoDuration } from '@/utils/time'
 import { formatDate } from '@/utils/date'
 import { toggleMixFavorite } from '@/utils/favorites'
@@ -235,19 +236,15 @@ watch(
         <div
           class="aspect-square w-full max-w-[360px] shrink-0 overflow-hidden bg-tambouille-surface-hover"
         >
-          <img
-            v-if="mix.coverUrl"
-            :src="mediaUrl(mix.coverUrl)"
-            fetchpriority="high"
-            decoding="async"
-            class="h-full w-full object-cover"
-            alt=""
-          />
-          <div v-else class="flex h-full w-full items-center justify-center text-tambouille-faint">
-            <svg viewBox="0 0 24 24" class="h-16 w-16 fill-current">
-              <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z" />
-            </svg>
-          </div>
+          <CoverImage :src="mediaUrl(mix.coverUrl)" priority>
+            <template #vide>
+              <div class="flex h-full w-full items-center justify-center text-tambouille-faint">
+                <svg viewBox="0 0 24 24" class="h-16 w-16 fill-current">
+                  <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z" />
+                </svg>
+              </div>
+            </template>
+          </CoverImage>
         </div>
 
         <div class="min-w-0 flex-1">
