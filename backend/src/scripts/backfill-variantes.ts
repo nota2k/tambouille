@@ -136,7 +136,7 @@ async function traiter(
   // Les clés du répertoire, listées UNE fois. Un HEAD par variante ferait
   // trois allers-retours par image là où une pagination suffit.
   const presentes = new Set<string>();
-  for await (const cle of listerClesR2(`${cible.nom}/`)) presentes.add(cle);
+  for await (const cle of listerClesR2(cible.nom)) presentes.add(cle);
 
   const where = { [cible.colonne]: { not: null } };
   const rows: { id: string; [k: string]: string | null }[] =
