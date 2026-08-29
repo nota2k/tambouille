@@ -39,6 +39,25 @@
   RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Facebot|Twitterbot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|TelegramBot|LinkedInBot|SkypeUriPreview|redditbot|Pinterest|Mastodon|Bluesky|Iframely|Embedly|vkShare|SignalBot) [NC]
   RewriteRule ^ - [E=ROBOT_APERCU:1]
 
+  # ── Deux règles pour les mix, parce qu'il y a deux adresses ───────────────
+  #
+  # La canonique porte le compte : `/mixes/<compte>/<slug>`. La première règle
+  # ne la reconnaissait pas — `([^/]+)` ne prend QU'UN segment — et tout lien de
+  # mix collé dans une conversation retombait donc sur la règle d'application
+  # monopage tout en bas, c'est-à-dire sur `index.html` : le robot n'y trouvait
+  # que le titre générique du site, sans pochette ni artiste. Le passage à deux
+  # segments avait été fait côté site sans l'être ici.
+  #
+  # La règle à un seul segment reste, sous la première : l'ancienne adresse
+  # `/mixes/<id>` a été partagée avant, ces liens circulent encore, et l'API
+  # leur rend le même aperçu.
+  #
+  # `/mixes/<compte>/<slug>/edit` fait trois segments et n'est reconnu par
+  # aucune des deux, ce qui est voulu — un formulaire d'édition n'a pas d'aperçu
+  # à donner.
+  RewriteCond %{ENV:ROBOT_APERCU} =1
+  RewriteRule ^mixes/([^/]+)/([^/]+)/?$ https://api.tambouille.pantagruweb.club/api/preview/mixes/$1/$2 [R=302,L]
+
   RewriteCond %{ENV:ROBOT_APERCU} =1
   RewriteRule ^mixes/([^/]+)/?$ https://api.tambouille.pantagruweb.club/api/preview/mixes/$1 [R=302,L]
 
