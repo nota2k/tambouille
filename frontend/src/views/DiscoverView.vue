@@ -14,7 +14,8 @@ import MixGrid from '@/components/MixGrid.vue'
 import FavoriteButton from '@/components/FavoriteButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import ShareButton from '@/components/ShareButton.vue'
-import { mixShareUrl } from '@/utils/share'
+import { mixEmbedUrl, mixShareUrl } from '@/utils/share'
+import { HAUTEUR_EMBED_MIX } from '@/utils/embed'
 import TagsOverlay from '@/components/TagsOverlay.vue'
 import FourneeBanner from '@/components/FourneeBanner.vue'
 import FeedLink from '@/components/FeedLink.vue'
@@ -609,7 +610,11 @@ onMounted(loadSections)
                   <div class="flex items-center gap-3">
                     <FavoriteButton :mix="featuredMix" />
                     <AddToPlaylistButton :mix-id="featuredMix.id" />
-                    <ShareButton :url="mixShareUrl(featuredMix)" />
+                    <ShareButton
+                      :url="mixShareUrl(featuredMix)"
+                      :embed-url="mixEmbedUrl(featuredMix)"
+                      :embed-height="HAUTEUR_EMBED_MIX"
+                    />
                   </div>
                   <span v-if="featuredMix.audioUrl" class="text-[13px] text-tambouille-muted">
                     {{ featuredMix.playsCount }} écoutes

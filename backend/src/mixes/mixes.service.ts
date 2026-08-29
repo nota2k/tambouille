@@ -327,6 +327,51 @@ export class MixesService {
     return toMixResponse(mix);
   }
 
+  /**
+   * Le mix déjà en base pour cette source, s'il y en a un.
+   *
+   * Sert au contrôle de doublon du formulaire d'import : la même émission
+   * réimportée une seconde fois produisait deux mix identiques, que rien ne
+   * rapprochait ensuite.
+   *
+   * Deux critères, et non un seul. `sourceRef` désigne le fichier ou la clé du
+   * cloudcast, et c'est l'identité la plus sûre — mais elle change si la source
+   * réhéberge son audio. `sourcePageUrl` désigne la page de l'émission, qui
+   * elle ne bouge pas. Un mix trouvé par l'un ou l'autre est un doublon.
+   *
+   * Rend `null` plutôt que de lever : ne rien trouver est le cas NORMAL, celui
+   * d'un premier import, pas une erreur.
+   */
+  async findBySource(ref?: string, pageUrl?: string) {
+    const criteres = [
+      ref ? { sourceRef: ref } : null,
+      pageUrl ? { sourcePageUrl: pageUrl } : null,
+    ].filter((c) => c !== null);
+
+    // Sans critère, `OR: []` ne filtre RIEN chez Prisma : la requête rendrait
+    // le premier mix du catalogue et le formulaire annoncerait un doublon à
+    // tout le monde.
+    if (!criteres.length) return null;
+
+    const mix = await this.prisma.mix.findFirst({
+      where: { OR: criteres },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        // La pochette part avec le reste : l'encart qui annonce le doublon la
+        // montre, et c'est elle qui le rend reconnaissable d'un coup d'œil —
+        // plus vite qu'un titre qu'on doit lire pour le reconnaître.
+        coverUrl: true,
+        createdAt: true,
+        user: { select: { username: true, displayName: true } },
+      },
+    });
+
+    return mix;
+  }
+
   async findOne(id: string, currentUserId?: string) {
     const mix = await this.prisma.mix.findUnique({
       where: { id },

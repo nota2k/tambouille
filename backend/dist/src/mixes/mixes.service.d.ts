@@ -54,6 +54,17 @@ export declare class MixesService {
         totalPages: number;
     }>;
     findBySlug(username: string, slug: string, currentUserId?: string): Promise<any>;
+    findBySource(ref?: string, pageUrl?: string): Promise<{
+        id: string;
+        coverUrl: string | null;
+        createdAt: Date;
+        title: string;
+        slug: string;
+        user: {
+            username: string | null;
+            displayName: string;
+        };
+    } | null>;
     findOne(id: string, currentUserId?: string): Promise<any>;
     resolveAudio(id: string, bases: MediaBases): Promise<{
         url: string;

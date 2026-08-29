@@ -23,6 +23,24 @@ const searchResults = ref<SearchResult[]>([])
 const showDropdown = ref(false)
 const activeIndex = ref(-1)
 const searchContainer = ref<HTMLElement>()
+const searchInput = ref<HTMLInputElement>()
+/** Vrai tant que le curseur est dans le champ : l'indice du raccourci s'efface alors. */
+const rechercheFocalisee = ref(false)
+
+/**
+ * « ⌘K » sur un Mac, « Ctrl K » ailleurs.
+ *
+ * Lu une fois, au chargement : le système d'exploitation ne change pas en cours
+ * de visite. `userAgentData.platform` d'abord, `platform` en repli — ce dernier
+ * est déprécié mais reste le seul disponible sur Safari et Firefox.
+ */
+const raccourciRecherche = (() => {
+  const plateforme =
+    (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+    navigator.platform ??
+    ''
+  return /mac|iphone|ipad/i.test(plateforme) ? '⌘K' : 'Ctrl K'
+})()
 
 let searchTimeout: ReturnType<typeof setTimeout> | undefined
 
@@ -128,18 +146,74 @@ watch(mobileMenuOpen, (open) => {
 // elle ne part pas d'un clic sur un de ses liens (redirection après logout).
 watch(() => router.currentRoute.value.fullPath, closeMobileMenu)
 
+function onSearchFocus() {
+  rechercheFocalisee.value = true
+  showDropdown.value = searchResults.value.length > 0
+}
+
 function onEscape(e: KeyboardEvent) {
   if (e.key === 'Escape') closeMobileMenu()
+}
+
+/**
+ * ⌘K — ou Ctrl+K — pose le curseur dans la recherche du site.
+ *
+ * ── Pourquoi pas ⌘F ─────────────────────────────────────────────────────────
+ *
+ * C'est le raccourci natif « rechercher dans la page ». Le détourner l'aurait
+ * retiré à qui s'en sert pour parcourir une longue tracklist, ce qui est
+ * précisément ce qu'on vient faire ici. ⌘K est la convention des outils qui ont
+ * une recherche à eux ; il entre en concurrence avec le raccourci Chrome de la
+ * barre d'adresse, que `preventDefault` neutralise.
+ *
+ * ── `e.key` ici, et non `e.code` ────────────────────────────────────────────
+ *
+ * L'inverse du cas d'Alt : ⌘ et Ctrl ne changent pas le caractère produit, donc
+ * `e.key` vaut bien « k ». Et il reste juste sur les dispositions qui déplacent
+ * les lettres — en Dvorak, `e.code` désignerait une touche portant autre chose.
+ *
+ * ── Deux réserves ───────────────────────────────────────────────────────────
+ *
+ * Rien n'est intercepté quand le champ n'est pas là : sous 640 px le formulaire
+ * porte `hidden sm:flex`, et détourner le raccourci pour ne rien focaliser
+ * laisserait l'utilisateur sans recherche NI recherche du navigateur.
+ *
+ * Rien n'est intercepté non plus quand on est déjà dans une zone de saisie —
+ * la description d'un mix, un commentaire. Là, ⌘F veut dire « chercher dans ce
+ * que je suis en train d'écrire », et le rediriger vers l'en-tête serait à
+ * contretemps. Le champ de recherche lui-même fait exception : y refaire ⌘F
+ * resélectionne son contenu, ce qui est ce qu'on attend.
+ */
+function onRechercheRapide(e: KeyboardEvent) {
+  if (e.key.toLowerCase() !== 'k' || !(e.metaKey || e.ctrlKey) || e.altKey) return
+
+  const champ = searchInput.value
+  // `offsetParent` est nul quand un ancêtre est en `display: none` : c'est la
+  // façon la plus simple de savoir que le formulaire est replié.
+  if (!champ || champ.offsetParent === null) return
+
+  const actif = document.activeElement
+  const dansUneSaisie =
+    actif instanceof HTMLElement &&
+    actif !== champ &&
+    (actif.tagName === 'INPUT' || actif.tagName === 'TEXTAREA' || actif.isContentEditable)
+  if (dansUneSaisie) return
+
+  e.preventDefault()
+  champ.focus()
+  champ.select()
 }
 
 onMounted(() => {
   document.addEventListener('click', onClickOutside)
   document.addEventListener('keydown', onEscape)
+  document.addEventListener('keydown', onRechercheRapide)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', onClickOutside)
   document.removeEventListener('keydown', onEscape)
+  document.removeEventListener('keydown', onRechercheRapide)
   document.body.style.overflow = ''
 })
 </script>
@@ -192,13 +266,35 @@ onUnmounted(() => {
             <path d="m21 21-4.3-4.3" />
           </svg>
           <input
+            ref="searchInput"
             v-model="headerSearch"
             type="search"
             placeholder="Chercher un mix, un⋅e cuisinier⋅ère, un tag…"
-            class="w-full rounded-none bg-white py-[9px] pl-10 pr-4 text-sm text-tambouille-text placeholder-tambouille-faint outline-none"
+            class="w-full rounded-none bg-white py-[9px] pl-10 pr-16 text-sm text-tambouille-text placeholder-tambouille-faint outline-none"
             @keydown="onKeydown"
-            @focus="showDropdown = searchResults.length > 0"
+            @focus="onSearchFocus"
+            @blur="rechercheFocalisee = false"
           />
+
+          <!--
+            L'indice du raccourci, dans le champ, à droite.
+
+            Il s'efface dès qu'on entre dans le champ : le raccourci n'a plus
+            rien à annoncer une fois qu'on y est, et il croiserait le texte
+            saisi. `pointer-events-none` pour que le clic dessus atteigne le
+            champ — c'est un panneau, pas un bouton.
+
+            `aria-hidden` : un lecteur d'écran n'a que faire de « ⌘K », qui ne
+            décrit ni le champ ni son état. Le raccourci lui-même reste
+            utilisable, il n'est simplement pas annoncé ici.
+          -->
+          <kbd
+            v-if="!rechercheFocalisee && !headerSearch"
+            aria-hidden="true"
+            class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 border border-tambouille-border px-1.5 py-0.5 font-sans text-[11px] leading-none text-tambouille-faint"
+          >
+            {{ raccourciRecherche }}
+          </kbd>
 
           <div
             v-if="showDropdown"

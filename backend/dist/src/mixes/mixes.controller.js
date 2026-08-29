@@ -48,6 +48,9 @@ let MixesController = class MixesController {
     findAllTags() {
         return this.mixesService.findAllTags();
     }
+    findBySource(ref, pageUrl) {
+        return this.mixesService.findBySource(ref, pageUrl);
+    }
     findBySlug(username, slug, currentUserId) {
         return this.mixesService.findBySlug(username, slug, currentUserId);
     }
@@ -136,6 +139,15 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], MixesController.prototype, "findAllTags", null);
+__decorate([
+    (0, common_1.Get)('by-source'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Query)('ref')),
+    __param(1, (0, common_1.Query)('pageUrl')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], MixesController.prototype, "findBySource", null);
 __decorate([
     (0, common_1.Get)('by-slug/:username/:slug'),
     (0, common_1.UseGuards)(optional_jwt_auth_guard_1.OptionalJwtAuthGuard),

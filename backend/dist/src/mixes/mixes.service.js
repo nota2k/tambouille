@@ -229,6 +229,27 @@ let MixesService = class MixesService {
         }
         return toMixResponse(mix);
     }
+    async findBySource(ref, pageUrl) {
+        const criteres = [
+            ref ? { sourceRef: ref } : null,
+            pageUrl ? { sourcePageUrl: pageUrl } : null,
+        ].filter((c) => c !== null);
+        if (!criteres.length)
+            return null;
+        const mix = await this.prisma.mix.findFirst({
+            where: { OR: criteres },
+            orderBy: { createdAt: 'asc' },
+            select: {
+                id: true,
+                title: true,
+                slug: true,
+                coverUrl: true,
+                createdAt: true,
+                user: { select: { username: true, displayName: true } },
+            },
+        });
+        return mix;
+    }
     async findOne(id, currentUserId) {
         const mix = await this.prisma.mix.findUnique({
             where: { id },
