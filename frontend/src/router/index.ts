@@ -2,11 +2,13 @@ import { createRouter, createWebHistory, START_LOCATION } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { resetSeo } from '@/composables/useSeo'
 import { couvrirLaPage } from '@/composables/useTransitionDePage'
+import { positionDeDefilement } from './scroll'
 import { routes } from './routes'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
+  scrollBehavior: positionDeDefilement,
 })
 
 router.beforeEach((to) => {
