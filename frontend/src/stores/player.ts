@@ -22,6 +22,23 @@ export const usePlayerStore = defineStore('player', {
   }),
 
   actions: {
+    /**
+     * Met un mix dans la barre sans le lancer.
+     *
+     * Ce que fait un lecteur intégré à l'ouverture : il s'affiche, prêt, et
+     * attend le clic. `play` ne conviendrait pas — il annoncerait une lecture
+     * que ni le navigateur ni la politesse n'autorisent dans le cadre du site
+     * de quelqu'un d'autre.
+     */
+    load(mix: Mix) {
+      if (this.currentMix?.id === mix.id) return
+      this.currentMix = mix
+      this.isPlaying = false
+      this.pendingSeekSec = null
+      this.currentTime = 0
+      this.duration = 0
+    },
+
     play(mix: Mix) {
       if (this.currentMix?.id !== mix.id) {
         this.currentMix = mix

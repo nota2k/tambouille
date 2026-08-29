@@ -16,7 +16,8 @@ import MixCard from '@/components/MixCard.vue'
 import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
-import { mixShareUrl } from '@/utils/share'
+import { mixEmbedUrl, mixShareUrl } from '@/utils/share'
+import { HAUTEUR_EMBED_MIX } from '@/utils/embed'
 import { nomDeLaSource } from '@/utils/source'
 import { mixEditRoute, mixRoute } from '@/utils/routes'
 import { taireLeProchainVoile } from '@/composables/useTransitionDePage'
@@ -177,7 +178,6 @@ const suiteApresLaDuree = computed(() => {
   return current.tracklist.length > 0 || current.tags.length > 0
 })
 const isCurrent = computed(() => mix.value != null && playerStore.currentMix?.id === mix.value.id)
-const isPlaying = computed(() => isCurrent.value && playerStore.isPlaying)
 
 /**
  * Le morceau en cours, d'après la position de lecture : c'est ce qui rend la
@@ -192,12 +192,6 @@ const currentTrackId = computed(() => {
   }
   return active
 })
-
-function togglePlay() {
-  if (!mix.value) return
-  if (isCurrent.value) playerStore.toggle()
-  else playerStore.play(mix.value)
-}
 
 /**
  * La page d'un mix est la seule du site qui décrive une œuvre précise : c'est
@@ -348,10 +342,11 @@ watch(
             <span v-for="tag in mix.tags" :key="tag" class="tb-tag">{{ tag }}</span>
           </p>
 
+          <!-- Pas de bouton « Écouter » ici : `WaveformPlayer`, juste en dessous,
+               en porte déjà un qui fait exactement la même chose. Deux commandes
+               identiques à trente pixels l'une de l'autre ne donnent pas le
+               choix, elles font douter qu'elles fassent la même chose. -->
           <div class="flex flex-wrap items-center gap-3">
-            <button class="tb-btn" @click="togglePlay">
-              {{ isPlaying ? 'Pause' : 'Écouter' }}
-            </button>
             <!-- Le libellé passe dans `aria-label` et `title` : sans texte
                  visible, ce sont eux qui portent l'action et son état. Le cœur
                  plein ou creux dit lequel des deux à qui voit l'icône. -->
@@ -380,7 +375,11 @@ watch(
               </svg>
             </button>
             <AddToPlaylistButton :mix-id="mix.id" />
-            <ShareButton :url="mixShareUrl(mix)" />
+            <ShareButton
+              :url="mixShareUrl(mix)"
+              :embed-url="mixEmbedUrl(mix)"
+              :embed-height="HAUTEUR_EMBED_MIX"
+            />
           </div>
 
           <div

@@ -66,11 +66,13 @@ function play(event: Event) {
     <ShareButton :url="mixShareUrl(mix)" variant="overlay" />
     <AddToPlaylistButton :mix-id="mix.id" variant="overlay" />
 
-    <p class="mt-2.5 font-display text-[15px] font-bold leading-snug text-tambouille-text">
+    <p
+      class="mt-2.5 font-display text-[15px] font-bold leading-snug text-tambouille-text group-hover:underline"
+    >
       {{ mix.title }}
     </p>
     <p class="mt-1 truncate text-[13px] text-tambouille-muted">
-      <span class="artiste">{{ credit.primary }}</span
+      <span class="artiste group-hover:underline">{{ credit.primary }}</span
       ><template v-if="duration"> · {{ duration }}</template>
       <span v-if="credit.secondary" class="block text-tambouille-muted">
         importé par {{ credit.secondary }}

@@ -40,3 +40,19 @@ export async function copyLink(url: string) {
 
   return url
 }
+
+/**
+ * L'adresse du lecteur intégrable d'un mix.
+ *
+ * Une page à part, et non la page du mix dans un cadre : cette dernière porte
+ * une navigation, un pied de page et des suggestions qui n'ont aucun sens dans
+ * 200 pixels de haut sur le site de quelqu'un d'autre.
+ */
+export function mixEmbedUrl(mix: MixLocalisable) {
+  return shareUrl({ name: 'mix-embed', params: { username: mix.user.username, slug: mix.slug } })
+}
+
+/** L'adresse du lecteur intégrable d'une playlist. */
+export function playlistEmbedUrl(playlistId: string) {
+  return shareUrl({ name: 'playlist-embed', params: { id: playlistId } })
+}

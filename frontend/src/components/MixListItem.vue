@@ -15,20 +15,12 @@ const playerStore = usePlayerStore()
 const duration = computed(() => formatDuration(props.mix.durationSec))
 const credit = computed(() => mixCredit(props.mix))
 const isCurrent = computed(() => playerStore.currentMix?.id === props.mix.id)
-const isPlaying = computed(() => isCurrent.value && playerStore.isPlaying)
 
 /**
  * Deux tags au maximum dans le flux : cinq pastilles grises identiques par mix
  * n'en laissent primer aucune. Le reste attend sur la page du mix.
  */
 const visibleTags = computed(() => props.mix.tags.slice(0, 2))
-
-function onToggle(event: Event) {
-  event.preventDefault()
-  event.stopPropagation()
-  if (isCurrent.value) playerStore.toggle()
-  else playerStore.play(props.mix)
-}
 </script>
 
 <template>
@@ -85,13 +77,10 @@ function onToggle(event: Event) {
       <WaveformPlayer :mix="mix" class="mt-2" />
     </div>
 
-    <button
-      type="button"
-      class="tb-btn-sm shrink-0"
-      :class="isCurrent ? 'tb-btn' : 'tb-btn-outline'"
-      @click="onToggle"
-    >
-      {{ isPlaying ? 'En lecture' : isCurrent ? 'Reprendre' : 'Lire' }}
-    </button>
+    <!-- Pas de bouton « Lire » au bout de la ligne : le `WaveformPlayer`
+         juste au-dessus en porte déjà un, et il fait la même chose. Deux
+         commandes pour la même action sur une même ligne de liste, c'est
+         surtout deux fois plus de choses à lire avant de cliquer. La teinte du
+         fond continue de dire quel mix est en cours. -->
   </RouterLink>
 </template>

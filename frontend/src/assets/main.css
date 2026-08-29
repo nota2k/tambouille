@@ -312,6 +312,38 @@ body {
 }
 
 /*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * LE CURSEUR MAIN SUR CE QUI SE CLIQUE
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Le preflight de Tailwind 4 pose `cursor: default` sur les boutons — c'est la
+ * valeur de la spécification, et un changement par rapport à la version 3. Sur
+ * ce site, seules les classes qui le remettent explicitement (`.tb-btn*`,
+ * `.tb-chip`) avaient donc encore la main : tous les boutons construits en
+ * utilitaires nus — la barre de lecture, les commandes au survol des cartes,
+ * les lignes des lecteurs intégrés — n'annonçaient plus qu'on pouvait les
+ * cliquer.
+ *
+ * `:disabled` reste dehors : un bouton qu'on ne peut pas actionner ne doit pas
+ * prétendre le contraire, et `.tb-btn:disabled` lui donne déjà `not-allowed`.
+ * `[role="button"]` couvre les quelques éléments qui jouent au bouton sans en
+ * être un, avec son équivalent d'inactif.
+ *
+ * Dans `@layer base`, et le choix compte, pour la même raison que le bloc
+ * `@layer components` en bas de ce fichier : la couche arrive après le
+ * preflight, donc elle l'emporte sur lui, mais reste sous `@layer utilities` —
+ * un `cursor-default` posé sur un bouton précis continue de gagner. Hors
+ * couche, la règle aurait battu jusqu'aux utilitaires, et ce garde-fou-là
+ * n'aurait plus eu de recours.
+ */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+}
+
+/*
  * Gulax tient les gros titres — logotype, titres de page et de section. Arvo
  * (`font-display`) prend le relais sur les titres de contenu répétés : titres de
  * mix dans les listes, cartes, lecteur. Deux niveaux, pas deux polices en

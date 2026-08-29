@@ -4,7 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { mediaUrl } from '@/utils/media'
 import { formatDate } from '@/utils/date'
-import { playlistShareUrl } from '@/utils/share'
+import { playlistEmbedUrl, playlistShareUrl } from '@/utils/share'
+import { HAUTEUR_EMBED_PLAYLIST } from '@/utils/embed'
 import { useSeo } from '@/composables/useSeo'
 import {
   deletePlaylist,
@@ -222,7 +223,11 @@ watch(() => route.params.id, loadPlaylist)
               <span class="text-sm text-tambouille-muted">
                 {{ playlist.mixesCount }} {{ playlist.mixesCount > 1 ? 'mixs' : 'mix' }}
               </span>
-              <ShareButton :url="playlistShareUrl(playlist.id)" />
+              <ShareButton
+                :url="playlistShareUrl(playlist.id)"
+                :embed-url="playlistEmbedUrl(playlist.id)"
+                :embed-height="HAUTEUR_EMBED_PLAYLIST"
+              />
               <FeedLink :href="feedUrl(`/playlists/${playlist.id}/rss`)" :title="playlist.title" />
             </div>
 
