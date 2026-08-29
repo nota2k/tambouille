@@ -6,9 +6,22 @@ import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
 import { formatTime, parseTimecode } from '@/utils/time'
 import CommentItem from './CommentItem.vue'
-import type { Comment, Mix } from '@/types'
+import type { Comment, CommentReply, Mix } from '@/types'
 
 const props = defineProps<{ mix: Mix }>()
+
+/**
+ * Un écart, et non un total.
+ *
+ * Ce composant écrivait dans `mix.commentsCount`, qui appartient à
+ * `MixDetailView`. Il le signale désormais, et c'est le propriétaire du mix qui
+ * met à jour son compte.
+ *
+ * L'écart plutôt que la valeur, parce que ce composant ne connaît pas le total :
+ * il ne charge que cinquante commentaires, quand le compte du mix inclut aussi
+ * les réponses. Il sait ce qui vient de changer, pas ce qu'il y a en tout.
+ */
+const emit = defineEmits<{ 'count-changed': [ecart: number] }>()
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
 const router = useRouter()
@@ -66,7 +79,7 @@ async function postComment() {
       timecodeSec,
     })
     comments.value = [...comments.value, data].sort((a, b) => a.timecodeSec - b.timecodeSec)
-    props.mix.commentsCount += 1
+    emit('count-changed', 1)
     body.value = ''
     manualTimecode.value = ''
   } catch (err: any) {
@@ -78,7 +91,24 @@ async function postComment() {
 
 function onCommentDeleted(comment: Comment) {
   comments.value = comments.value.filter((c) => c.id !== comment.id)
-  props.mix.commentsCount -= 1 + comment.replies.length
+  // Le commentaire et ses réponses : l'API les supprime en cascade, le compte
+  // du mix doit en faire autant.
+  emit('count-changed', -(1 + comment.replies.length))
+}
+
+/**
+ * Les réponses appartiennent à cette liste-ci, pas à `CommentItem` : c'est donc
+ * ici qu'on les ajoute et qu'on les retire, sur un objet dont ce composant est
+ * bien le propriétaire.
+ */
+function onReplyAdded(comment: Comment, reply: CommentReply) {
+  comment.replies.push(reply)
+  emit('count-changed', 1)
+}
+
+function onReplyDeleted(comment: Comment, reply: CommentReply) {
+  comment.replies = comment.replies.filter((r) => r.id !== reply.id)
+  emit('count-changed', -1)
 }
 
 onMounted(loadComments)
@@ -128,6 +158,8 @@ onMounted(loadComments)
         :comment="comment"
         :mix="mix"
         @deleted="onCommentDeleted(comment)"
+        @reply-added="onReplyAdded(comment, $event)"
+        @reply-deleted="onReplyDeleted(comment, $event)"
       />
     </ul>
   </div>
