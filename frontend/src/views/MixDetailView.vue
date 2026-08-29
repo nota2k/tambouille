@@ -17,6 +17,7 @@ import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import { mixShareUrl } from '@/utils/share'
+import { nomDeLaSource } from '@/utils/source'
 import { mixEditRoute, mixRoute } from '@/utils/routes'
 import { taireLeProchainVoile } from '@/composables/useTransitionDePage'
 import { useSeo } from '@/composables/useSeo'
@@ -37,40 +38,7 @@ const suggestions = ref<Mix[]>([])
 const loading = ref(true)
 const deleting = ref(false)
 
-/**
- * Sites that write their own name differently from their domain. This is a
- * display lookup, not a stored value: what the design refused to grow one
- * entry per site was the database column, and `sourceRef` still holds a URL
- * and nothing else. A host that is not listed shows as its bare hostname,
- * which reads acceptably for most.
- */
-const SOURCE_NAMES: Record<string, string> = {
-  'archive.org': 'Archive.org',
-  'ouiedire.net': 'Ouïedire',
-  // LYL sert ses mp3 depuis un sous-domaine de fichiers, jamais depuis lyl.live :
-  // sans cette entrée le lien vers la source s'annoncerait « static.lyl.live ».
-  'static.lyl.live': 'LYL Radio',
-  // L'importateur ramène tout épisode à `www.`, donc une seule entrée suffit.
-  'www.thebrainradio.com': 'The Brain Radioshow',
-}
-
-/**
- * `sourceType` says which player engine, not which site — Archive.org and a
- * podcast both answer 'remote'. The name shown therefore comes from the host
- * of `sourceRef`, which keeps the stored value from growing one per site.
- */
-const sourceLabel = computed(() => {
-  const current = mix.value
-  if (!current?.sourceRef) return null
-  if (current.sourceType === 'mixcloud') return 'Mixcloud'
-  if (current.sourceType === 'soundcloud') return 'SoundCloud'
-  try {
-    const host = new URL(current.sourceRef).hostname.replace(/^www\./, '')
-    return SOURCE_NAMES[host] ?? host
-  } catch {
-    return null
-  }
-})
+const sourceLabel = computed(() => nomDeLaSource(mix.value?.sourceType, mix.value?.sourceRef))
 
 /**
  * L'adresse du mix dans l'API, selon la route par laquelle on est arrivé.
