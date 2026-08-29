@@ -89,11 +89,17 @@ describe('SitemapController', () => {
 
     expect(urls.map((url) => url.loc)).toEqual([
       'https://tambouille.example/',
+      // La page qui explique le site : statique, publiée juste après l'accueil.
+      'https://tambouille.example/a-propos',
       'https://tambouille.example/mixes/mix-1',
       'https://tambouille.example/users/nelly',
       'https://tambouille.example/playlists/pl-1',
     ]);
-    expect(urls[1]?.lastmod).toBe('2026-08-20T10:00:00.000Z');
+    // Repéré par son adresse et non par son rang : un index se décale au
+    // premier ajout dans la liste, et le test casse alors sans qu'aucune
+    // régression ne se soit produite.
+    const leMix = urls.find((url) => url.loc.endsWith('/mixes/mix-1'));
+    expect(leMix?.lastmod).toBe('2026-08-20T10:00:00.000Z');
   });
 
   it('laisse dehors les comptes sans nom d’utilisateur, qui n’ont pas de page publique', async () => {
