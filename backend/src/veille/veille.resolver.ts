@@ -32,8 +32,14 @@ export function canonicalUrl(raw: string): string {
   if (url.protocol !== 'https:') {
     throw new BadRequestException('La source doit être en https');
   }
-  const path = url.pathname.replace(/\/$/, '');
-  return `https://${url.hostname.toLowerCase()}${path}`;
+  // Le point final d'un nom d'hôte ("ouiedire.net.") est ignoré par le DNS et
+  // par tout navigateur : deux adresses qui ne diffèrent que par lui désignent
+  // le même serveur et doivent tomber sur la même ligne.
+  const host = url.hostname.toLowerCase().replace(/\.+$/, '');
+  // Idem pour les barres obliques répétées ou finales dans le chemin : le
+  // serveur les traite comme une seule, ou comme absentes.
+  const path = url.pathname.replace(/\/{2,}/g, '/').replace(/\/+$/, '');
+  return `https://${host}${path}`;
 }
 
 function toVeilleItems(items: SourceItem[]): VeilleItem[] {

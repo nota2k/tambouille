@@ -11,6 +11,9 @@ describe('canonicalUrl', () => {
     ['https://Ouiedire.net/Feed/', 'https://ouiedire.net/Feed'],
     ['https://ouiedire.net/feed?x=1#a', 'https://ouiedire.net/feed'],
     ['https://ouiedire.net', 'https://ouiedire.net'],
+    ['https://ouiedire.net./feed', 'https://ouiedire.net/feed'],
+    ['https://x.test//feed', 'https://x.test/feed'],
+    ['https://x.test/feed//', 'https://x.test/feed'],
   ])('%s → %s', (raw, expected) => {
     expect(canonicalUrl(raw)).toBe(expected);
   });
@@ -18,6 +21,18 @@ describe('canonicalUrl', () => {
   it('refuse ce qui n’est pas une URL https', () => {
     expect(() => canonicalUrl('pas une url')).toThrow(BadRequestException);
     expect(() => canonicalUrl('http://ouiedire.net')).toThrow(BadRequestException);
+  });
+
+  it.each([
+    'https://Ouiedire.net/Feed/',
+    'https://ouiedire.net/feed?x=1#a',
+    'https://ouiedire.net',
+    'https://ouiedire.net./feed',
+    'https://x.test//feed',
+    'https://x.test/feed//',
+  ])('est idempotente sur %s', (raw) => {
+    const once = canonicalUrl(raw);
+    expect(canonicalUrl(once)).toBe(once);
   });
 });
 
