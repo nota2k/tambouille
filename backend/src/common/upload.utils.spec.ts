@@ -293,6 +293,35 @@ describe('r2Storage', () => {
   });
 });
 
+describe('listerClesR2', () => {
+  beforeEach(() => {
+    send.mockReset();
+    send.mockResolvedValue({
+      Contents: [{ Key: 'covers/a.webp' }],
+      IsTruncated: false,
+    });
+  });
+
+  async function prefixeEnvoye(argument: string): Promise<unknown> {
+    for await (const _ of listerClesR2(argument)) {
+      // On ne consomme que pour déclencher la requête.
+    }
+    return (send.mock.calls[0][0] as { input: { Prefix: string } }).input
+      .Prefix;
+  }
+
+  it('pose la barre oblique quand elle manque', async () => {
+    await expect(prefixeEnvoye('covers')).resolves.toBe('covers/');
+  });
+
+  it("ne la double pas quand l'appelant l'a déjà mise", async () => {
+    // `covers//` ne correspond à rien : la liste revient vide et RIEN ne le
+    // signale. `backfill-variantes` s'est ainsi cru devant un bucket vide et
+    // réécrivait toutes les variantes à chaque passage, au lieu de reprendre.
+    await expect(prefixeEnvoye('covers/')).resolves.toBe('covers/');
+  });
+});
+
 describe('poserCacheControlR2', () => {
   beforeEach(() => {
     send.mockReset();
