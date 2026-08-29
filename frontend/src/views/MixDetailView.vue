@@ -79,11 +79,24 @@ const sourcePageUrl = computed(() => {
 })
 
 /**
- * Réécrit l'URL avec le compte propriétaire, si elle ne l'a pas ou pas le bon.
+ * L'adresse du mix dans l'API, selon la route par laquelle on est arrivé.
  *
- * C'est ce qui fait vivre les anciens liens `/mixes/<id>` sans les dupliquer :
- * ils affichent la page, puis l'adresse devient la canonique. Aucune requête de
- * plus — celle du mix venait d'aboutir, et c'est elle qui apprend l'username.
+ * Deux routes mènent ici : la canonique, `/mixes/<compte>/<slug>`, et l'ancienne
+ * à un seul segment, qui ne connaît qu'un identifiant. Le paramètre présent
+ * suffit à les distinguer.
+ */
+function urlDeLApi(): string {
+  const { username, slug, id } = route.params
+  if (typeof id === 'string') return `/mixes/${id}`
+  return `/mixes/by-slug/${encodeURIComponent(String(username))}/${encodeURIComponent(String(slug))}`
+}
+
+/**
+ * Remplace une ancienne adresse `/mixes/<id>` par la canonique.
+ *
+ * C'est ce qui fait vivre les liens déjà partagés sans les dupliquer : ils
+ * affichent la page, puis l'adresse devient la bonne. Aucune requête de plus —
+ * celle du mix venait d'aboutir, et c'est elle qui apprend compte et slug.
  *
  * `taireLeProchainVoile` parce que rien de ce qui est affiché ne change : sans
  * lui, le voile rose tomberait sur une page déjà lue.
@@ -92,7 +105,11 @@ const sourcePageUrl = computed(() => {
  * une ancre, et les perdre en chemin viderait le partage de son sens.
  */
 function canoniserLUrl(courant: Mix) {
-  if (route.params.username === courant.user.username) return
+  // Sur la route canonique il n'y a rien à corriger. Un username qui ne
+  // correspond pas n'y est plus rattrapable : le slug n'est unique que par
+  // compte, donc l'username fait partie de la désignation — l'API répond 404,
+  // ce qui est la bonne réponse.
+  if (typeof route.params.id !== 'string') return
   taireLeProchainVoile()
   router.replace({ ...mixRoute(courant), query: route.query, hash: route.hash })
 }
@@ -100,7 +117,7 @@ function canoniserLUrl(courant: Mix) {
 async function loadMix() {
   loading.value = true
   try {
-    const { data } = await apiClient.get<Mix>(`/mixes/${route.params.id}`)
+    const { data } = await apiClient.get<Mix>(urlDeLApi())
     mix.value = data
     canoniserLUrl(data)
     const { data: profileData } = await apiClient.get<UserProfile>(`/users/${data.user.username}`)
@@ -123,9 +140,18 @@ async function loadSuggestions(id: string) {
   }
 }
 
-async function loadAll(id: string) {
+/**
+ * Les deux chargements, en séquence et non plus de front.
+ *
+ * L'identifiant du mix n'est plus dans l'URL : il faut le mix pour demander ses
+ * suggestions. C'est un aller-retour de plus avant qu'elles n'arrivent, et
+ * c'est sans conséquence — elles sont sous la ligne de flottaison, et déjà
+ * traitées comme un complément qui peut manquer.
+ */
+async function loadAll() {
   suggestions.value = []
-  await Promise.all([loadMix(), loadSuggestions(id)])
+  await loadMix()
+  if (mix.value) await loadSuggestions(mix.value.id)
 }
 
 function playFromTrack(entry: TracklistEntry) {
@@ -235,26 +261,27 @@ useSeo(() => {
   }
 })
 
+/**
+ * Ce qui est affiché correspond-il déjà à ce que l'URL demande ?
+ *
+ * La question se pose parce que la réécriture d'une ancienne adresse change
+ * tous les paramètres d'un coup : sans cette comparaison, le veilleur y verrait
+ * un autre mix et redemanderait celui qu'il vient de recevoir.
+ */
+function correspondALUrl(): boolean {
+  const courant = mix.value
+  if (!courant) return false
+  if (typeof route.params.id === 'string') return route.params.id === courant.id
+  return route.params.username === courant.user.username && route.params.slug === courant.slug
+}
+
 // Une carte de suggestion mène d'un mix à un autre : même route, même composant, que Vue
 // Router réutilise sans le remonter. `onMounted` seul laissait alors l'ancien mix affiché
 // sous la nouvelle URL. On suit donc les paramètres, `immediate` remplaçant le montage.
-//
-// L'username est suivi en plus de l'identifiant, mais ne déclenche aucune requête : il ne
-// désigne pas le mix, il l'accompagne. Sans lui, une adresse au mauvais compte pointant le
-// mix déjà affiché resterait telle quelle — le composant n'ayant rien vu changer.
 watch(
-  () => [route.params.username, route.params.id] as const,
-  ([, id], precedent) => {
-    if (typeof id !== 'string') return
-
-    // Un autre mix : on recharge, et le chargement canonise l'URL au passage.
-    if (id !== precedent?.[1]) {
-      loadAll(id)
-      return
-    }
-
-    // Le même mix sous une autre adresse : rien à recharger, l'username suffit à corriger.
-    if (mix.value) canoniserLUrl(mix.value)
+  () => [route.params.username, route.params.slug, route.params.id] as const,
+  () => {
+    if (!correspondALUrl()) loadAll()
   },
   { immediate: true },
 )

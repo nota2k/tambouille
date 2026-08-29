@@ -18,36 +18,32 @@ export const routes: RouteRecordRaw[] = [
     // L'adresse canonique d'un mix porte le compte qui l'a déposé.
     // `MixDetailView` réécrit l'URL si l'username n'est pas le bon — voir
     // `mix-detail-heritee` plus bas, et `utils/routes.ts` pour la construire.
-    path: '/mixes/:username/:id',
+    path: '/mixes/:username/:slug',
     name: 'mix-detail',
     component: () => import('@/views/MixDetailView.vue'),
   },
   {
-    path: '/mixes/:username/:id/edit',
+    path: '/mixes/:username/:slug/edit',
     name: 'mix-edit',
     component: () => import('@/views/EditMixView.vue'),
     meta: { requiresAuth: true },
   },
   {
-    // ── Les anciennes adresses, à un seul segment ───────────────────────────
+    // ── L'ancienne adresse, à un seul segment ──────────────────────────────
     //
     // Elles ont été partagées et indexées ; les casser perdrait ce qui a été
     // acquis. Elles rendent donc la même vue, qui remplace l'URL par la
     // canonique une fois le mix connu — sans requête supplémentaire, puisque
     // c'est la requête qu'elle faisait déjà.
+    //
+    // Son homologue d'édition, `/mixes/<id>/edit`, a été retirée : elle a la
+    // même forme que l'adresse canonique d'un mix, et Vue Router classe le
+    // segment fixe `edit` avant un paramètre. Un mix intitulé « Edit » — slug
+    // `edit` — serait devenu inatteignable. Aucun lien d'édition n'est jamais
+    // partagé, la courtoisie ne valait pas ce risque.
     path: '/mixes/:id',
     name: 'mix-detail-heritee',
     component: () => import('@/views/MixDetailView.vue'),
-  },
-  {
-    // Jamais partagée, mais un signet ne coûte rien à honorer. Vue Router
-    // classe le segment fixe `edit` avant le paramètre `:id` de la route
-    // canonique, donc `/mixes/<uuid>/edit` continue d'arriver ici plutôt que
-    // d'être lu comme un mix nommé « edit » — ce qu'aucun identifiant n'est.
-    path: '/mixes/:id/edit',
-    name: 'mix-edit-heritee',
-    component: () => import('@/views/EditMixView.vue'),
-    meta: { requiresAuth: true },
   },
   {
     path: '/playlists/:id',

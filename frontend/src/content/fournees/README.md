@@ -20,7 +20,16 @@ mixes: [id, id, id, id, id]
 Le texte d'intention. Trois phrases, pas quatre.
 ```
 
-Les identifiants de mix se relèvent dans l'URL d'un mix : `/mixes/<username>/<id>`.
+Les identifiants de mix ne sont **plus lisibles dans l'URL** : celle-ci porte
+désormais le titre, pas l'identifiant. Le plus court pour en relever un est
+d'interroger l'API depuis l'adresse du mix — pour `/mixes/djnelly/tabouiedire` :
+
+```
+curl -s https://tambouille.pantagruweb.club/api/mixes/by-slug/djnelly/tabouiedire | grep -o '"id":"[^"]*"'
+```
+
+(Ce dossier reste indexé par identifiant, et non par titre : une fournée doit
+continuer de désigner le bon mix même si son titre est corrigé.)
 
 Le bandeau apparaît et disparaît tout seul à ses dates, sans redéploiement.
 Le publier une première fois demande en revanche un déploiement, puisque le

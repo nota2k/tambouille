@@ -20,19 +20,20 @@ const router = createRouter({ history: createMemoryHistory(), routes })
 
 const MIX = {
   id: '900a15f2-8fe1-4d4b-9c31-0f2e6a5b7c88',
+  slug: 'tabouiedire',
   user: { username: 'nota2k' },
 }
 
 describe('adresses de mix', () => {
-  it("place l'username avant l'identifiant", () => {
-    expect(router.resolve(mixRoute(MIX)).path).toBe(`/mixes/nota2k/${MIX.id}`)
-    expect(router.resolve(mixEditRoute(MIX)).path).toBe(`/mixes/nota2k/${MIX.id}/edit`)
+  it("place l'username avant le slug du titre", () => {
+    expect(router.resolve(mixRoute(MIX)).path).toBe('/mixes/nota2k/tabouiedire')
+    expect(router.resolve(mixEditRoute(MIX)).path).toBe('/mixes/nota2k/tabouiedire/edit')
   })
 
   it('résout la nouvelle adresse vers la page du mix', () => {
-    const r = router.resolve(`/mixes/nota2k/${MIX.id}`)
+    const r = router.resolve('/mixes/nota2k/tabouiedire')
     expect(r.name).toBe('mix-detail')
-    expect(r.params).toEqual({ username: 'nota2k', id: MIX.id })
+    expect(r.params).toEqual({ username: 'nota2k', slug: 'tabouiedire' })
   })
 
   /**
@@ -45,23 +46,25 @@ describe('adresses de mix', () => {
     expect(r.params).toEqual({ id: MIX.id })
   })
 
-  /**
-   * Le piège de ce chantier : `/mixes/<a>/<b>` décrit à la fois la nouvelle
-   * adresse d'un mix et l'ancienne adresse d'édition. Vue Router classe le
-   * segment fixe `edit` avant un paramètre, donc l'ancien signet gagne — et il a
-   * raison, puisqu'aucun identifiant de mix ne vaut « edit ».
-   */
-  it("n'avale pas l'ancienne adresse d'édition", () => {
-    const r = router.resolve(`/mixes/${MIX.id}/edit`)
-    expect(r.name).toBe('mix-edit-heritee')
-    expect(r.params).toEqual({ id: MIX.id })
+  it("laisse la nouvelle adresse d'édition à sa route", () => {
+    const r = router.resolve('/mixes/nota2k/tabouiedire/edit')
+    expect(r.name).toBe('mix-edit')
+    expect(r.params).toEqual({ username: 'nota2k', slug: 'tabouiedire' })
   })
 
-  /** Et inversement : un username ne doit pas se faire lire comme un mix. */
-  it("laisse la nouvelle adresse d'édition à sa route", () => {
-    const r = router.resolve(`/mixes/nota2k/${MIX.id}/edit`)
-    expect(r.name).toBe('mix-edit')
-    expect(r.params).toEqual({ username: 'nota2k', id: MIX.id })
+  /**
+   * Le piège que le slug a créé, et qui n'existait pas avec un identifiant.
+   *
+   * Un mix intitulé « Edit » a pour slug `edit`, et `/mixes/nota2k/edit` a
+   * exactement la forme de l'ancienne adresse d'édition. Vue Router classe le
+   * segment fixe avant un paramètre : cette route-là aurait gagné, et le mix
+   * serait devenu inatteignable. Elle a donc été retirée — ce test est ce qui
+   * empêche de la remettre sans y penser.
+   */
+  it("n'est pas avalée par un ancien chemin d'édition", () => {
+    const r = router.resolve('/mixes/nota2k/edit')
+    expect(r.name).toBe('mix-detail')
+    expect(r.params).toEqual({ username: 'nota2k', slug: 'edit' })
   })
 
   /** Les profils sont voisins ; rien ne doit déborder sur eux. */

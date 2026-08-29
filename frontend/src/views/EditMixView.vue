@@ -25,17 +25,36 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const mixId = route.params.id as string
+/**
+ * L'adresse du mix dans l'API, selon la route empruntée.
+ *
+ * La route canonique, `/mixes/<compte>/<slug>/edit`, ne porte plus
+ * d'identifiant ; l'ancienne, `/mixes/<id>/edit`, ne porte que lui. Le
+ * paramètre présent suffit à les distinguer.
+ */
+function urlDeLApi(): string {
+  const { username, slug, id } = route.params
+  if (typeof id === 'string') return `/mixes/${id}`
+  return `/mixes/by-slug/${encodeURIComponent(String(username))}/${encodeURIComponent(String(slug))}`
+}
 
 /**
- * Le compte propriétaire, retenu au chargement.
+ * Ce que le chargement apprend, et dont le reste de l'écran a besoin.
  *
- * L'adresse d'un mix le contient désormais, et cet écran y renvoie trois fois —
- * refus d'accès, annulation, enregistrement réussi. Le paramètre d'URL ne suffit
- * pas : cette vue répond aussi à l'ancienne adresse `/mixes/<id>/edit`, où il
- * n'y a pas d'username à lire.
+ * L'identifiant n'est plus lisible dans l'URL canonique, alors que la mise à
+ * jour s'adresse toujours à lui : il faut donc le retenir. Compte et slug le
+ * sont aussi, parce que cet écran renvoie trois fois vers la page du mix —
+ * refus d'accès, annulation, enregistrement réussi — et que l'ancienne adresse
+ * ne les contient pas.
  */
+const mixId = ref('')
 const proprietaire = ref('')
+const slugDuMix = ref('')
+
+/** Où retourner : la page du mix, une fois qu'on sait comment la nommer. */
+const retourAuMix = computed(() =>
+  mixRoute({ slug: slugDuMix.value, user: { username: proprietaire.value } }),
+)
 
 const loading = ref(true)
 const notFound = ref(false)
@@ -58,8 +77,10 @@ const error = ref('')
 async function load() {
   loading.value = true
   try {
-    const { data } = await apiClient.get<Mix>(`/mixes/${mixId}`)
+    const { data } = await apiClient.get<Mix>(urlDeLApi())
+    mixId.value = data.id
     proprietaire.value = data.user.username
+    slugDuMix.value = data.slug
 
     if (authStore.user?.id !== data.userId) {
       router.replace(mixRoute(data))
@@ -119,10 +140,10 @@ async function onSubmit() {
   if (coverFile.value) formData.append('cover', coverFile.value)
 
   try {
-    await apiClient.patch(`/mixes/${mixId}`, formData, {
+    await apiClient.patch(`/mixes/${mixId.value}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
-    router.push(mixRoute({ id: mixId, user: { username: proprietaire.value } }))
+    router.push(retourAuMix.value)
   } catch (err) {
     error.value = apiErrorMessage(err, 'Échec de la mise à jour')
   } finally {
@@ -212,12 +233,7 @@ onMounted(load)
         <button type="submit" :disabled="saving" class="flex-1 tb-btn">
           {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
         </button>
-        <RouterLink
-          :to="mixRoute({ id: mixId, user: { username: proprietaire } })"
-          class="tb-btn-outline"
-        >
-          Annuler
-        </RouterLink>
+        <RouterLink :to="retourAuMix" class="tb-btn-outline"> Annuler </RouterLink>
       </div>
     </form>
   </div>

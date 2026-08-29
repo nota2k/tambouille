@@ -15,18 +15,19 @@ import type { Mix } from '@/types'
 /**
  * Le strict nécessaire pour situer un mix.
  *
- * Volontairement plus étroit que `Mix` : la barre de lecture, les cartes et les
- * suggestions manipulent des objets différents, et rien ici ne demande une
- * pochette ou une tracklist.
+ * Le couple (compte, slug) et non l'identifiant : c'est lui qui est dans
+ * l'adresse. Un slug n'est unique que par compte — deux personnes ont le droit
+ * de publier « mix 57 » — donc l'username n'est pas décoratif ici, il fait
+ * partie de la désignation.
  */
-export type MixLocalisable = Pick<Mix, 'id'> & { user: Pick<Mix['user'], 'username'> }
+export type MixLocalisable = Pick<Mix, 'slug'> & { user: Pick<Mix['user'], 'username'> }
 
 /** L'adresse canonique d'un mix. */
 export function mixRoute(mix: MixLocalisable): RouteLocationNamedRaw {
-  return { name: 'mix-detail', params: { username: mix.user.username, id: mix.id } }
+  return { name: 'mix-detail', params: { username: mix.user.username, slug: mix.slug } }
 }
 
 /** L'adresse de son formulaire d'édition. */
 export function mixEditRoute(mix: MixLocalisable): RouteLocationNamedRaw {
-  return { name: 'mix-edit', params: { username: mix.user.username, id: mix.id } }
+  return { name: 'mix-edit', params: { username: mix.user.username, slug: mix.slug } }
 }
