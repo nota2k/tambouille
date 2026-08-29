@@ -108,7 +108,7 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
           >
             {{ credit.primary }}
           </RouterLink>
-          <template v-else>{{ credit.primary }}</template>
+          <span v-else class="font-bold">{{ credit.primary }}</span>
           <span v-if="credit.secondary" class="text-tambouille-muted">
             — importé par
             <RouterLink :to="profileRoute" class="relative z-10 font-bold hover:underline">
@@ -120,18 +120,15 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
           <span aria-hidden="true">·</span>
           <b class="font-bold text-tambouille-text">{{ duration }}</b>
         </template>
-        <template v-if="mix.tracklist.length">
-          <span aria-hidden="true">·</span>
-          <span>{{ mix.tracklist.length }} morceaux</span>
-        </template>
-        <template v-if="visibleTags.length">
-          <span aria-hidden="true">·</span>
-          <span v-for="tag in visibleTags" :key="tag" class="tb-tag">{{ tag }}</span>
-        </template>
+        <!-- Aucune condition : ni sur `audioUrl` — les écoutes se comptent
+             aussi dans les widgets, et la plupart des mix importés n'ont pas
+             d'`audioUrl` —, ni sur le zéro, qu'on affiche tel quel. Un mix que
+             personne n'a écouté le dit. -->
+        <span aria-hidden="true">·</span>
+        <span>{{ mix.playsCount }} {{ mix.playsCount > 1 ? 'écoutes' : 'écoute' }}</span>
       </p>
 
       <WaveformPlayer :mix="mix" class="relative z-10 mt-2" />
-
       <!--
         Les trois mêmes commandes que sur la page d'un mix et sur les cartes,
         sous la forme d'onde et alignées à droite.
@@ -146,20 +143,30 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
         pour se poser SUR une pochette. Sur le fond clair d'une ligne, il ferait
         trois pastilles noires au milieu du texte.
       -->
-      <div class="relative z-10 mt-2 flex items-center justify-end gap-2">
-        <FavoriteButton :mix="mix" />
-        <!-- Aligné à droite : le bouton touche le bord de la ligne, un menu
+      <div class="relative z-10 mt-2 flex items-end justify-between gap-2">
+        <!-- Les tags partagent la ligne des commandes au lieu d'occuper la
+             leur : deux pastilles ne valaient pas une ligne de plus sur chaque
+             item d'une liste qui en compte vingt. `flex-wrap` et non `wrap` —
+             ce dernier n'est pas une classe Tailwind, et les tags ne
+             revenaient donc jamais à la ligne. -->
+        <div class="flex min-w-0 flex-wrap gap-1">
+          <span v-for="tag in visibleTags" :key="tag" class="tb-tag">{{ tag }}</span>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <FavoriteButton :mix="mix" />
+          <!-- Aligné à droite : le bouton touche le bord de la ligne, un menu
              parti vers la droite sortirait de l'écran. -->
-        <AddToPlaylistButton :mix-id="mix.id" align="right" />
-        <!-- La fenêtre à onglets, comme sur la page d'un mix : le lien d'un
+          <AddToPlaylistButton :mix-id="mix.id" align="right" />
+          <!-- La fenêtre à onglets, comme sur la page d'un mix : le lien d'un
              côté, le code d'intégration et son aperçu de l'autre. Elle est
              téléportée et centrée, donc elle ne dépend pas de la place
              disponible autour du bouton. -->
-        <ShareButton
-          :url="mixShareUrl(mix)"
-          :embed-url="mixEmbedUrl(mix)"
-          :embed-height="HAUTEUR_EMBED_MIX"
-        />
+          <ShareButton
+            :url="mixShareUrl(mix)"
+            :embed-url="mixEmbedUrl(mix)"
+            :embed-height="HAUTEUR_EMBED_MIX"
+          />
+        </div>
       </div>
     </div>
 
