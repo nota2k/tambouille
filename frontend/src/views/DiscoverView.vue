@@ -447,17 +447,28 @@ onMounted(loadSections)
                 aria-hidden="true"
                 tabindex="-1"
               >
+                <!-- Éclaircissement au survol, comme les pochettes des cartes
+                     et des lignes. `hover:` sur l'image et non sur le lien : le
+                     mis en avant a deux liens vers le même mix, la pochette et
+                     le titre, et chacun doit répondre pour lui seul. -->
                 <CoverImage
                   :src="mediaUrl(featuredMix.coverUrl)"
                   :srcset="mediaSrcset(featuredMix.coverUrl)"
                   sizes="(min-width: 640px) 380px, 100vw"
                   priority
+                  img-class="transition duration-200 hover:brightness-110"
                 />
               </RouterLink>
 
               <div class="flex min-w-0 flex-1 flex-col">
                 <RouterLink :to="mixRoute(featuredMix)">
-                  <h2 class="font-display text-5xl font-medium leading-tight sm:text-[46px]">
+                  <!-- `inline-block` pour que la zone de survol épouse le texte :
+                       un `h2` occupe toute la largeur, et sans lui le titre
+                       s'éclaircirait alors que le curseur est dans le vide à
+                       droite. Même raison que sur les lignes de liste. -->
+                  <h2
+                    class="inline-block font-display text-5xl font-medium leading-tight transition-colors hover:text-tambouille-text-hover sm:text-[46px]"
+                  >
                     {{ featuredMix.title }}
                   </h2>
                 </RouterLink>
