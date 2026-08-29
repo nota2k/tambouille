@@ -97,13 +97,21 @@ describe('VeilleService', () => {
             resolver: 'b.test',
             label: 'B',
             url,
-            items: [{ title: 'B neuf', pageUrl: 'https://b.test/2' }],
+            items: [
+              {
+                title: 'B neuf',
+                pageUrl: 'https://b.test/2',
+                publishedAt: '2026-01-01T00:00:00Z',
+              },
+            ],
           }),
     );
 
     const feed = await service.getFeed('nota', 'u-1');
 
-    expect(feed.items.map((i) => i.title).sort()).toEqual(['B neuf', 'Item A']);
+    // B (datée) l'emporte sur l'instantané périmé et non daté de A : la
+    // panne de A ne l'a pas empêchée de se rafraîchir.
+    expect(feed.items.map((i) => i.title)).toEqual(['B neuf']);
     expect(feed.sources.find((s) => s.id === 'src-1')?.lastError).toBeTruthy();
   });
 
@@ -126,7 +134,13 @@ describe('VeilleService', () => {
             resolver: 'b.test',
             label: 'B',
             url,
-            items: [{ title: 'B neuf', pageUrl: 'https://b.test/2' }],
+            items: [
+              {
+                title: 'B neuf',
+                pageUrl: 'https://b.test/2',
+                publishedAt: '2026-01-01T00:00:00Z',
+              },
+            ],
           }),
     );
     // Même la tentative d'enregistrer le message d'erreur échoue (incident
@@ -135,7 +149,7 @@ describe('VeilleService', () => {
 
     const feed = await service.getFeed('nota', 'u-1');
 
-    expect(feed.items.map((i) => i.title).sort()).toEqual(['B neuf', 'Item A']);
+    expect(feed.items.map((i) => i.title)).toEqual(['B neuf']);
     expect(feed.sources.find((s) => s.id === 'src-1')?.lastError).toBeTruthy();
   });
 
@@ -175,7 +189,13 @@ describe('VeilleService', () => {
             resolver: 'b.test',
             label: 'B',
             url,
-            items: [{ title: 'B neuf', pageUrl: 'https://b.test/2' }],
+            items: [
+              {
+                title: 'B neuf',
+                pageUrl: 'https://b.test/2',
+                publishedAt: '2026-01-01T00:00:00Z',
+              },
+            ],
           }),
     );
 
@@ -195,35 +215,18 @@ describe('VeilleService', () => {
     expect(feed.sources[0].lastError).toBeUndefined();
   });
 
-  it('trie par date décroissante, les items sans date en dernier', async () => {
-    prisma.watchedSource.findMany.mockResolvedValue([
-      source({
-        items: [
-          { title: 'Sans date', pageUrl: 'https://a.test/3' },
-          { title: 'Vieux', pageUrl: 'https://a.test/1', publishedAt: '2020-01-01T00:00:00Z' },
-          { title: 'Récent', pageUrl: 'https://a.test/2', publishedAt: '2026-01-01T00:00:00Z' },
-        ],
-      }),
-    ]);
-
-    const feed = await service.getFeed('nota');
-
-    expect(feed.items.map((i) => i.title)).toEqual(['Récent', 'Vieux', 'Sans date']);
-  });
-
-  it('fusionne en tourniquet par source plutôt qu’en tri global, même si une source ne date rien', async () => {
-    // Source A (position 0) : Bandcamp-like, aucune date. Trois items, dans
-    // l'ordre où le résolveur les a trouvés.
-    // Source B (position 1) : datée, dont un item très ancien.
+  it('ne rend que la sortie la plus récente parmi plusieurs sources', async () => {
     prisma.watchedSource.findMany.mockResolvedValue([
       source({
         id: 'src-a',
         label: 'A',
         position: 0,
         items: [
-          { title: 'A1', pageUrl: 'https://a.test/1' },
-          { title: 'A2', pageUrl: 'https://a.test/2' },
-          { title: 'A3', pageUrl: 'https://a.test/3' },
+          {
+            title: 'A-vieux',
+            pageUrl: 'https://a.test/1',
+            publishedAt: '2020-01-01T00:00:00Z',
+          },
         ],
       }),
       source({
@@ -232,13 +235,8 @@ describe('VeilleService', () => {
         position: 1,
         items: [
           {
-            title: 'B-vieux',
-            pageUrl: 'https://b.test/1',
-            publishedAt: '2019-01-01T00:00:00Z',
-          },
-          {
             title: 'B-recent',
-            pageUrl: 'https://b.test/2',
+            pageUrl: 'https://b.test/1',
             publishedAt: '2026-01-01T00:00:00Z',
           },
         ],
@@ -247,16 +245,65 @@ describe('VeilleService', () => {
 
     const feed = await service.getFeed('nota');
 
-    // Un tri global par date aurait mis B-vieux (daté, même ancien) devant
-    // tous les items non datés de A. Le tourniquet doit au contraire alterner
-    // par source : rang 0 de chaque source, puis rang 1, etc.
-    expect(feed.items.map((i) => i.title)).toEqual([
-      'A1',
-      'B-recent',
-      'A2',
-      'B-vieux',
-      'A3',
+    expect(feed.items.map((i) => i.title)).toEqual(['B-recent']);
+  });
+
+  it('un item daté bat un item sans date même si ce dernier vient d’une source mieux placée', async () => {
+    prisma.watchedSource.findMany.mockResolvedValue([
+      source({
+        id: 'src-a',
+        label: 'A',
+        position: 0,
+        items: [{ title: 'Sans date', pageUrl: 'https://a.test/1' }],
+      }),
+      source({
+        id: 'src-b',
+        label: 'B',
+        position: 1,
+        items: [
+          {
+            title: 'Daté',
+            pageUrl: 'https://b.test/1',
+            publishedAt: '2020-01-01T00:00:00Z',
+          },
+        ],
+      }),
     ]);
+
+    const feed = await service.getFeed('nota');
+
+    expect(feed.items.map((i) => i.title)).toEqual(['Daté']);
+  });
+
+  it('rend quand même un item si aucune source n’en date aucun', async () => {
+    prisma.watchedSource.findMany.mockResolvedValue([
+      source({
+        id: 'src-a',
+        label: 'A',
+        position: 0,
+        items: [{ title: 'A1', pageUrl: 'https://a.test/1' }],
+      }),
+      source({
+        id: 'src-b',
+        label: 'B',
+        position: 1,
+        items: [{ title: 'B1', pageUrl: 'https://b.test/1' }],
+      }),
+    ]);
+
+    const feed = await service.getFeed('nota');
+
+    // Ni A1 ni B1 n'est daté : l'ordre des sources départage, A (position 0)
+    // l'emporte plutôt que de rendre un feed vide.
+    expect(feed.items.map((i) => i.title)).toEqual(['A1']);
+  });
+
+  it('rend un feed sans item quand il n’y a aucune source', async () => {
+    prisma.watchedSource.findMany.mockResolvedValue([]);
+
+    const feed = await service.getFeed('nota');
+
+    expect(feed.items).toEqual([]);
   });
 
   it('refuse la neuvième source', async () => {
@@ -275,18 +322,18 @@ describe('VeilleService', () => {
       url: 'https://blog.test/rss.xml',
       items: [{ title: 'A', pageUrl: 'https://blog.test/1' }],
     });
-    prisma.watchedSource.create.mockImplementation(({ data }) => ({
-      ...data,
+    prisma.watchedSource.create.mockResolvedValue({
       id: 'src-9',
-    }));
+      label: 'Blog',
+      url: 'https://blog.test/rss.xml',
+    });
 
     await service.addSource('u-1', 'https://blog.test/');
 
-    expect(prisma.watchedSource.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ url: 'https://blog.test/rss.xml' }),
-      }),
-    );
+    const calls = prisma.watchedSource.create.mock.calls as Array<
+      [{ data: { url: string } }]
+    >;
+    expect(calls[0][0].data.url).toBe('https://blog.test/rss.xml');
   });
 
   it('ne laisse pas modifier la source d’un autre', async () => {

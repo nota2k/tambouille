@@ -43,26 +43,48 @@ function parDateDecroissante(a: VeilleItem, b: VeilleItem): number {
   return instant(b.publishedAt) - instant(a.publishedAt);
 }
 
+/** Une date absente ou illisible ne compte pas comme une date : `instant`
+ *  vaut alors 0 pour les deux, ce qui suffit pour le tri mais confondrait ici
+ *  un item réellement daté de 1970 avec un item sans date. */
+function estDatee(item: VeilleItem): boolean {
+  return (
+    item.publishedAt !== undefined &&
+    !Number.isNaN(Date.parse(item.publishedAt))
+  );
+}
+
 /**
- * Fusionne le feed en tourniquet par source plutôt qu'en tri global sur la
- * date : Bandcamp n'expose aucune date de publication dans sa grille, donc un
- * tri global ferait tomber tout item Bandcamp sous n'importe quel item daté
- * — un épisode de podcast de 2019 passerait devant la sortie de label de la
- * semaine dernière. Chaque source garde son tri interne (déjà fait par
- * l'appelant) ; on prend ensuite le rang 0 de chaque source dans l'ordre des
- * positions, puis le rang 1, etc., en sautant les sources épuisées.
+ * Choisit l'unique item du feed : le plus récent, toutes sources confondues.
+ * Chaque source ne concourt qu'avec sa sortie la plus fraîche — le rang 0 de
+ * son tri interne déjà fait par l'appelant — puisqu'aucune de ses autres
+ * sorties ne peut jamais gagner face à celle-là. Un item daté l'emporte
+ * toujours sur un item sans date ; à égalité de date (ou si aucune source
+ * n'en a une), l'ordre des sources — `parSource` est déjà trié par position
+ * croissante — départage en gardant le premier trouvé.
  */
-function enTourniquet(
-  parSource: VeilleFeedItem[][],
-): VeilleFeedItem[] {
-  const fusionne: VeilleFeedItem[] = [];
-  const plusLong = Math.max(0, ...parSource.map((items) => items.length));
-  for (let rang = 0; rang < plusLong; rang++) {
-    for (const items of parSource) {
-      if (items[rang]) fusionne.push(items[rang]);
+function itemLePlusRecent(parSource: VeilleFeedItem[][]): VeilleFeedItem[] {
+  let meilleur: VeilleFeedItem | undefined;
+  let meilleurDatee = false;
+  let meilleurInstant = -Infinity;
+
+  for (const items of parSource) {
+    const candidat = items[0];
+    if (!candidat) continue;
+    const datee = estDatee(candidat);
+    const t = instant(candidat.publishedAt);
+
+    if (
+      !meilleur ||
+      (datee && !meilleurDatee) ||
+      (datee === meilleurDatee && t > meilleurInstant)
+    ) {
+      meilleur = candidat;
+      meilleurDatee = datee;
+      meilleurInstant = t;
     }
   }
-  return fusionne;
+
+  return meilleur ? [meilleur] : [];
 }
 
 @Injectable()
@@ -110,7 +132,7 @@ export class VeilleService {
       parSource.push(avecLabel);
     });
 
-    return { sources: rendues, items: enTourniquet(parSource) };
+    return { sources: rendues, items: itemLePlusRecent(parSource) };
   }
 
   /**
@@ -121,7 +143,9 @@ export class VeilleService {
     source: StoredSource,
   ): Promise<{ items: VeilleItem[]; lastError: string | null }> {
     const cached = storedItems(source.items);
-    const age = source.fetchedAt ? Date.now() - source.fetchedAt.getTime() : Infinity;
+    const age = source.fetchedAt
+      ? Date.now() - source.fetchedAt.getTime()
+      : Infinity;
     if (age < CACHE_TTL_MS) {
       return { items: cached, lastError: source.lastError };
     }
