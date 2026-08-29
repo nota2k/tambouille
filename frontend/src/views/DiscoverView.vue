@@ -434,7 +434,7 @@ onMounted(loadSections)
       </div>
 
       <section v-if="userResults.length > 0" class="mt-9">
-        <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
+        <p class="tb-eyebrow">Contributeurs</p>
         <div class="flex flex-wrap gap-6 pt-4">
           <RouterLink
             v-for="user in userResults"
@@ -683,7 +683,7 @@ onMounted(loadSections)
             </div>
 
             <div v-if="cooks.length" class="pt-8">
-              <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
+              <p class="tb-eyebrow">Contributeurs</p>
               <div class="flex flex-col gap-3.5 pt-3.5">
                 <RouterLink
                   v-for="cook in cooks"

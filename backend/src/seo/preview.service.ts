@@ -27,7 +27,7 @@ export interface PreviewContext {
  *
  * `secondaire` est null dans deux cas très différents mais rendus pareil : pas
  * d'artiste, ou un artiste qui EST le compte. Le second évite « Nelly Babillon,
- * mijoté par Nelly Babillon » quand quelqu'un dépose son propre mix.
+ * dégoté par Nelly Babillon » quand quelqu'un dépose son propre mix.
  */
 function credit(
   artist: string | null,
@@ -156,11 +156,11 @@ export class PreviewService {
      * son artiste et rien du membre qui l'a déposé, ce qui est précisément le
      * lien qu'un partage devrait faire connaître.
      *
-     * « Mijoté par » est le mot de la page du mix, pas un synonyme inventé
+     * « Dégoté par » est le mot de la page du mix, pas un synonyme inventé
      * pour l'occasion : l'aperçu et la page doivent se lire pareil.
      */
     const titre = secondaire
-      ? `${mix.title} par ${principal}, mijoté par ${secondaire}`
+      ? `${mix.title} par ${principal}, dégoté par ${secondaire}`
       : `${mix.title} par ${principal}`;
 
     return {

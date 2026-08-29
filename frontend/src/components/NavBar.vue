@@ -300,7 +300,7 @@ onUnmounted(() => {
             v-if="showDropdown"
             class="absolute left-0 right-0 top-full overflow-hidden rounded-none border border-tambouille-rule bg-tambouille-surface"
           >
-            <div class="tb-eyebrow-plain px-3 py-2">Cuisinier⋅ère⋅s</div>
+            <div class="tb-eyebrow-plain px-3 py-2">Contributeurs</div>
             <template v-for="(user, i) in searchResults" :key="user.id">
               <!-- Pas de username = pas de profil public : on n'émet aucun lien
                    plutôt qu'un lien avec un param nul, qui ferait planter le
