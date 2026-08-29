@@ -448,6 +448,16 @@ h6,
     color 0.15s ease,
     border-color 0.15s ease;
   min-width: 160px;
+  /*
+   * La hauteur est déclarée, et non laissée émerger du contenu.
+   *
+   * Un bouton de texte mesure sa ligne — 1.05rem, `line-height: 1` — quand un
+   * bouton à icône mesure son SVG, 1rem : huit dixièmes de pixel d'écart, assez
+   * pour que la rangée de la page d'un mix ne s'aligne pas. Le calcul reprend
+   * les trois valeurs du dessus : la ligne, les deux paddings, les deux
+   * bordures.
+   */
+  min-height: calc(1.05rem + 1.5rem + 2px);
 }
 
 .tb-btn {
@@ -489,6 +499,20 @@ h6,
 .tb-btn-sm {
   padding: 0.5rem 0.9rem;
   font-size: 0.6875rem;
+}
+
+/*
+ * Un bouton qui ne porte qu'une icône : partage, ajout à une playlist.
+ *
+ * Il garde le padding vertical de `.tb-btn`, donc sa hauteur exacte, et perd
+ * seulement la largeur minimale de 160 px qui l'étirerait en barre. C'est ce
+ * qui met les quatre boutons de la page d'un mix à la même hauteur sans les
+ * mettre à la même largeur.
+ */
+.tb-btn-icone {
+  min-width: 0;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
 }
 
 /* Puce cerclée : les tags de la colonne latérale et des filtres. */
