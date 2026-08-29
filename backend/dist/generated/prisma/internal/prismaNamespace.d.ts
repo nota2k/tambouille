@@ -990,6 +990,7 @@ export declare const MixScalarFieldEnum: {
     readonly audioUrl: "audioUrl";
     readonly sourceType: "sourceType";
     readonly sourceRef: "sourceRef";
+    readonly sourcePageUrl: "sourcePageUrl";
     readonly coverUrl: "coverUrl";
     readonly durationSec: "durationSec";
     readonly playsCount: "playsCount";

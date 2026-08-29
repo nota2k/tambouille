@@ -6,4 +6,5 @@ export declare class UpdateMixDto {
     tracklist?: string;
     sourceType?: string;
     sourceRef?: string;
+    sourcePageUrl?: string;
 }

@@ -3,6 +3,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   Max,
   MaxLength,
   Min,
@@ -84,6 +85,20 @@ export class CreateMixDto {
   @MaxLength(2048)
   @Validate(SourceRefConstraint)
   sourceRef?: string;
+
+  /**
+   * La page où la source publie ce mix, quand l'import a su la rapporter.
+   *
+   * Elle n'est jamais lue par le serveur, mais `MixDetailView` la rend telle
+   * quelle dans un `:href` — et Vue ne filtre pas les hrefs. D'où https exigé,
+   * ce qui écarte au passage `javascript:`. Le service refuse une page sans
+   * source distante à laquelle l'attacher.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  sourcePageUrl?: string;
 
   /**
    * Duration in seconds, when the source reported one. Multipart bodies carry

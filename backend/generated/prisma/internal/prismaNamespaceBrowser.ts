@@ -118,6 +118,7 @@ export const MixScalarFieldEnum = {
   audioUrl: 'audioUrl',
   sourceType: 'sourceType',
   sourceRef: 'sourceRef',
+  sourcePageUrl: 'sourcePageUrl',
   coverUrl: 'coverUrl',
   durationSec: 'durationSec',
   playsCount: 'playsCount',

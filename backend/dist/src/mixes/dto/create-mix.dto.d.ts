@@ -7,5 +7,6 @@ export declare class CreateMixDto {
     coverSourceUrl?: string;
     sourceType?: string;
     sourceRef?: string;
+    sourcePageUrl?: string;
     durationSec?: number;
 }

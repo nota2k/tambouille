@@ -46,6 +46,10 @@ export interface Mix {
   sourceType: string | null
   /** Cloudcast key, or a directly playable audio URL. Null when the audio is on R2. */
   sourceRef: string | null
+  /** La page où la source publie ce mix — l'émission, l'épisode. Distincte de
+   *  `sourceRef`, qui ne désigne que le fichier : d'un mp3 nu on ne remonte pas
+   *  toujours à sa page. Null quand elle n'a pas pu être retrouvée. */
+  sourcePageUrl: string | null
   coverUrl: string | null
   durationSec: number | null
   playsCount: number

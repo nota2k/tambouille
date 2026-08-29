@@ -72,14 +72,6 @@ const sourceLabel = computed(() => {
   }
 })
 
-const sourcePageUrl = computed(() => {
-  const current = mix.value
-  if (!current?.sourceRef) return null
-  return current.sourceType === 'mixcloud'
-    ? `https://www.mixcloud.com${current.sourceRef}`
-    : current.sourceRef
-})
-
 /**
  * L'adresse du mix dans l'API, selon la route par laquelle on est arrivé.
  *
@@ -194,6 +186,13 @@ function onCommentsCountChanged(ecart: number) {
 }
 
 const duration = computed(() => formatDuration(mix.value?.durationSec))
+
+/** Reste-t-il quelque chose après le nom de la source, dans la ligne d'infos ? */
+const suiteApresLaSource = computed(() => {
+  const current = mix.value
+  if (!current) return false
+  return Boolean(duration.value) || current.tracklist.length > 0 || current.tags.length > 0
+})
 const isCurrent = computed(() => mix.value != null && playerStore.currentMix?.id === mix.value.id)
 const isPlaying = computed(() => isCurrent.value && playerStore.isPlaying)
 
@@ -335,6 +334,25 @@ watch(
           </p>
 
           <p class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 pb-5 text-sm">
+            <!-- D'où vient le mix. Cliquable vers la page de l'émission quand
+                 elle est connue — les mix importés avant que la colonne existe
+                 n'en ont pas toujours une, et se contentent alors du nom. -->
+            <template v-if="sourceLabel">
+              <a
+                v-if="mix.sourcePageUrl"
+                :href="mix.sourcePageUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="font-bold hover:underline"
+              >
+                {{ sourceLabel }}
+              </a>
+              <b v-else>{{ sourceLabel }}</b>
+              <!-- Un point médian ne sépare que ce qu'il y a des deux côtés :
+                   un mix SoundCloud sans durée, sans tracklist ni tag n'a rien
+                   après son nom de source, et le point y restait suspendu. -->
+              <span v-if="suiteApresLaSource" class="text-tambouille-faint">·</span>
+            </template>
             <b v-if="duration">{{ duration }}</b>
             <span v-if="duration" class="text-tambouille-faint">·</span>
             <span v-if="mix.tracklist.length">{{ mix.tracklist.length }} morceaux</span>
@@ -380,18 +398,14 @@ watch(
       <div class="mt-9 border-b border-tambouille-rule pb-2">
         <WaveformPlayer :mix="mix" />
       </div>
-      <p class="flex items-baseline justify-between pt-2 text-xs text-tambouille-muted">
-        <a
-          v-if="sourcePageUrl"
-          :href="sourcePageUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="hover:underline"
-        >
-          Audio hébergé sur {{ sourceLabel }}
-        </a>
-        <span v-else-if="mix.audioUrl">{{ mix.playsCount }} écoutes</span>
-        <span v-if="duration">{{ duration }}</span>
+      <!-- La provenance était dite ici, sous la vague, et son lien menait au mp3
+           nu faute de mieux. Elle est maintenant dans l'encart infos, en tête,
+           avec la vraie page de l'émission : la répéter ici ne dirait rien de
+           plus. `ml-auto` remplace `justify-between`, qui collait la durée à
+           gauche dès que la ligne n'avait qu'un membre. -->
+      <p class="flex items-baseline pt-2 text-xs text-tambouille-muted">
+        <span v-if="mix.audioUrl">{{ mix.playsCount }} écoutes</span>
+        <span v-if="duration" class="ml-auto">{{ duration }}</span>
       </p>
 
       <!-- Deux colonnes seulement quand il y a une tracklist à mettre en face du

@@ -22,6 +22,7 @@ class CreateMixDto {
     coverSourceUrl;
     sourceType;
     sourceRef;
+    sourcePageUrl;
     durationSec;
 }
 exports.CreateMixDto = CreateMixDto;
@@ -73,6 +74,13 @@ __decorate([
     (0, class_validator_1.Validate)(source_ref_constraint_1.SourceRefConstraint),
     __metadata("design:type", String)
 ], CreateMixDto.prototype, "sourceRef", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(2048),
+    (0, class_validator_1.IsUrl)({ protocols: ['https'], require_protocol: true }),
+    __metadata("design:type", String)
+], CreateMixDto.prototype, "sourcePageUrl", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),

@@ -185,6 +185,93 @@ describe('MixesService', () => {
     });
   });
 
+  describe('sourcePageUrl — la page d’origine chez la source', () => {
+    const PAGE_URL = 'https://www.mixcloud.com/Notamusic/vorwerk-2/';
+
+    it('enregistre la page que l’import a rapportée', async () => {
+      const result = await service.create(
+        USER_ID,
+        {
+          title: 'A mix',
+          sourceType: SOURCE_TYPE,
+          sourceRef: SOURCE_REF,
+          sourcePageUrl: PAGE_URL,
+        },
+        {},
+      );
+
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ sourcePageUrl: PAGE_URL }),
+        }),
+      );
+      expect(result.sourcePageUrl).toBe(PAGE_URL);
+    });
+
+    it('laisse la colonne à null quand l’import n’a rapporté aucune page', async () => {
+      await service.create(
+        USER_ID,
+        { title: 'A mix', sourceType: SOURCE_TYPE, sourceRef: SOURCE_REF },
+        {},
+      );
+
+      expect(prisma.mix.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ sourcePageUrl: null }),
+        }),
+      );
+    });
+
+    it('refuse une page d’origine sur un mix qui n’a pas de source distante', async () => {
+      await expect(
+        service.create(
+          USER_ID,
+          { title: 'A mix', sourcePageUrl: PAGE_URL },
+          { audioUrl: AUDIO_KEY },
+        ),
+      ).rejects.toThrow('A source page needs a remote source');
+      expect(prisma.mix.create).not.toHaveBeenCalled();
+    });
+
+    it('corrige la page d’origine d’un mix déjà en base', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: USER_ID,
+        audioUrl: null,
+        sourceType: SOURCE_TYPE,
+        sourceRef: SOURCE_REF,
+        sourcePageUrl: null,
+      });
+
+      await service.update(MIX_ID, USER_ID, { sourcePageUrl: PAGE_URL });
+
+      expect(prisma.mix.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ sourcePageUrl: PAGE_URL }),
+        }),
+      );
+    });
+
+    it('efface la page d’origine quand le champ arrive vide', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: MIX_ID,
+        userId: USER_ID,
+        audioUrl: null,
+        sourceType: SOURCE_TYPE,
+        sourceRef: SOURCE_REF,
+        sourcePageUrl: PAGE_URL,
+      });
+
+      await service.update(MIX_ID, USER_ID, { sourcePageUrl: '' });
+
+      expect(prisma.mix.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ sourcePageUrl: null }),
+        }),
+      );
+    });
+  });
+
   describe('tracklist — a half-filled row is stored, not refused', () => {
     /**
      * A source publishes what it publishes: "Intro" credited to nobody, or a

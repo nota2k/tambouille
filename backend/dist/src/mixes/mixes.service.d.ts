@@ -4,6 +4,7 @@ import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
 export declare function assertExactlyOneAudioSource(audioUrl: string | null, sourceType: string | null, sourceRef: string | null): void;
+export declare function assertSourcePageHasASource(sourceRef: string | null, sourcePageUrl: string | null): void;
 export declare function buildMixInclude(currentUserId?: string): {
     readonly include: {
         readonly favorites?: {

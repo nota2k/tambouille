@@ -20,6 +20,7 @@ class UpdateMixDto {
     tracklist;
     sourceType;
     sourceRef;
+    sourcePageUrl;
 }
 exports.UpdateMixDto = UpdateMixDto;
 __decorate([
@@ -65,4 +66,11 @@ __decorate([
     (0, class_validator_1.Validate)(source_ref_constraint_1.SourceRefConstraint),
     __metadata("design:type", String)
 ], UpdateMixDto.prototype, "sourceRef", void 0);
+__decorate([
+    (0, class_validator_1.ValidateIf)((dto) => Boolean(dto.sourcePageUrl)),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(2048),
+    (0, class_validator_1.IsUrl)({ protocols: ['https'], require_protocol: true }),
+    __metadata("design:type", String)
+], UpdateMixDto.prototype, "sourcePageUrl", void 0);
 //# sourceMappingURL=update-mix.dto.js.map

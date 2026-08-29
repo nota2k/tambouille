@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MixesService = void 0;
 exports.assertExactlyOneAudioSource = assertExactlyOneAudioSource;
+exports.assertSourcePageHasASource = assertSourcePageHasASource;
 exports.buildMixInclude = buildMixInclude;
 exports.toMixResponse = toMixResponse;
 const common_1 = require("@nestjs/common");
@@ -66,6 +67,11 @@ function assertExactlyOneAudioSource(audioUrl, sourceType, sourceRef) {
         throw new common_1.BadRequestException('A mix cannot have both an audio file and a remote source');
     }
 }
+function assertSourcePageHasASource(sourceRef, sourcePageUrl) {
+    if (sourcePageUrl && !sourceRef) {
+        throw new common_1.BadRequestException('A source page needs a remote source');
+    }
+}
 function buildMixInclude(currentUserId) {
     return {
         include: {
@@ -116,7 +122,9 @@ let MixesService = class MixesService {
         const audioUrl = files.audioUrl || null;
         const sourceType = dto.sourceType || null;
         const sourceRef = dto.sourceRef || null;
+        const sourcePageUrl = dto.sourcePageUrl?.trim() || null;
         assertExactlyOneAudioSource(audioUrl, sourceType, sourceRef);
+        assertSourcePageHasASource(sourceRef, sourcePageUrl);
         const mix = await this.prisma.mix.create({
             data: {
                 title: dto.title,
@@ -127,6 +135,7 @@ let MixesService = class MixesService {
                 audioUrl,
                 sourceType,
                 sourceRef,
+                sourcePageUrl,
                 durationSec: dto.durationSec ?? null,
                 coverUrl: files.coverUrl,
                 userId,
@@ -268,6 +277,11 @@ let MixesService = class MixesService {
             assertExactlyOneAudioSource(mix.audioUrl, sourceType, sourceRef);
             data.sourceType = sourceType;
             data.sourceRef = sourceRef;
+        }
+        if (dto.sourcePageUrl !== undefined) {
+            const sourcePageUrl = dto.sourcePageUrl.trim() || null;
+            assertSourcePageHasASource(data.sourceRef ?? mix.sourceRef, sourcePageUrl);
+            data.sourcePageUrl = sourcePageUrl;
         }
         const updated = await this.prisma.mix.update({
             where: { id },

@@ -72,6 +72,7 @@ let MixesController = class MixesController {
     async create(userId, dto, files) {
         const audioFile = files.audio?.[0];
         (0, mixes_service_1.assertExactlyOneAudioSource)(audioFile?.key ?? null, dto.sourceType || null, dto.sourceRef || null);
+        (0, mixes_service_1.assertSourcePageHasASource)(dto.sourceRef || null, dto.sourcePageUrl?.trim() || null);
         const coverFile = files.cover?.[0];
         let coverUrl = coverFile?.key;
         if (!coverUrl && dto.coverSourceUrl) {
