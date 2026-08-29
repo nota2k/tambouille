@@ -123,7 +123,7 @@ onUnmounted(() => {
       :class="
         variant === 'overlay'
           ? 'absolute right-2 top-11 flex h-8 w-8 items-center justify-center rounded-none bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
-          : 'flex items-center gap-1.5 tb-btn-outline tb-btn-sm'
+          : 'tb-btn-outline tb-btn-icone'
       "
       :aria-expanded="open"
       aria-haspopup="true"
@@ -131,12 +131,11 @@ onUnmounted(() => {
       aria-label="Ajouter à une playlist"
       @click="toggleMenu"
     >
-      <svg viewBox="0 0 24 24" class="h-10 w-10 fill-current">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current">
         <path
           d="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm13-6v4h-4v2h4v4h2v-4h4v-2h-4v-4h-2z"
         />
       </svg>
-      <span v-if="variant === 'pill'">Ajouter à une playlist</span>
     </button>
 
     <div
