@@ -151,6 +151,46 @@ describe('r2Storage', () => {
     expect((await sharp(put.Body).metadata()).format).toBe('webp');
   });
 
+  /**
+   * Les deux tests qui suivent tiennent le `Cache-Control`.
+   *
+   * Il ne se voit nulle part ailleurs : ni dans la réponse d'un test, ni dans
+   * la page, ni dans l'objet rendu par multer. Sans eux, le retirer par
+   * inadvertance ne casserait rien de visible — les images continueraient de
+   * s'afficher, simplement retéléchargées à chaque visite. Ils portent donc la
+   * valeur en clair, pour qu'une modification de la constante soit un choix et
+   * non un effet de bord.
+   */
+  const CACHE_ATTENDU = 'public, max-age=31536000, immutable';
+
+  it("pose le Cache-Control sur les images qu'il convertit", async () => {
+    await handle(
+      r2StorageFor('covers'),
+      uploadOf(Readable.from(await jpeg()), 'image/jpeg'),
+    );
+
+    // Typé à la lecture plutôt qu'indexé sur un `any`, comme le font les tests
+    // voisins : inutile d'ajouter une entorse de plus au lint.
+    const [[commande]] = send.mock.calls as [
+      [{ input: { CacheControl: string } }],
+    ];
+    expect(commande.input.CacheControl).toBe(CACHE_ATTENDU);
+  });
+
+  it("pose le même Cache-Control sur ce qu'il ne convertit pas", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const multerS3 = (require('multer-s3') as { default: jest.Mock }).default;
+    multerS3.mockClear();
+
+    r2StorageFor('audio');
+
+    // L'audio ne passe pas par `PutObjectCommand` mais par multer-s3, à qui la
+    // valeur est remise à la construction du moteur.
+    expect(multerS3).toHaveBeenCalledWith(
+      expect.objectContaining({ cacheControl: CACHE_ATTENDU }),
+    );
+  });
+
   it('range chaque champ dans son répertoire', async () => {
     const engine = r2StorageByField({ audio: 'audio', cover: 'covers' });
     const info = await handle(

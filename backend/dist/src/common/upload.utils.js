@@ -44,6 +44,7 @@ const r2Client = new client_s3_1.S3Client({
         secretAccessKey: R2_SECRET_ACCESS_KEY,
     },
 });
+const R2_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 function objectKey(subdir, originalname) {
     return `${subdir}/${(0, crypto_1.randomUUID)()}${(0, path_1.extname)(originalname).toLowerCase()}`;
 }
@@ -54,6 +55,7 @@ async function putBufferToR2(subdir, body, contentType, extension) {
         Key: key,
         Body: body,
         ContentType: contentType,
+        CacheControl: R2_CACHE_CONTROL,
     }));
     return key;
 }
@@ -104,6 +106,7 @@ function r2Storage(subdirFor) {
         s3: r2Client,
         bucket: R2_BUCKET_NAME,
         contentType: multer_s3_1.default.AUTO_CONTENT_TYPE,
+        cacheControl: R2_CACHE_CONTROL,
         key: (_req, file, callback) => {
             callback(null, objectKey(subdirFor(file), file.originalname));
         },
