@@ -272,7 +272,7 @@ watch(
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1900px] px-4 py-10">
+  <div class="mx-auto max-w-[1280px] min-[1600px]:max-w-[1900px] px-4 py-10">
     <div v-if="loading" class="py-16 text-center text-tambouille-muted">Chargement...</div>
 
     <template v-else-if="mix">
@@ -301,7 +301,7 @@ watch(
           </CoverImage>
         </div>
 
-        <div class="min-w-0 flex-1">
+        <div class="min-w-0 flex-1 flex flex-col">
           <h1 class="text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.05]">{{ mix.title }}</h1>
 
           <!-- N'apparaît que lorsqu'il y a deux noms distincts à montrer : pas
@@ -356,7 +356,7 @@ watch(
                  visible, ce sont eux qui portent l'action et son état. Le cœur
                  plein ou creux dit lequel des deux à qui voit l'icône. -->
             <button
-              class="tb-btn-outline tb-btn-icone"
+              class="tb-btn-outline tb-btn-icone rounded-full"
               :class="{ '!border-tambouille-accent !text-tambouille-accent': mix.isFavorited }"
               :aria-pressed="mix.isFavorited"
               :aria-label="mix.isFavorited ? 'Retirer des favoris' : 'Mettre en favori'"
@@ -398,23 +398,16 @@ watch(
               Supprimer ce mix
             </button>
           </div>
+
+          <div class="mt-auto border-b border-tambouille-rule pb-2">
+            <WaveformPlayer :mix="mix" />
+          </div>
+          <p class="flex items-baseline pt-2 text-xs text-tambouille-muted">
+            <span v-if="mix.audioUrl">{{ mix.playsCount }} écoutes</span>
+            <span v-if="duration" class="ml-auto">{{ duration }}</span>
+          </p>
         </div>
       </div>
-
-      <!-- La vague n'est plus décorative : pleine largeur, elle sert de barre de
-           progression et de zone de navigation. -->
-      <div class="mt-9 border-b border-tambouille-rule pb-2">
-        <WaveformPlayer :mix="mix" />
-      </div>
-      <!-- La provenance était dite ici, sous la vague, et son lien menait au mp3
-           nu faute de mieux. Elle est maintenant dans l'encart infos, en tête,
-           avec la vraie page de l'émission : la répéter ici ne dirait rien de
-           plus. `ml-auto` remplace `justify-between`, qui collait la durée à
-           gauche dès que la ligne n'avait qu'un membre. -->
-      <p class="flex items-baseline pt-2 text-xs text-tambouille-muted">
-        <span v-if="mix.audioUrl">{{ mix.playsCount }} écoutes</span>
-        <span v-if="duration" class="ml-auto">{{ duration }}</span>
-      </p>
 
       <!-- Deux colonnes seulement quand il y a une tracklist à mettre en face du
            texte : sans elle, la colonne de gauche resterait une moitié de page

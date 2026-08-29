@@ -90,7 +90,7 @@ onMounted(loadCollection)
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1900px] px-4 py-10">
+  <div class="mx-auto max-w-[1280px] min-[1600px]:max-w-[1900px] px-4 py-10">
     <h1 class="text-2xl font-bold">Collection</h1>
 
     <div v-if="loading" class="py-16 text-center text-tambouille-muted">Chargement...</div>

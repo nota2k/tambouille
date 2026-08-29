@@ -239,7 +239,7 @@ onMounted(loadSections)
        Masqué pendant une recherche, où la home cède la place aux résultats. -->
   <FourneeBanner v-if="fournee && !isSearching" :fournee="fournee" />
 
-  <div class="mx-auto max-w-[1900px] px-4 py-9">
+  <div class="mx-auto max-w-[1280px] min-[1600px]:max-w-[1900px] px-4 py-9">
     <!-- Titre et filtres sur une seule ligne, posés sur le filet noir : c'est la
          barre qui donne son échelle à toute la page. -->
     <div
