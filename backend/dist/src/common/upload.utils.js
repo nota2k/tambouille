@@ -3,9 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.IMAGE_EXTENSIONS = exports.COVER_MAX_BYTES = exports.IMAGE_MIME_TYPES = exports.AUDIO_MIME_TYPES = void 0;
+exports.R2_CACHE_CONTROL = exports.IMAGE_EXTENSIONS = exports.COVER_MAX_BYTES = exports.IMAGE_MIME_TYPES = exports.AUDIO_MIME_TYPES = void 0;
 exports.putBufferToR2 = putBufferToR2;
 exports.getBufferFromR2 = getBufferFromR2;
+exports.listerClesR2 = listerClesR2;
+exports.enTetesDeR2 = enTetesDeR2;
+exports.poserCacheControlR2 = poserCacheControlR2;
 exports.deleteFromR2 = deleteFromR2;
 exports.r2StorageFor = r2StorageFor;
 exports.r2StorageByField = r2StorageByField;
@@ -44,7 +47,7 @@ const r2Client = new client_s3_1.S3Client({
         secretAccessKey: R2_SECRET_ACCESS_KEY,
     },
 });
-const R2_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+exports.R2_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 function objectKey(subdir, originalname) {
     return `${subdir}/${(0, crypto_1.randomUUID)()}${(0, path_1.extname)(originalname).toLowerCase()}`;
 }
@@ -55,7 +58,7 @@ async function putBufferToR2(subdir, body, contentType, extension) {
         Key: key,
         Body: body,
         ContentType: contentType,
-        CacheControl: R2_CACHE_CONTROL,
+        CacheControl: exports.R2_CACHE_CONTROL,
     }));
     return key;
 }
@@ -65,6 +68,35 @@ async function getBufferFromR2(key) {
         throw new Error(`Objet R2 vide ou absent : ${key}`);
     }
     return Buffer.from(await result.Body.transformToByteArray());
+}
+async function* listerClesR2(prefixe) {
+    let suite;
+    do {
+        const page = await r2Client.send(new client_s3_1.ListObjectsV2Command({
+            Bucket: R2_BUCKET_NAME,
+            Prefix: `${prefixe}/`,
+            ContinuationToken: suite,
+        }));
+        for (const objet of page.Contents ?? []) {
+            if (objet.Key)
+                yield objet.Key;
+        }
+        suite = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (suite);
+}
+async function enTetesDeR2(key) {
+    const tete = await r2Client.send(new client_s3_1.HeadObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+    return { cacheControl: tete.CacheControl, contentType: tete.ContentType };
+}
+async function poserCacheControlR2(key, contentType) {
+    await r2Client.send(new client_s3_1.CopyObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: key,
+        CopySource: `${R2_BUCKET_NAME}/${key}`,
+        MetadataDirective: 'REPLACE',
+        ContentType: contentType,
+        CacheControl: exports.R2_CACHE_CONTROL,
+    }));
 }
 const storageLogger = new common_2.Logger('R2Storage');
 async function deleteFromR2(keys) {
@@ -106,7 +138,7 @@ function r2Storage(subdirFor) {
         s3: r2Client,
         bucket: R2_BUCKET_NAME,
         contentType: multer_s3_1.default.AUTO_CONTENT_TYPE,
-        cacheControl: R2_CACHE_CONTROL,
+        cacheControl: exports.R2_CACHE_CONTROL,
         key: (_req, file, callback) => {
             callback(null, objectKey(subdirFor(file), file.originalname));
         },

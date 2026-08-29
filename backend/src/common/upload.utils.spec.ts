@@ -25,6 +25,15 @@ jest.mock('@aws-sdk/client-s3', () => ({
   DeleteObjectsCommand: jest
     .fn()
     .mockImplementation((input: unknown) => ({ input })),
+  CopyObjectCommand: jest
+    .fn()
+    .mockImplementation((input: unknown) => ({ input })),
+  HeadObjectCommand: jest
+    .fn()
+    .mockImplementation((input: unknown) => ({ input })),
+  ListObjectsV2Command: jest
+    .fn()
+    .mockImplementation((input: unknown) => ({ input })),
 }));
 
 /**
@@ -50,8 +59,13 @@ jest.mock('multer-s3', () => {
 // and `upload.utils` reads those variables in its module body. The project is
 // on typescript-eslint v8, where the rule is `no-require-imports`.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { deleteFromR2, r2StorageFor, r2StorageByField } =
-  require('./upload.utils') as typeof import('./upload.utils');
+const {
+  deleteFromR2,
+  r2StorageFor,
+  r2StorageByField,
+  listerClesR2,
+  poserCacheControlR2,
+} = require('./upload.utils') as typeof import('./upload.utils');
 
 describe('deleteFromR2', () => {
   beforeEach(() => {
@@ -247,5 +261,71 @@ describe('r2Storage', () => {
     expect(send.mock.calls[0][0].input).toMatchObject({
       Delete: { Objects: [{ Key: 'covers/abc.webp' }] },
     });
+  });
+});
+
+describe('poserCacheControlR2', () => {
+  beforeEach(() => {
+    send.mockReset();
+    send.mockResolvedValue({});
+  });
+
+  /**
+   * Le piège de `MetadataDirective: 'REPLACE'` : il efface TOUTES les
+   * métadonnées, pas seulement celle qu'on vise. Un `ContentType` oublié ferait
+   * ressortir l'objet en `application/octet-stream`, et le navigateur
+   * proposerait de télécharger les pochettes au lieu de les afficher. Ce test
+   * est là pour que cet oubli ne passe pas.
+   */
+  it('copie la clé sur elle-même et redonne le Content-Type', async () => {
+    await poserCacheControlR2('audio/abc.mp3', 'audio/mpeg');
+
+    const [[commande]] = send.mock.calls as [
+      [{ input: Record<string, unknown> }],
+    ];
+    expect(commande.input).toMatchObject({
+      Bucket: 'test-bucket',
+      Key: 'audio/abc.mp3',
+      CopySource: 'test-bucket/audio/abc.mp3',
+      MetadataDirective: 'REPLACE',
+      ContentType: 'audio/mpeg',
+      CacheControl: 'public, max-age=31536000, immutable',
+    });
+  });
+});
+
+describe('listerClesR2', () => {
+  beforeEach(() => {
+    send.mockReset();
+  });
+
+  /**
+   * Une page tronquée dont le jeton de suite serait ignoré ne rendrait que les
+   * mille premières clés, et la reprise sauterait le reste du bucket sans rien
+   * signaler. C'est le genre de manque qui ne se voit pas.
+   */
+  it('suit le jeton de continuation jusqu’à la dernière page', async () => {
+    send
+      .mockResolvedValueOnce({
+        Contents: [{ Key: 'audio/a.mp3' }, { Key: 'audio/b.mp3' }],
+        IsTruncated: true,
+        NextContinuationToken: 'page-2',
+      })
+      .mockResolvedValueOnce({
+        Contents: [{ Key: 'audio/c.mp3' }],
+        IsTruncated: false,
+      });
+
+    const cles: string[] = [];
+    for await (const cle of listerClesR2('audio')) cles.push(cle);
+
+    expect(cles).toEqual(['audio/a.mp3', 'audio/b.mp3', 'audio/c.mp3']);
+
+    const appels = send.mock.calls as [{ input: Record<string, unknown> }][];
+    expect(appels[0]?.[0].input).toMatchObject({
+      Prefix: 'audio/',
+      ContinuationToken: undefined,
+    });
+    expect(appels[1]?.[0].input).toMatchObject({ ContinuationToken: 'page-2' });
   });
 });

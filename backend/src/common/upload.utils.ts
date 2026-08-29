@@ -2,8 +2,11 @@ import { randomUUID } from 'crypto';
 import { extname } from 'path';
 import { BadRequestException } from '@nestjs/common';
 import {
+  CopyObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -70,7 +73,7 @@ const r2Client = new S3Client({
  * l'audio que multer dépose tel quel — parce qu'un objet mis en cache d'un côté
  * et pas de l'autre n'aurait aucune raison de l'être.
  */
-const R2_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+export const R2_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
 function objectKey(subdir: string, originalname: string): string {
   return `${subdir}/${randomUUID()}${extname(originalname).toLowerCase()}`;
@@ -115,6 +118,79 @@ export async function getBufferFromR2(key: string): Promise<Buffer> {
     throw new Error(`Objet R2 vide ou absent : ${key}`);
   }
   return Buffer.from(await result.Body.transformToByteArray());
+}
+
+/**
+ * Les clés du bucket sous un préfixe, page par page.
+ *
+ * Un générateur et non un tableau : le bucket compte quelques milliers
+ * d'objets, et rien n'oblige à les tenir tous en mémoire pour les traiter un
+ * par un. `ContinuationToken` est ce que R2 rend quand la page est tronquée —
+ * mille clés au plus, comme S3.
+ *
+ * Sert à la reprise des en-têtes de cache
+ * (`src/scripts/backfill-cache-control.ts`), le seul endroit qui ait besoin de
+ * savoir ce que le bucket contient : le reste du serveur part toujours d'une
+ * clé lue en base.
+ */
+export async function* listerClesR2(prefixe: string): AsyncGenerator<string> {
+  let suite: string | undefined;
+  do {
+    const page = await r2Client.send(
+      new ListObjectsV2Command({
+        Bucket: R2_BUCKET_NAME,
+        Prefix: `${prefixe}/`,
+        ContinuationToken: suite,
+      }),
+    );
+    for (const objet of page.Contents ?? []) {
+      if (objet.Key) yield objet.Key;
+    }
+    suite = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (suite);
+}
+
+/** Les deux en-têtes qu'un objet porte et que la reprise a besoin de connaître. */
+export interface EnTetesR2 {
+  cacheControl?: string;
+  contentType?: string;
+}
+
+export async function enTetesDeR2(key: string): Promise<EnTetesR2> {
+  const tete = await r2Client.send(
+    new HeadObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }),
+  );
+  return { cacheControl: tete.CacheControl, contentType: tete.ContentType };
+}
+
+/**
+ * Pose `R2_CACHE_CONTROL` sur un objet déjà stocké, sans le retélécharger.
+ *
+ * `CopyObject` d'une clé vers elle-même : S3 l'autorise précisément quand les
+ * métadonnées changent, ce que `MetadataDirective: 'REPLACE'` déclare. C'est
+ * ce qui évite de faire redescendre puis remonter des fichiers audio qui se
+ * comptent en dizaines de méga-octets.
+ *
+ * `REPLACE` remplace TOUTES les métadonnées, pas seulement celle qu'on vise :
+ * sans redonner `ContentType`, l'objet ressortirait en
+ * `application/octet-stream` et le navigateur proposerait de télécharger les
+ * pochettes au lieu de les afficher. C'est pour cela que l'appelant le lit
+ * d'abord avec `enTetesDeR2`.
+ */
+export async function poserCacheControlR2(
+  key: string,
+  contentType: string,
+): Promise<void> {
+  await r2Client.send(
+    new CopyObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      CopySource: `${R2_BUCKET_NAME}/${key}`,
+      MetadataDirective: 'REPLACE',
+      ContentType: contentType,
+      CacheControl: R2_CACHE_CONTROL,
+    }),
+  );
 }
 
 const storageLogger = new Logger('R2Storage');
