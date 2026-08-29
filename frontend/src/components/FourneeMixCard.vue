@@ -50,6 +50,8 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
       <img
         v-if="mix.coverUrl"
         :src="mediaUrl(mix.coverUrl)"
+        loading="lazy"
+        decoding="async"
         class="h-full w-full object-cover mix-blend-luminosity"
         alt=""
       />

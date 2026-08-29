@@ -160,6 +160,8 @@ watch(() => route.params.id, loadPlaylist)
                 v-for="url in playlist.coverUrls"
                 :key="url"
                 :src="mediaUrl(url)"
+                loading="lazy"
+                decoding="async"
                 class="h-full w-full object-cover"
                 alt=""
               />

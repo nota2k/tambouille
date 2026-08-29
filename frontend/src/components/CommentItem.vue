@@ -88,6 +88,8 @@ async function deleteReply(reply: CommentReply) {
         <img
           v-if="comment.user.avatarUrl"
           :src="mediaUrl(comment.user.avatarUrl)"
+          loading="lazy"
+          decoding="async"
           class="h-9 w-9 rounded-none object-cover"
           alt=""
         />
@@ -152,6 +154,8 @@ async function deleteReply(reply: CommentReply) {
               <img
                 v-if="reply.user.avatarUrl"
                 :src="mediaUrl(reply.user.avatarUrl)"
+                loading="lazy"
+                decoding="async"
                 class="h-7 w-7 rounded-none object-cover"
                 alt=""
               />

@@ -326,6 +326,8 @@ onMounted(loadSections)
             <img
               v-if="user.avatarUrl"
               :src="mediaUrl(user.avatarUrl)"
+              loading="lazy"
+              decoding="async"
               class="h-11 w-11 object-cover"
               alt=""
             />
@@ -390,6 +392,8 @@ onMounted(loadSections)
                 <img
                   v-if="featuredMix.coverUrl"
                   :src="mediaUrl(featuredMix.coverUrl)"
+                  fetchpriority="high"
+                  decoding="async"
                   class="h-full w-full object-cover"
                   alt=""
                 />
@@ -501,6 +505,8 @@ onMounted(loadSections)
                   <img
                     v-if="cook.avatarUrl"
                     :src="mediaUrl(cook.avatarUrl)"
+                    loading="lazy"
+                    decoding="async"
                     class="h-11 w-11 shrink-0 object-cover"
                     alt=""
                   />

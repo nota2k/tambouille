@@ -41,6 +41,8 @@ function onToggle(event: Event) {
       <img
         v-if="mix.coverUrl"
         :src="mediaUrl(mix.coverUrl)"
+        loading="lazy"
+        decoding="async"
         class="h-full w-full object-cover"
         alt=""
       />

@@ -227,6 +227,8 @@ onMounted(loadProfile)
         <img
           v-if="profile.coverUrl"
           :src="mediaUrl(profile.coverUrl)"
+          fetchpriority="high"
+          decoding="async"
           class="h-full w-full object-cover"
           alt=""
         />
@@ -257,6 +259,7 @@ onMounted(loadProfile)
             <img
               v-if="profile.avatarUrl"
               :src="mediaUrl(profile.avatarUrl)"
+              decoding="async"
               class="h-[120px] w-[120px] border-4 border-white object-cover sm:h-[350px] sm:w-[350px]"
               alt=""
             />

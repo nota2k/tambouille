@@ -275,6 +275,8 @@ async function onSubmit() {
               <img
                 v-if="item.coverUrl"
                 :src="item.coverUrl"
+                loading="lazy"
+                decoding="async"
                 class="h-14 w-14 shrink-0 object-cover"
                 alt=""
               />
@@ -500,6 +502,8 @@ async function onSubmit() {
             <img
               v-if="coverPreview || coverSourceUrl"
               :src="coverPreview || coverSourceUrl || undefined"
+              loading="lazy"
+              decoding="async"
               class="h-full w-full object-cover"
               alt=""
             />

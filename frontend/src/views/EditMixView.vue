@@ -186,6 +186,8 @@ onMounted(load)
         <img
           v-if="coverPreview || existingCoverUrl"
           :src="coverPreview ?? mediaUrl(existingCoverUrl)"
+          loading="lazy"
+          decoding="async"
           class="mt-3 h-32 w-32 rounded-none object-cover"
           alt=""
         />

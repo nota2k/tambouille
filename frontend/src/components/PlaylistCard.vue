@@ -20,6 +20,8 @@ defineProps<{ playlist: PlaylistSummary }>()
           v-for="url in playlist.coverUrls"
           :key="url"
           :src="mediaUrl(url)"
+          loading="lazy"
+          decoding="async"
           class="h-full w-full object-cover"
           alt=""
         />

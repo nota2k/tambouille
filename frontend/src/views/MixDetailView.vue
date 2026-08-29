@@ -226,6 +226,8 @@ watch(
           <img
             v-if="mix.coverUrl"
             :src="mediaUrl(mix.coverUrl)"
+            fetchpriority="high"
+            decoding="async"
             class="h-full w-full object-cover"
             alt=""
           />
