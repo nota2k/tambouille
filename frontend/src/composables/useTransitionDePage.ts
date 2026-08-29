@@ -44,8 +44,22 @@ const sortie = ref(false)
  */
 const DELAI_MAXIMUM_MS = 1400
 
-/** Le temps que le voile met à s'effacer une fois relâché. */
-const DUREE_DU_FONDU_MS = 550
+/** Le temps que le volet met à sortir par le haut, une fois relâché. */
+const DUREE_DE_LA_SORTIE_MS = 550
+
+/**
+ * Le temps que le volet met à monter du bas de l'écran jusqu'à le couvrir.
+ *
+ * Pendant cette montée, le haut de la page reste découvert : c'est le prix du
+ * mouvement, et ce qu'on y aperçoit est la page qui arrive — `couvrirLaPage`
+ * court dans l'`afterEach`, et la vue est remplacée dans la foulée.
+ *
+ * La valeur est rendue par `useTransitionDePage` et posée en variable CSS par
+ * `PageFade`, plutôt que réécrite dans la feuille de style : une montée qui
+ * durerait plus longtemps ici que là ferait repartir le volet avant qu'il soit
+ * arrivé, ce que ce fichier passe justement son temps à empêcher.
+ */
+const DUREE_DE_LA_MONTEE_MS = 420
 
 /**
  * Le temps laissé aux pochettes pour s'annoncer.
@@ -62,15 +76,40 @@ const DELAI_DE_GRACE_MS = 200
 let minuterieMaximum: ReturnType<typeof setTimeout> | undefined
 let minuterieDeSortie: ReturnType<typeof setTimeout> | undefined
 let minuterieDeGrace: ReturnType<typeof setTimeout> | undefined
+let minuterieDeMontee: ReturnType<typeof setTimeout> | undefined
+
+/** Le volet est en train de monter : il ne peut pas encore repartir. */
+let montee = false
+/** Une levée a été demandée pendant la montée, et attend qu'elle finisse. */
+let leveeEnAttente = false
 
 function nettoyer() {
   clearTimeout(minuterieMaximum)
   clearTimeout(minuterieDeSortie)
   clearTimeout(minuterieDeGrace)
+  clearTimeout(minuterieDeMontee)
 }
 
-/** Lève le voile, une seule fois, quelle qu'en soit la raison. */
+/**
+ * Lève le volet, une seule fois, quelle qu'en soit la raison.
+ *
+ * Une levée demandée pendant la montée n'est pas perdue : elle est retenue, et
+ * la minuterie de montée l'exécute en arrivant. Sans ce report, une page sans
+ * pochette — dont le délai de grâce est plus court que la montée — ferait
+ * redescendre le volet du milieu de l'écran.
+ */
 function lever() {
+  if (!visible.value || sortie.value) return
+
+  if (montee) {
+    leveeEnAttente = true
+    return
+  }
+
+  leverMaintenant()
+}
+
+function leverMaintenant() {
   if (!visible.value || sortie.value) return
   sortie.value = true
   // Le retrait ne dépend pas de `animationend` : un onglet en arrière-plan ne
@@ -79,7 +118,7 @@ function lever() {
     visible.value = false
     sortie.value = false
     enAttente.value = 0
-  }, DUREE_DU_FONDU_MS)
+  }, DUREE_DE_LA_SORTIE_MS)
 }
 
 /** Ce que les pochettes annoncent. Voir `CoverImage`. */
@@ -132,11 +171,18 @@ export function couvrirLaPage() {
   enAttente.value = 0
   sortie.value = false
   visible.value = true
+  montee = true
+  leveeEnAttente = false
   armer()
 }
 
-/** Les deux minuteries qui garantissent que le voile se lève. */
+/** Les minuteries qui font monter le volet, puis garantissent qu'il repart. */
 function armer() {
+  minuterieDeMontee = setTimeout(() => {
+    montee = false
+    if (leveeEnAttente) leverMaintenant()
+  }, DUREE_DE_LA_MONTEE_MS)
+
   minuterieMaximum = setTimeout(lever, DELAI_MAXIMUM_MS)
   minuterieDeGrace = setTimeout(() => {
     if (enAttente.value === 0) lever()
@@ -150,6 +196,8 @@ export function reinitialiserPourTest() {
   sortie.value = false
   visible.value = false
   navigationSilencieuse = false
+  montee = false
+  leveeEnAttente = false
 }
 
 export function useTransitionDePage() {
@@ -157,6 +205,7 @@ export function useTransitionDePage() {
   return {
     visible: readonly(visible),
     sortie: readonly(sortie),
-    dureeDuFondu: DUREE_DU_FONDU_MS,
+    dureeDeLaMontee: DUREE_DE_LA_MONTEE_MS,
+    dureeDeLaSortie: DUREE_DE_LA_SORTIE_MS,
   }
 }

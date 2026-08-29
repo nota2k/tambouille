@@ -22,7 +22,8 @@ function etat() {
 
 const MAXIMUM = 1400
 const GRACE = 200
-const FONDU = 550
+const MONTEE = 420
+const SORTIE = 550
 
 describe('useTransitionDePage', () => {
   beforeEach(() => {
@@ -51,7 +52,7 @@ describe('useTransitionDePage', () => {
     signalerImage.attendue()
     signalerImage.arrivee()
 
-    vi.advanceTimersByTime(MAXIMUM + FONDU)
+    vi.advanceTimersByTime(MAXIMUM + SORTIE)
     expect(etat().visible.value).toBe(false)
   })
 
@@ -70,18 +71,21 @@ describe('useTransitionDePage', () => {
     expect(etat().sortie.value).toBe(false)
 
     signalerImage.arrivee()
+    // La levée est demandée, mais le volet n'a pas fini de monter.
+    expect(etat().sortie.value).toBe(false)
+    vi.advanceTimersByTime(MONTEE)
     expect(etat().sortie.value).toBe(true)
 
-    vi.advanceTimersByTime(FONDU)
+    vi.advanceTimersByTime(SORTIE)
     expect(etat().visible.value).toBe(false)
   })
 
   it("ne fait pas attendre une page qui n'a aucune image", () => {
     couvrirLaPage()
-    vi.advanceTimersByTime(GRACE)
+    vi.advanceTimersByTime(MONTEE)
     expect(etat().sortie.value).toBe(true)
 
-    vi.advanceTimersByTime(FONDU)
+    vi.advanceTimersByTime(SORTIE)
     expect(etat().visible.value).toBe(false)
   })
 
@@ -100,7 +104,7 @@ describe('useTransitionDePage', () => {
     vi.advanceTimersByTime(MAXIMUM - GRACE)
     expect(etat().sortie.value).toBe(true)
 
-    vi.advanceTimersByTime(FONDU)
+    vi.advanceTimersByTime(SORTIE)
     expect(etat().visible.value).toBe(false)
   })
 
@@ -111,6 +115,7 @@ describe('useTransitionDePage', () => {
     // pochette manquante ne doit pas retenir la page.
     signalerImage.arrivee()
 
+    vi.advanceTimersByTime(MONTEE)
     expect(etat().sortie.value).toBe(true)
   })
 
@@ -132,6 +137,7 @@ describe('useTransitionDePage', () => {
     // La nouvelle vue n'a qu'une pochette : elle suffit à lever le voile.
     signalerImage.attendue()
     signalerImage.arrivee()
+    vi.advanceTimersByTime(MONTEE)
     expect(etat().sortie.value).toBe(true)
   })
 
@@ -139,7 +145,7 @@ describe('useTransitionDePage', () => {
     couvrirLaPage()
     for (let i = 0; i < 20; i++) signalerImage.attendue()
 
-    vi.advanceTimersByTime(MAXIMUM + FONDU)
+    vi.advanceTimersByTime(MAXIMUM + SORTIE)
     expect(etat().visible.value).toBe(false)
   })
 
@@ -165,9 +171,34 @@ describe('useTransitionDePage', () => {
     expect(etat().visible.value).toBe(true)
   })
 
+  /**
+   * Le volet monte avant de couvrir, et il ne peut pas repartir de là où il
+   * n'est pas encore arrivé. Une page sans pochette demande sa levée à 200 ms —
+   * avant la fin de la montée — et une pochette déjà en cache la demande plus
+   * tôt encore. Sans ce report, le volet ferait demi-tour au milieu de l'écran.
+   *
+   * Le report est une minuterie, comme tout le reste de ce fichier : la levée
+   * ne dépend jamais d'un `animationend`, qu'un onglet en arrière-plan ne
+   * délivrerait pas.
+   */
+  it('ne repart pas avant d’avoir fini de monter', () => {
+    couvrirLaPage()
+    signalerImage.attendue()
+    signalerImage.arrivee()
+
+    // La levée est demandée aussitôt, mais le volet monte encore.
+    expect(etat().sortie.value).toBe(false)
+
+    vi.advanceTimersByTime(MONTEE - 1)
+    expect(etat().sortie.value).toBe(false)
+
+    vi.advanceTimersByTime(1)
+    expect(etat().sortie.value).toBe(true)
+  })
+
   it('recouvre la page à la navigation suivante, une fois le voile levé', () => {
     couvrirLaPage()
-    vi.advanceTimersByTime(GRACE + FONDU)
+    vi.advanceTimersByTime(MONTEE + SORTIE)
     expect(etat().visible.value).toBe(false)
 
     couvrirLaPage()
