@@ -7,7 +7,7 @@ import { PreviewService } from './preview.service';
 
 function createPrismaMock() {
   return {
-    mix: { findUnique: jest.fn() },
+    mix: { findUnique: jest.fn(), findFirst: jest.fn() },
     user: { findUnique: jest.fn() },
     playlist: { findUnique: jest.fn() },
   };
@@ -18,6 +18,7 @@ function mix(overrides: Record<string, unknown> = {}) {
   return {
     id: 'mix-1',
     title: 'Tabouïedire',
+    slug: 'tabouiedire',
     description: 'Deux heures de dub.',
     artist: 'Klaus Vomi',
     coverUrl: 'covers/abc.jpg',
@@ -27,7 +28,7 @@ function mix(overrides: Record<string, unknown> = {}) {
     sourceType: null,
     sourceRef: null,
     tags: ['dub'],
-    user: { displayName: 'Nelly Babillon' },
+    user: { displayName: 'Nelly Babillon', username: 'djnelly' },
     ...overrides,
   };
 }
@@ -93,7 +94,7 @@ describe('PreviewController', () => {
         .expect(200);
 
       expect(text).toContain(
-        '<meta property="og:title" content="Tabouïedire par Klaus Vomi — Tambouille">',
+        '<meta property="og:title" content="Tabouïedire par Klaus Vomi, mijoté par Nelly Babillon — Tambouille">',
       );
       expect(text).toContain(
         '<meta property="og:image" content="https://cdn.example/covers/abc.jpg">',
@@ -101,8 +102,21 @@ describe('PreviewController', () => {
       expect(text).toContain(
         '<meta property="og:audio" content="https://cdn.example/audio/mix-1.mp3">',
       );
+      // La canonique est l'adresse à deux segments, même atteinte par l'ancienne.
       expect(text).toContain(
-        '<meta property="og:url" content="https://tambouille.example/mixes/mix-1">',
+        '<meta property="og:url" content="https://tambouille.example/mixes/djnelly/tabouiedire">',
+      );
+    });
+
+    it('nomme l’artiste ET le compte qui a déposé le mix', async () => {
+      prisma.mix.findFirst.mockResolvedValue(mix());
+
+      const { text } = await request(server())
+        .get('/api/preview/mixes/djnelly/tabouiedire')
+        .expect(200);
+
+      expect(text).toContain(
+        'Tabouïedire par Klaus Vomi, mijoté par Nelly Babillon',
       );
     });
 
@@ -115,6 +129,58 @@ describe('PreviewController', () => {
 
       expect(text).toContain(
         '<meta property="og:title" content="Tabouïedire par Nelly Babillon — Tambouille">',
+      );
+    });
+
+    it('ne répète pas le nom quand l’artiste EST le compte', async () => {
+      prisma.mix.findFirst.mockResolvedValue(mix({ artist: 'nelly babillon' }));
+
+      const { text } = await request(server())
+        .get('/api/preview/mixes/djnelly/tabouiedire')
+        .expect(200);
+
+      expect(text).toContain(
+        '<meta property="og:title" content="Tabouïedire par Nelly Babillon — Tambouille">',
+      );
+      expect(text).not.toContain('mijoté par');
+    });
+
+    it('sert l’adresse canonique à deux segments, celle que le site publie', async () => {
+      prisma.mix.findFirst.mockResolvedValue(mix());
+
+      const { text } = await request(server())
+        .get('/api/preview/mixes/djnelly/tabouiedire')
+        .expect(200);
+
+      expect(prisma.mix.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ slug: 'tabouiedire' }),
+        }),
+      );
+      expect(text).toContain(
+        '<meta property="og:image" content="https://cdn.example/covers/abc.jpg">',
+      );
+    });
+
+    it('répond 404 sur un couple compte/slug inconnu', async () => {
+      prisma.mix.findFirst.mockResolvedValue(null);
+
+      await request(server())
+        .get('/api/preview/mixes/djnelly/nope')
+        .expect(404);
+    });
+
+    it('retombe sur l’ancienne adresse quand le compte n’a pas encore d’username', async () => {
+      prisma.mix.findUnique.mockResolvedValue(
+        mix({ user: { displayName: 'Nelly Babillon', username: null } }),
+      );
+
+      const { text } = await request(server())
+        .get('/api/preview/mixes/mix-1')
+        .expect(200);
+
+      expect(text).toContain(
+        '<meta property="og:url" content="https://tambouille.example/mixes/mix-1">',
       );
     });
 

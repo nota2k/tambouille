@@ -26,6 +26,27 @@ const MAX_AGE_SECONDS = 900;
 export class PreviewController {
   constructor(private readonly previewService: PreviewService) {}
 
+  /**
+   * L'adresse canonique d'un mix, à deux segments.
+   *
+   * Déclarée avant celle à un seul segment : elles n'ont pas le même nombre de
+   * segments, donc rien ne les met en concurrence, mais les lire dans l'ordre
+   * du plus précis au plus général évite d'avoir à s'en assurer.
+   */
+  @Get('mixes/:username/:slug')
+  mixBySlug(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Req() request: Request,
+    @Res() response: Response,
+    @Headers('if-none-match') ifNoneMatch?: string,
+  ) {
+    return this.serve(request, response, ifNoneMatch, (context) =>
+      this.previewService.mixBySlug(username, slug, context),
+    );
+  }
+
+  /** L'ancienne adresse `/mixes/<id>`, que des liens déjà partagés portent. */
   @Get('mixes/:id')
   mix(
     @Param('id') id: string,
