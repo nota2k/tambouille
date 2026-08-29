@@ -1,12 +1,12 @@
 ---
 layout: tall
-display: true
 number: 19
-title: Nuit de quinze heures
+display: true
+title: Danser tout droit
 period: Tout l'hiver
-color: "#2D5FA8"
+color: "#1D2632"
 inverted: false
-curator: pierrot
+curator: Nelly
 from: 2025-12-01
 to: 2027-01-02
 mixes: [djnelly/tabouiedire, djnelly/tumeur-belge-dj-pute-acier-2015, djnelly/total-eclipse-of-the-fun-by-dj-holowestcaust, djnelly/souvenir-des-sequelles, djnelly/passages-pas-sages]
