@@ -23,20 +23,33 @@ const authStore = useAuthStore()
 
 const editDisplayName = ref(authStore.user?.displayName ?? '')
 const editBio = ref(authStore.user?.bio ?? '')
+const editIncongrues = ref(authStore.user?.incongruesUsername ?? '')
 const savingProfile = ref(false)
+const profileError = ref('')
 const avatarInput = ref<HTMLInputElement | null>(null)
 
 async function saveProfile() {
   savingProfile.value = true
+  profileError.value = ''
   try {
     const { data } = await apiClient.patch<UserProfile>('/users/me', {
       displayName: editDisplayName.value,
       bio: editBio.value,
+      incongruesUsername: editIncongrues.value,
     })
     if (authStore.user) {
       authStore.user.displayName = data.displayName
       authStore.user.bio = data.bio
+      // Absent de la réponse : `PATCH /users/me` rend le profil PUBLIC, que
+      // `incongruesUsername` évite délibérément (il ne regarde que le
+      // titulaire). On reflète donc localement ce que le serveur vient
+      // d'accepter, avec la même normalisation que lui.
+      authStore.user.incongruesUsername = editIncongrues.value.trim() || null
     }
+  } catch (e) {
+    // Le serveur refuse en 409 un pseudo déjà lié à un autre compte : sans ce
+    // message, l'échec passait inaperçu et le champ semblait enregistré.
+    profileError.value = apiErrorMessage(e, 'Enregistrement impossible.')
   } finally {
     savingProfile.value = false
   }
@@ -251,7 +264,19 @@ async function submitDelete() {
               {{ editBio.length }}/280
             </span>
           </label>
+          <label class="block">
+            <span
+              class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted"
+            >
+              Pseudo Musiques Incongrues
+            </span>
+            <input v-model="editIncongrues" type="text" class="w-full tb-field" />
+            <span class="mt-1 block text-xs text-tambouille-muted">
+              Les mix que vous postez sur musiques-incongrues.net paraîtront ici automatiquement.
+            </span>
+          </label>
           <button type="submit" :disabled="savingProfile" class="tb-btn">Enregistrer</button>
+          <p v-if="profileError" class="text-sm text-red-500">{{ profileError }}</p>
         </form>
       </div>
     </section>

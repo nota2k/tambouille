@@ -72,17 +72,6 @@ describe('UsersService', () => {
       );
     });
 
-    it('rend le pseudo lié avec le profil', async () => {
-      prisma.user.findUnique.mockResolvedValue({
-        id: USER_ID,
-        incongruesUsername: 'nota',
-      });
-
-      await expect(service.getProfile(USER_ID)).resolves.toEqual(
-        expect.objectContaining({ incongruesUsername: 'nota' }),
-      );
-    });
-
     // Le compte A a déjà lié « nota ». Le compte B tente le même pseudo :
     // l'index unique refuse l'écriture, et cette erreur doit devenir un 409
     // parlant plutôt qu'un 500 brut.

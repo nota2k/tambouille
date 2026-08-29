@@ -112,6 +112,7 @@ export class AuthService {
     password: string | null;
     googleId: string | null;
     keycloakId: string | null;
+    incongruesUsername: string | null;
   }) {
     return {
       id: user.id,
@@ -122,6 +123,11 @@ export class AuthService {
       avatarUrl: user.avatarUrl,
       createdAt: user.createdAt,
       hasPassword: user.password !== null,
+      // Le pseudo Musiques Incongrues du titulaire lui-même. Distinct de
+      // `UsersService.getPublicProfile`, qui l'omet délibérément puisque ce
+      // chemin-là est aussi ce que voient les autres visiteurs du profil : ce
+      // paquet-ci ne part jamais que vers le titulaire de la session.
+      incongruesUsername: user.incongruesUsername,
       // Whether a Google identity is attached — never the identity itself.
       // `googleId` is Google's `sub`, the key this account is found by in
       // `loginWithGoogle`; publishing it would hand anyone reading a profile

@@ -902,6 +902,53 @@ describe('AuthService', () => {
     });
   });
 
+  describe('me', () => {
+    // `/auth/me` is the only place the frontend can read the account's own
+    // Musiques Incongrues link back — `getPublicProfile` deliberately leaves
+    // it out, since that path is also what strangers see. If `toPublicUser`
+    // stopped carrying it, the settings form would silently show an empty
+    // field for an account that does have one linked.
+    it('carries the linked Musiques Incongrues username through', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: 'u1',
+        email: 'n@e.com',
+        username: 'nelly',
+        password: null,
+        displayName: 'Nelly',
+        bio: null,
+        avatarUrl: null,
+        createdAt: new Date(),
+        googleId: null,
+        keycloakId: null,
+        incongruesUsername: 'nelly-des-mix',
+      });
+
+      const result = await service.me('u1');
+
+      expect(result.incongruesUsername).toBe('nelly-des-mix');
+    });
+
+    it('carries null through for an account with nothing linked', async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        id: 'u1',
+        email: 'n@e.com',
+        username: 'nelly',
+        password: null,
+        displayName: 'Nelly',
+        bio: null,
+        avatarUrl: null,
+        createdAt: new Date(),
+        googleId: null,
+        keycloakId: null,
+        incongruesUsername: null,
+      });
+
+      const result = await service.me('u1');
+
+      expect(result.incongruesUsername).toBeNull();
+    });
+  });
+
   describe('setUsername', () => {
     it('sets the username when the account has none', async () => {
       prisma.user.findUniqueOrThrow
