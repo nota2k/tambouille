@@ -186,6 +186,13 @@ let MixesService = class MixesService {
                         ? { tags: { has: query.tag.toLowerCase() } }
                         : {},
                 query.username ? { user: { username: query.username } } : {},
+                query.sinceDays
+                    ? {
+                        createdAt: {
+                            gte: new Date(Date.now() - query.sinceDays * 24 * 60 * 60 * 1000),
+                        },
+                    }
+                    : {},
             ],
         };
         const orderBy = query.sort === 'plays'

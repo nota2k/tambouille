@@ -18,6 +18,7 @@ class QueryMixesDto {
     tags;
     username;
     sort;
+    sinceDays;
     page = 1;
     limit = 20;
 }
@@ -48,6 +49,14 @@ __decorate([
     (0, class_validator_1.IsIn)(['recent', 'plays']),
     __metadata("design:type", String)
 ], QueryMixesDto.prototype, "sort", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(365),
+    __metadata("design:type", Number)
+], QueryMixesDto.prototype, "sinceDays", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),

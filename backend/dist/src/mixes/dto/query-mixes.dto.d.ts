@@ -4,6 +4,7 @@ export declare class QueryMixesDto {
     tags?: string;
     username?: string;
     sort?: 'recent' | 'plays';
+    sinceDays?: number;
     page?: number;
     limit?: number;
 }
