@@ -17,7 +17,8 @@ import type { StorageEngine } from 'multer';
 import type { Readable } from 'stream';
 import type { Request } from 'express';
 import { COVER_MAX_BYTES } from './mime.constants';
-import { toWebp } from './image';
+import { toWebp, toWebpLargeur } from './image';
+import { clesDeVariantes } from './image-variantes';
 
 export {
   AUDIO_MIME_TYPES,
@@ -101,6 +102,69 @@ export async function putBufferToR2(
     }),
   );
   return key;
+}
+
+/**
+ * Écrit un tampon à une clé IMPOSÉE, au lieu d'en tirer une au hasard.
+ *
+ * `putBufferToR2` fabrique la sienne avec un UUID, ce qui est juste pour une
+ * image qui arrive. Une variante, elle, n'a pas le droit de choisir : son nom
+ * se déduit de celui de l'originale, faute de quoi le frontend ne saurait pas
+ * la demander.
+ */
+export async function putBufferToR2At(
+  key: string,
+  body: Buffer,
+  contentType: string,
+): Promise<void> {
+  await r2Client.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      CacheControl: R2_CACHE_CONTROL,
+    }),
+  );
+}
+
+/**
+ * Les versions réduites d'une image qui vient d'être écrite.
+ *
+ * Appelée après l'originale et jamais avant : la clé de base doit exister pour
+ * que les variantes aient un nom. Interrompue en cours de route, elle laisse
+ * une image servie en pleine taille — c'est-à-dire le comportement d'avant, pas
+ * une page cassée.
+ *
+ * Les échecs sont journalisés et avalés, délibérément. Une variante manquante
+ * dégrade le poids d'une page ; une exception ici referait échouer un envoi de
+ * mix dont l'audio est déjà sur R2, ce qui coûte infiniment plus cher à la
+ * personne qui l'a déposé.
+ *
+ * Conséquence à connaître : le `srcset` du frontend peut donc désigner un objet
+ * absent, et un candidat en 404 n'en fait pas essayer un autre. C'est pourquoi
+ * `media.ts` ne construit un `srcset` que pour les clés R2, et pourquoi la
+ * reprise de l'existant doit être passée AVANT que le frontend ne s'en serve.
+ */
+export async function ecrireLesVariantes(
+  cleDeBase: string,
+  original: Buffer,
+): Promise<string[]> {
+  const ecrites: string[] = [];
+
+  for (const cle of clesDeVariantes(cleDeBase)) {
+    const largeur = Number(/-(\d+)\.[^.]+$/.exec(cle)?.[1]);
+    if (!Number.isFinite(largeur)) continue;
+    try {
+      const reduite = await toWebpLargeur(original, largeur);
+      await putBufferToR2At(cle, reduite.buffer, reduite.contentType);
+      ecrites.push(cle);
+    } catch (err) {
+      storageLogger.warn(`Variante non écrite: ${cle} (${String(err)})`);
+    }
+  }
+
+  return ecrites;
 }
 
 /**
@@ -213,11 +277,24 @@ export async function deleteFromR2(
   const owned = r2KeysOnly(keys);
   if (owned.length === 0) return;
 
+  // Les variantes partent avec leur originale, et c'est fait ICI plutôt qu'aux
+  // quatre endroits qui suppriment une image. Leurs clés se déduisent de la
+  // clé de base : un seul endroit sait les construire, donc un seul endroit
+  // peut oublier de les effacer — et ce n'est pas un endroit qu'on multiplie.
+  //
+  // Supprimer une clé absente ne coûte rien sur R2, ce qui rend l'opération
+  // sûre pour les images d'avant les variantes comme pour l'audio, dont
+  // `clesDeVariantes` ne dérive rien.
+  const avecVariantes = [
+    ...owned,
+    ...owned.flatMap((cle) => clesDeVariantes(cle)),
+  ];
+
   try {
     const result = await r2Client.send(
       new DeleteObjectsCommand({
         Bucket: R2_BUCKET_NAME,
-        Delete: { Objects: owned.map((Key) => ({ Key })) },
+        Delete: { Objects: avecVariantes.map((Key) => ({ Key })) },
       }),
     );
 
@@ -309,6 +386,11 @@ function r2Storage(subdirFor: (file: Express.Multer.File) => string) {
             image.contentType,
             image.extension,
           );
+          // Les variantes sont tirées du tampon D'ORIGINE et non de `image`,
+          // qui est déjà réencodé : réduire un WebP à qualité 82 le repasserait
+          // une seconde fois à la moulinette, pour un résultat plus terne à
+          // poids égal.
+          await ecrireLesVariantes(key, original);
           // La forme que multer-s3 rend, pour que rien en aval ne sache par
           // quel chemin le fichier est passé.
           callback(null, {

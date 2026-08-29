@@ -108,3 +108,49 @@ export async function toWebp(
     extension: WEBP_EXTENSION,
   };
 }
+
+/**
+ * La même image, réduite à une largeur donnée.
+ *
+ * Sert les variantes de `image-variantes.ts` : une pochette stockée en 1400 px
+ * s'affiche dans des cases de 200 à 400 px, et servir les 1400 à tout le monde
+ * coûtait 516 Kio par chargement de l'accueil.
+ *
+ * `withoutEnlargement` comme partout ailleurs ici : on réduit, jamais
+ * l'inverse. La conséquence à connaître : une image source plus étroite que la
+ * variante demandée ressort à sa taille d'origine tout en portant le nom de la
+ * variante — `covers/x-800.webp` peut donc mesurer 300 px.
+ *
+ * C'est délibéré, et c'est le prix d'une convention de nommage déduite plutôt
+ * que stockée. L'alternative — ne pas écrire la variante — laisserait le
+ * `srcset` du frontend désigner un objet absent, et un candidat en 404 ne
+ * retombe PAS sur les autres : le navigateur n'affiche rien. Une image
+ * légèrement moins nette vaut mieux qu'une pochette manquante.
+ *
+ * Sur les pochettes réelles la question ne se pose guère : le plafond d'entrée
+ * est à 1400 px et les sources dépassent presque toujours 900 px.
+ */
+export async function toWebpLargeur(
+  input: Buffer,
+  largeur: number,
+): Promise<ConvertedImage> {
+  let image: sharp.Sharp;
+  try {
+    image = sharp(input, { animated: true });
+    await image.metadata();
+  } catch {
+    throw new BadRequestException('Image illisible : format non reconnu');
+  }
+
+  const buffer = await image
+    .rotate()
+    .resize({ width: largeur, withoutEnlargement: true })
+    .webp({ quality: WEBP_QUALITY })
+    .toBuffer();
+
+  return {
+    buffer,
+    contentType: WEBP_CONTENT_TYPE,
+    extension: WEBP_EXTENSION,
+  };
+}
