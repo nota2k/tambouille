@@ -60,9 +60,13 @@ Ce dossier est dans `.prettierignore` : les fichiers sont saisis à la main et
 le parseur n'accepte que les listes en ligne.
 
 `exemple-tall.md` et `exemple-large.md` sont les deux gabarits en vraie
-grandeur, avec des identifiants factices (des UUID quelconques) et une fenêtre
-passée exprès, pour qu'ils restent inertes tout en étant parsables — voir le
-commentaire en tête de leur corps.
+grandeur, avec des mix factices et une fenêtre passée exprès, pour qu'ils
+restent inertes tout en étant parsables — voir le commentaire en tête de leur
+corps.
+
+Les flux les ignorent : tout fichier dont le nom commence par `exemple` est
+écarté comme l'est ce README. Leur numéro ne mène donc à rien — le flux y
+répond 404, plutôt que de servir un canal vide.
 
 ## Gabarits
 
