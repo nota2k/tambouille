@@ -155,11 +155,26 @@ function onCommentsCountChanged(ecart: number) {
 
 const duration = computed(() => formatDuration(mix.value?.durationSec))
 
-/** Reste-t-il quelque chose après le nom de la source, dans la ligne d'infos ? */
+/**
+ * Ce qui suit, dans la ligne d'infos, chacun des membres qu'un point médian
+ * peut précéder.
+ *
+ * La ligne énumère quatre choses — source, durée, nombre de morceaux, tags — et
+ * chacune peut manquer. Un séparateur écrit sans condition sépare alors du
+ * vide : « The Brain Radioshow · 1 h · 22 morceaux · » sur un mix sans tag,
+ * avec en prime la classe `tb-tag` qui l'affiche encadré, comme un tag nommé
+ * « · ». Un point médian ne sort donc que s'il a quelque chose des deux côtés.
+ */
 const suiteApresLaSource = computed(() => {
   const current = mix.value
   if (!current) return false
   return Boolean(duration.value) || current.tracklist.length > 0 || current.tags.length > 0
+})
+
+const suiteApresLaDuree = computed(() => {
+  const current = mix.value
+  if (!current) return false
+  return current.tracklist.length > 0 || current.tags.length > 0
 })
 const isCurrent = computed(() => mix.value != null && playerStore.currentMix?.id === mix.value.id)
 const isPlaying = computed(() => isCurrent.value && playerStore.isPlaying)
@@ -316,15 +331,12 @@ watch(
                 {{ sourceLabel }}
               </a>
               <b v-else>{{ sourceLabel }}</b>
-              <!-- Un point médian ne sépare que ce qu'il y a des deux côtés :
-                   un mix SoundCloud sans durée, sans tracklist ni tag n'a rien
-                   après son nom de source, et le point y restait suspendu. -->
               <span v-if="suiteApresLaSource" class="text-tambouille-faint">·</span>
             </template>
             <b v-if="duration">{{ duration }}</b>
-            <span v-if="duration" class="text-tambouille-faint">·</span>
+            <span v-if="duration && suiteApresLaDuree" class="text-tambouille-faint">·</span>
             <span v-if="mix.tracklist.length">{{ mix.tracklist.length }} morceaux</span>
-            <span v-if="mix.tracklist.length" class="tb-tag">·</span>
+            <span v-if="mix.tracklist.length && mix.tags.length" class="tb-tag">·</span>
             <span v-for="tag in mix.tags" :key="tag" class="tb-tag">{{ tag }}</span>
           </p>
 
