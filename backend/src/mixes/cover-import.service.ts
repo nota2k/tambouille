@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { fetchCover } from '../common/cover-source';
 import { toWebp } from '../common/image';
-import { putBufferToR2 } from '../common/upload.utils';
+import { ecrireLesVariantes, putBufferToR2 } from '../common/upload.utils';
 
 /**
  * Imports the cover the user picked at the source. The fetch happens here, at
@@ -26,12 +26,17 @@ export class CoverImportService {
       // sources sont souvent les plus lourdes — un JPEG de 3000 px destiné à
       // une page d'émission.
       const image = await toWebp(cover.buffer, 'covers');
-      return await putBufferToR2(
+      const key = await putBufferToR2(
         'covers',
         image.buffer,
         image.contentType,
         image.extension,
       );
+      // Depuis le tampon d'origine, comme sur le chemin du formulaire : les
+      // pochettes de sources distantes sont les plus grandes qui entrent ici,
+      // c'est sur elles que les variantes valent le plus.
+      await ecrireLesVariantes(key, cover.buffer);
+      return key;
     } catch (err) {
       this.logger.warn(
         `Pochette non importée depuis ${coverSourceUrl}: ${String(err)}`,

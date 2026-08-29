@@ -8,3 +8,4 @@ export interface ConvertedImage {
     extension: string;
 }
 export declare function toWebp(input: Buffer, subdir: string): Promise<ConvertedImage>;
+export declare function toWebpLargeur(input: Buffer, largeur: number): Promise<ConvertedImage>;

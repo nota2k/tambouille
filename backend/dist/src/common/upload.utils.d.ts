@@ -6,6 +6,8 @@ export interface UploadedFile extends Express.Multer.File {
 }
 export declare const R2_CACHE_CONTROL = "public, max-age=31536000, immutable";
 export declare function putBufferToR2(subdir: string, body: Buffer, contentType: string, extension: string): Promise<string>;
+export declare function putBufferToR2At(key: string, body: Buffer, contentType: string): Promise<void>;
+export declare function ecrireLesVariantes(cleDeBase: string, original: Buffer): Promise<string[]>;
 export declare function getBufferFromR2(key: string): Promise<Buffer>;
 export declare function listerClesR2(prefixe: string): AsyncGenerator<string>;
 export interface EnTetesR2 {

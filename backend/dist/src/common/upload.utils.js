@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.R2_CACHE_CONTROL = exports.IMAGE_EXTENSIONS = exports.COVER_MAX_BYTES = exports.IMAGE_MIME_TYPES = exports.AUDIO_MIME_TYPES = void 0;
 exports.putBufferToR2 = putBufferToR2;
+exports.putBufferToR2At = putBufferToR2At;
+exports.ecrireLesVariantes = ecrireLesVariantes;
 exports.getBufferFromR2 = getBufferFromR2;
 exports.listerClesR2 = listerClesR2;
 exports.enTetesDeR2 = enTetesDeR2;
@@ -23,6 +25,7 @@ const r2_keys_1 = require("./r2-keys");
 const multer_s3_1 = __importDefault(require("multer-s3"));
 const mime_constants_1 = require("./mime.constants");
 const image_1 = require("./image");
+const image_variantes_1 = require("./image-variantes");
 var mime_constants_2 = require("./mime.constants");
 Object.defineProperty(exports, "AUDIO_MIME_TYPES", { enumerable: true, get: function () { return mime_constants_2.AUDIO_MIME_TYPES; } });
 Object.defineProperty(exports, "IMAGE_MIME_TYPES", { enumerable: true, get: function () { return mime_constants_2.IMAGE_MIME_TYPES; } });
@@ -61,6 +64,32 @@ async function putBufferToR2(subdir, body, contentType, extension) {
         CacheControl: exports.R2_CACHE_CONTROL,
     }));
     return key;
+}
+async function putBufferToR2At(key, body, contentType) {
+    await r2Client.send(new client_s3_1.PutObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        CacheControl: exports.R2_CACHE_CONTROL,
+    }));
+}
+async function ecrireLesVariantes(cleDeBase, original) {
+    const ecrites = [];
+    for (const cle of (0, image_variantes_1.clesDeVariantes)(cleDeBase)) {
+        const largeur = Number(/-(\d+)\.[^.]+$/.exec(cle)?.[1]);
+        if (!Number.isFinite(largeur))
+            continue;
+        try {
+            const reduite = await (0, image_1.toWebpLargeur)(original, largeur);
+            await putBufferToR2At(cle, reduite.buffer, reduite.contentType);
+            ecrites.push(cle);
+        }
+        catch (err) {
+            storageLogger.warn(`Variante non écrite: ${cle} (${String(err)})`);
+        }
+    }
+    return ecrites;
 }
 async function getBufferFromR2(key) {
     const result = await r2Client.send(new client_s3_1.GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
@@ -103,10 +132,14 @@ async function deleteFromR2(keys) {
     const owned = (0, r2_keys_1.r2KeysOnly)(keys);
     if (owned.length === 0)
         return;
+    const avecVariantes = [
+        ...owned,
+        ...owned.flatMap((cle) => (0, image_variantes_1.clesDeVariantes)(cle)),
+    ];
     try {
         const result = await r2Client.send(new client_s3_1.DeleteObjectsCommand({
             Bucket: R2_BUCKET_NAME,
-            Delete: { Objects: owned.map((Key) => ({ Key })) },
+            Delete: { Objects: avecVariantes.map((Key) => ({ Key })) },
         }));
         for (const error of result.Errors ?? []) {
             storageLogger.warn(`Objet R2 non supprimé: ${error.Key} (${error.Code ?? 'raison inconnue'})`);
@@ -154,6 +187,7 @@ function r2Storage(subdirFor) {
                 .then(async (original) => {
                 const image = await (0, image_1.toWebp)(original, subdir);
                 const key = await putBufferToR2(subdir, image.buffer, image.contentType, image.extension);
+                await ecrireLesVariantes(key, original);
                 callback(null, {
                     key,
                     bucket: R2_BUCKET_NAME,

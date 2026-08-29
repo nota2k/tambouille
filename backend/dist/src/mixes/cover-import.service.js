@@ -18,7 +18,9 @@ let CoverImportService = CoverImportService_1 = class CoverImportService {
         try {
             const cover = await (0, cover_source_1.fetchCover)(coverSourceUrl);
             const image = await (0, image_1.toWebp)(cover.buffer, 'covers');
-            return await (0, upload_utils_1.putBufferToR2)('covers', image.buffer, image.contentType, image.extension);
+            const key = await (0, upload_utils_1.putBufferToR2)('covers', image.buffer, image.contentType, image.extension);
+            await (0, upload_utils_1.ecrireLesVariantes)(key, cover.buffer);
+            return key;
         }
         catch (err) {
             this.logger.warn(`Pochette non importée depuis ${coverSourceUrl}: ${String(err)}`);

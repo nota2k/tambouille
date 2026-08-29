@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.IMAGE_MAX_DIMENSION = exports.WEBP_EXTENSION = exports.WEBP_CONTENT_TYPE = void 0;
 exports.maxDimensionFor = maxDimensionFor;
 exports.toWebp = toWebp;
+exports.toWebpLargeur = toWebpLargeur;
 const common_1 = require("@nestjs/common");
 const sharp_1 = __importDefault(require("sharp"));
 exports.WEBP_CONTENT_TYPE = 'image/webp';
@@ -47,6 +48,26 @@ async function toWebp(input, subdir) {
         fit: 'inside',
         withoutEnlargement: true,
     })
+        .webp({ quality: WEBP_QUALITY })
+        .toBuffer();
+    return {
+        buffer,
+        contentType: exports.WEBP_CONTENT_TYPE,
+        extension: exports.WEBP_EXTENSION,
+    };
+}
+async function toWebpLargeur(input, largeur) {
+    let image;
+    try {
+        image = (0, sharp_1.default)(input, { animated: true });
+        await image.metadata();
+    }
+    catch {
+        throw new common_1.BadRequestException('Image illisible : format non reconnu');
+    }
+    const buffer = await image
+        .rotate()
+        .resize({ width: largeur, withoutEnlargement: true })
         .webp({ quality: WEBP_QUALITY })
         .toBuffer();
     return {
