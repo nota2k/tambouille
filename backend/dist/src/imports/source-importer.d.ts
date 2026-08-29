@@ -4,6 +4,8 @@ export interface SourceItem {
     durationSec?: number;
     coverUrl?: string;
     publishedAt?: string;
+    pageUrl?: string;
+    collectionLabel?: string;
 }
 export interface MixImport {
     title: string;

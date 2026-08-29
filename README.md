@@ -9,40 +9,91 @@ Un site de partage et d'écoute de mixs audio (inspiré de Mixcloud).
 - **Base de données** : PostgreSQL (via Docker)
 - **Stockage des fichiers** : Cloudflare R2 (stockage objet compatible S3, via `multer-s3`), fichiers publiquement lisibles, avec support natif des requêtes `Range` par R2 (scrubbing audio)
 
-## Fonctionnalités (MVP)
+## Fonctionnalités
 
-- Inscription / connexion (JWT), avec Google ou la carte de membre du club
-  (realm Keycloak `cartemembre.jeancloude.club`) comme portes supplémentaires.
-  Une carte dont l'adresse a déjà un compte ici ne le prend pas : on se connecte
-  comme d'habitude et elle s'y rattache ensuite.
-- Upload de mixs (audio + pochette optionnelle, titre, description, tags)
-- Écoute en streaming avec lecteur persistant (barre en bas de page)
-- Liste et recherche des mixs (par titre/description, par tag, par utilisateur)
-- Profils utilisateurs (bio, avatar, liste des mixs publiés)
-- Suppression de ses propres mixs
+La page `/a-propos` en décrit l'usage côté visiteur ; cette liste-ci sert à
+situer le code.
 
-Hors périmètre V1 : playlists, commentaires, likes, follows.
+**Comptes** — inscription et connexion par JWT, avec Google et la carte de
+membre du club (realm Keycloak `cartemembre.jeancloude.club`) comme portes
+supplémentaires. Une carte dont l'adresse a déjà un compte ici ne le prend pas :
+on se connecte comme d'habitude et elle s'y rattache ensuite.
+
+**Déposer** — envoi d'un fichier audio, ou import depuis un lien. Les sources
+branchées vivent dans `backend/src/imports/` : Mixcloud, SoundCloud,
+Archive.org, Ouïedire, LYL Radio, The Brain, et tout flux RSS de podcast.
+L'import rapporte titre, description, pochette, tags, tracklist et durée quand
+la source les donne, et laisse le choix de copier l'audio ou de le laisser chez
+elle. Une source déjà importée est refusée, avec un lien vers le mix existant.
+
+**Écouter** — lecteur persistant en bas de page, qui survit aux navigations.
+Trois moteurs derrière la même barre : `<audio>` pour les fichiers adressables,
+les widgets Mixcloud et SoundCloud pour le reste. Forme d'onde cliquable,
+tracklist minutée, et commentaires accrochés à un instant du mix — le minutage
+est obligatoire sur un commentaire de premier niveau, seules les réponses s'en
+passent.
+
+**Parcourir** — recherche plein texte sur les titres, descriptions et artistes,
+et sur les comptes. Filtres par tags cumulables, tri par date ou par écoutes.
+Le mix à la une de l'accueil est le plus écouté du dernier mois.
+
+**Rassembler** — favoris, playlists ordonnées, abonnement à un compte.
+
+**Suivre** — chaque compte enregistre jusqu'à dix sources : page d'artiste ou
+de label Bandcamp, compte Mixcloud, collection Archive.org, flux de podcast, ou
+n'importe quelle page qui déclare un flux dans son HTML. Son profil affiche
+alors, sous sa présentation, **la dernière sortie parue chez chacune d'elles**,
+avec sa date, les plus récentes en tête. Le code vit dans `backend/src/veille/` : les importeurs existants
+servent de lecteurs de flux, un lecteur Bandcamp couvre le site qui n'en expose
+pas, et chaque source garde son dernier instantané une heure avant d'être relue.
+Bandcamp ne datant pas sa grille de sorties, la date est lue sur la page de
+l'album — une requête de plus par source, pas une par sortie. Une précommande
+pas encore parue ne prend pas la place : elle n'est pas une sortie.
+
+**Fournées** — sélections éditoriales numérotées, écrites en fichiers dans
+`frontend/src/content/fournees/` et non en base : voir le README de ce dossier.
+
+**Diffuser** — quatre flux RSS podcast, lecteurs intégrables sous `/embed`,
+aperçus de partage servis aux robots. Les trois sections plus bas les détaillent.
 
 ## Structure
 
 ```
 tambouille/
-├── backend/          # API NestJS
-│   ├── prisma/        # schéma + migrations
-│   ├── src/
-│   │   ├── auth/       # register/login/JWT
-│   │   ├── users/      # profils
-│   │   ├── mixes/      # upload, liste, détail, suppression
-│   │   ├── prisma/     # service Prisma partagé
-│   │   └── common/     # utilitaires upload (multer + R2/S3)
-├── frontend/          # App Vue 3
+├── backend/            # API NestJS
+│   ├── prisma/          # schéma + migrations
 │   └── src/
-│       ├── api/         # client axios
-│       ├── stores/      # Pinia (auth, player)
-│       ├── views/       # pages (Discover, MixDetail, Upload, Login, Register, Profile)
-│       └── components/  # NavBar, PlayerBar, MixCard
-└── docker-compose.yml # PostgreSQL
+│       ├── auth/         # inscription, connexion, JWT, Google, Keycloak
+│       ├── users/        # profils, abonnements
+│       ├── mixes/        # dépôt, liste, détail, favoris, suppression
+│       ├── playlists/    # playlists et leur ordre
+│       ├── comments/     # commentaires, avec leur minutage
+│       ├── imports/      # un importeur par source (voir Fonctionnalités)
+│       ├── veille/       # sources suivies et leur dernier instantané
+│       ├── feeds/        # les quatre flux RSS
+│       ├── seo/          # plan de site et aperçus de partage
+│       ├── mail/         # envois transactionnels
+│       ├── mixcloud/     # accès à l'API Mixcloud
+│       ├── scripts/      # reprises ponctuelles (`npm run backfill:*`)
+│       ├── prisma/       # service Prisma partagé
+│       └── common/       # upload R2/S3, images, slugs, garde-fous réseau
+├── frontend/           # application Vue 3
+│   └── src/
+│       ├── api/          # client axios
+│       ├── stores/       # Pinia (auth, player)
+│       ├── router/       # table des routes, isolée pour être testable
+│       ├── views/        # une par écran, y compris les lecteurs `/embed`
+│       ├── components/   # barre de lecture, cartes, boutons d'action…
+│       ├── composables/  # SEO, défilement, transitions, fournées
+│       ├── content/      # les fournées, en fichiers
+│       └── utils/        # logique pure, testée sans DOM
+├── deploy/             # script exécuté sur le serveur
+└── docker-compose.yml  # PostgreSQL
 ```
+
+Les modules ne sont pas listés pour eux-mêmes : c'est la découpe qui dit où
+chercher. Une fonctionnalité nouvelle qui ne trouve pas son dossier est le signe
+qu'il en manque un.
 
 ## Démarrage
 
@@ -127,7 +178,7 @@ le front n'est qu'un paquet de fichiers statiques :
 
 | URL | ce qu'elle contient |
 |---|---|
-| `/api/sitemap.xml` | l'accueil, tous les mix, les profils publics, les playlists |
+| `/api/sitemap.xml` | l'accueil, `/a-propos`, tous les mix, les profils publics, les playlists |
 
 `frontend/public/robots.txt` le déclare et vit, lui, sur le domaine du site :
 c'est cette déclaration qui autorise un plan hébergé ailleurs. Il faut donc y
@@ -149,7 +200,8 @@ pochette.
 
 | URL | ce qu'elle décrit |
 |---|---|
-| `/api/preview/mixes/:id` | un mix : titre, artiste, pochette, `og:audio` quand un fichier est jouable |
+| `/api/preview/mixes/:username/:slug` | un mix : titre, artiste, compte, pochette, `og:audio` quand un fichier est jouable |
+| `/api/preview/mixes/:id` | la même chose par l'ancienne adresse, que des liens déjà partagés portent |
 | `/api/preview/users/:username` | un membre : nom, bio, avatar |
 | `/api/preview/playlists/:id` | une playlist : titre, auteur, première pochette |
 

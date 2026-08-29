@@ -72,6 +72,7 @@ function parseFeed(xml) {
         if (!audioUrl || !type.toLowerCase().startsWith('audio/'))
             continue;
         const description = text(raw.description) || text(raw['itunes:summary']);
+        const link = text(raw.link);
         items.push({
             guid: text(raw.guid) || audioUrl,
             title: text(raw.title) || 'Sans titre',
@@ -80,6 +81,7 @@ function parseFeed(xml) {
             durationSec: parseItunesDuration(raw['itunes:duration']),
             publishedAt: text(raw.pubDate) || undefined,
             imageUrl: attribute(raw['itunes:image'], 'href') ?? channelImage,
+            pageUrl: link.startsWith('https://') ? link : undefined,
         });
     }
     return {
@@ -105,6 +107,7 @@ let PodcastImporter = class PodcastImporter {
             durationSec: entry.durationSec,
             coverUrl: entry.imageUrl,
             publishedAt: entry.publishedAt,
+            pageUrl: entry.pageUrl,
         }));
     }
     async importItem(value) {

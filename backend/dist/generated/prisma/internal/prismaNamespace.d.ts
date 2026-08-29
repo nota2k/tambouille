@@ -170,6 +170,7 @@ export declare const ModelName: {
     readonly PlayHistory: "PlayHistory";
     readonly Comment: "Comment";
     readonly TracklistEntry: "TracklistEntry";
+    readonly WatchedSource: "WatchedSource";
 };
 export type ModelName = (typeof ModelName)[keyof typeof ModelName];
 export interface TypeMapCb<GlobalOmitOptions = {}> extends runtime.Types.Utils.Fn<{
@@ -182,7 +183,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         omit: GlobalOmitOptions;
     };
     meta: {
-        modelProps: "user" | "passwordResetToken" | "mix" | "playlist" | "playlistItem" | "favorite" | "follow" | "playHistory" | "comment" | "tracklistEntry";
+        modelProps: "user" | "passwordResetToken" | "mix" | "playlist" | "playlistItem" | "favorite" | "follow" | "playHistory" | "comment" | "tracklistEntry" | "watchedSource";
         txIsolationLevel: TransactionIsolationLevel;
     };
     model: {
@@ -926,6 +927,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
                 };
             };
         };
+        WatchedSource: {
+            payload: Prisma.$WatchedSourcePayload<ExtArgs>;
+            fields: Prisma.WatchedSourceFieldRefs;
+            operations: {
+                findUnique: {
+                    args: Prisma.WatchedSourceFindUniqueArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload> | null;
+                };
+                findUniqueOrThrow: {
+                    args: Prisma.WatchedSourceFindUniqueOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>;
+                };
+                findFirst: {
+                    args: Prisma.WatchedSourceFindFirstArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload> | null;
+                };
+                findFirstOrThrow: {
+                    args: Prisma.WatchedSourceFindFirstOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>;
+                };
+                findMany: {
+                    args: Prisma.WatchedSourceFindManyArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>[];
+                };
+                create: {
+                    args: Prisma.WatchedSourceCreateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>;
+                };
+                createMany: {
+                    args: Prisma.WatchedSourceCreateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                createManyAndReturn: {
+                    args: Prisma.WatchedSourceCreateManyAndReturnArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>[];
+                };
+                delete: {
+                    args: Prisma.WatchedSourceDeleteArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>;
+                };
+                update: {
+                    args: Prisma.WatchedSourceUpdateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>;
+                };
+                deleteMany: {
+                    args: Prisma.WatchedSourceDeleteManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                updateMany: {
+                    args: Prisma.WatchedSourceUpdateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                updateManyAndReturn: {
+                    args: Prisma.WatchedSourceUpdateManyAndReturnArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>[];
+                };
+                upsert: {
+                    args: Prisma.WatchedSourceUpsertArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>;
+                };
+                aggregate: {
+                    args: Prisma.WatchedSourceAggregateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.AggregateWatchedSource>;
+                };
+                groupBy: {
+                    args: Prisma.WatchedSourceGroupByArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.WatchedSourceGroupByOutputType>[];
+                };
+                count: {
+                    args: Prisma.WatchedSourceCountArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.WatchedSourceCountAggregateOutputType> | number;
+                };
+            };
+        };
     };
 } & {
     other: {
@@ -1056,11 +1131,28 @@ export declare const TracklistEntryScalarFieldEnum: {
     readonly mixId: "mixId";
 };
 export type TracklistEntryScalarFieldEnum = (typeof TracklistEntryScalarFieldEnum)[keyof typeof TracklistEntryScalarFieldEnum];
+export declare const WatchedSourceScalarFieldEnum: {
+    readonly id: "id";
+    readonly userId: "userId";
+    readonly url: "url";
+    readonly label: "label";
+    readonly resolver: "resolver";
+    readonly items: "items";
+    readonly fetchedAt: "fetchedAt";
+    readonly lastError: "lastError";
+    readonly position: "position";
+    readonly createdAt: "createdAt";
+};
+export type WatchedSourceScalarFieldEnum = (typeof WatchedSourceScalarFieldEnum)[keyof typeof WatchedSourceScalarFieldEnum];
 export declare const SortOrder: {
     readonly asc: "asc";
     readonly desc: "desc";
 };
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder];
+export declare const JsonNullValueInput: {
+    readonly JsonNull: runtime.JsonNullClass;
+};
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput];
 export declare const QueryMode: {
     readonly default: "default";
     readonly insensitive: "insensitive";
@@ -1071,12 +1163,20 @@ export declare const NullsOrder: {
     readonly last: "last";
 };
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder];
+export declare const JsonNullValueFilter: {
+    readonly DbNull: runtime.DbNullClass;
+    readonly JsonNull: runtime.JsonNullClass;
+    readonly AnyNull: runtime.AnyNullClass;
+};
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter];
 export type StringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'String'>;
 export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'String[]'>;
 export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>;
 export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime[]'>;
 export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>;
 export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>;
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>;
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>;
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>;
 export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>;
 export type BatchPayload = {
@@ -1117,6 +1217,7 @@ export type GlobalOmitConfig = {
     playHistory?: Prisma.PlayHistoryOmit;
     comment?: Prisma.CommentOmit;
     tracklistEntry?: Prisma.TracklistEntryOmit;
+    watchedSource?: Prisma.WatchedSourceOmit;
 };
 export type LogLevel = 'info' | 'query' | 'warn' | 'error';
 export type LogDefinition = {

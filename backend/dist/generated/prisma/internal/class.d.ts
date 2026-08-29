@@ -60,5 +60,8 @@ export interface PrismaClient<in LogOpts extends Prisma.LogLevel = never, in out
     get tracklistEntry(): Prisma.TracklistEntryDelegate<ExtArgs, {
         omit: OmitOpts;
     }>;
+    get watchedSource(): Prisma.WatchedSourceDelegate<ExtArgs, {
+        omit: OmitOpts;
+    }>;
 }
 export declare function getPrismaClientClass(): PrismaClientConstructor;

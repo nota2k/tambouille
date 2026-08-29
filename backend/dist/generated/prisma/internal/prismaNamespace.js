@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.defineExtension = exports.NullsOrder = exports.QueryMode = exports.SortOrder = exports.TracklistEntryScalarFieldEnum = exports.CommentScalarFieldEnum = exports.PlayHistoryScalarFieldEnum = exports.FollowScalarFieldEnum = exports.FavoriteScalarFieldEnum = exports.PlaylistItemScalarFieldEnum = exports.PlaylistScalarFieldEnum = exports.MixScalarFieldEnum = exports.PasswordResetTokenScalarFieldEnum = exports.UserScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.prismaVersion = exports.getExtensionContext = exports.Decimal = exports.Sql = exports.raw = exports.join = exports.empty = exports.sql = exports.PrismaClientValidationError = exports.PrismaClientInitializationError = exports.PrismaClientRustPanicError = exports.PrismaClientUnknownRequestError = exports.PrismaClientKnownRequestError = void 0;
+exports.defineExtension = exports.JsonNullValueFilter = exports.NullsOrder = exports.QueryMode = exports.JsonNullValueInput = exports.SortOrder = exports.WatchedSourceScalarFieldEnum = exports.TracklistEntryScalarFieldEnum = exports.CommentScalarFieldEnum = exports.PlayHistoryScalarFieldEnum = exports.FollowScalarFieldEnum = exports.FavoriteScalarFieldEnum = exports.PlaylistItemScalarFieldEnum = exports.PlaylistScalarFieldEnum = exports.MixScalarFieldEnum = exports.PasswordResetTokenScalarFieldEnum = exports.UserScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.prismaVersion = exports.getExtensionContext = exports.Decimal = exports.Sql = exports.raw = exports.join = exports.empty = exports.sql = exports.PrismaClientValidationError = exports.PrismaClientInitializationError = exports.PrismaClientRustPanicError = exports.PrismaClientUnknownRequestError = exports.PrismaClientKnownRequestError = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/client"));
 exports.PrismaClientKnownRequestError = runtime.PrismaClientKnownRequestError;
 exports.PrismaClientUnknownRequestError = runtime.PrismaClientUnknownRequestError;
@@ -69,7 +69,8 @@ exports.ModelName = {
     Follow: 'Follow',
     PlayHistory: 'PlayHistory',
     Comment: 'Comment',
-    TracklistEntry: 'TracklistEntry'
+    TracklistEntry: 'TracklistEntry',
+    WatchedSource: 'WatchedSource'
 };
 exports.TransactionIsolationLevel = runtime.makeStrictEnum({
     ReadUncommitted: 'ReadUncommitted',
@@ -166,9 +167,24 @@ exports.TracklistEntryScalarFieldEnum = {
     timecodeSec: 'timecodeSec',
     mixId: 'mixId'
 };
+exports.WatchedSourceScalarFieldEnum = {
+    id: 'id',
+    userId: 'userId',
+    url: 'url',
+    label: 'label',
+    resolver: 'resolver',
+    items: 'items',
+    fetchedAt: 'fetchedAt',
+    lastError: 'lastError',
+    position: 'position',
+    createdAt: 'createdAt'
+};
 exports.SortOrder = {
     asc: 'asc',
     desc: 'desc'
+};
+exports.JsonNullValueInput = {
+    JsonNull: exports.JsonNull
 };
 exports.QueryMode = {
     default: 'default',
@@ -177,6 +193,11 @@ exports.QueryMode = {
 exports.NullsOrder = {
     first: 'first',
     last: 'last'
+};
+exports.JsonNullValueFilter = {
+    DbNull: exports.DbNull,
+    JsonNull: exports.JsonNull,
+    AnyNull: exports.AnyNull
 };
 exports.defineExtension = runtime.Extensions.defineExtension;
 //# sourceMappingURL=prismaNamespace.js.map

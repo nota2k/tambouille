@@ -162,6 +162,14 @@ export function parseArchiveItem(
   // The cover belongs to the item, not the track, so every entry carries it —
   // otherwise the picker is a wall of grey squares for a whole concert.
   const coverUrl = pickCoverUrl(identifier, payload);
+  // Same reasoning for the taper/band name: it names the item, not one track,
+  // so every entry carries the same value.
+  const metadata =
+    isRecord(payload) && isRecord(payload.metadata) ? payload.metadata : {};
+  const collectionLabel =
+    typeof metadata.creator === 'string' && metadata.creator.trim()
+      ? metadata.creator.trim()
+      : undefined;
 
   return [...groups.values()].map((file) => {
     const title = file.title;
@@ -173,6 +181,8 @@ export function parseArchiveItem(
           : (file.name as string),
       durationSec: parseLength(file.length),
       coverUrl,
+      pageUrl: `https://archive.org/details/${identifier}`,
+      collectionLabel,
     };
   });
 }

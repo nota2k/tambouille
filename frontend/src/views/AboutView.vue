@@ -42,8 +42,9 @@ useSeo({
     </p>
     <p class="mt-3 leading-relaxed">
       Quand un mix a une tracklist, chaque morceau porte son minutage : cliquer dessus saute
-      directement au passage. Les commentaires fonctionnent pareil — on peut en accrocher un à un
-      instant précis plutôt qu'au mix entier.
+      directement au passage. Les commentaires fonctionnent pareil — chacun s'accroche à un moment
+      du mix plutôt qu'au mix entier, et y renvoie. Seules les réponses à un commentaire n'ont pas
+      de minutage.
     </p>
 
     <!-- ── Déposer ──────────────────────────────────────────────────────── -->

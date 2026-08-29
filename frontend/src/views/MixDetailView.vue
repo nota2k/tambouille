@@ -363,8 +363,6 @@ watch(
             </template>
             <b v-if="duration">{{ duration }}</b>
             <span v-if="duration && suiteApresLaDuree" class="text-tambouille-faint">·</span>
-            <span v-if="mix.tracklist.length">{{ mix.tracklist.length }} morceaux</span>
-            <span v-if="mix.tracklist.length && mix.tags.length" class="tb-tag">·</span>
             <span v-for="tag in mix.tags" :key="tag" class="tb-tag">{{ tag }}</span>
           </p>
 
@@ -404,7 +402,9 @@ watch(
             <WaveformPlayer :mix="mix" />
           </div>
           <p class="flex items-baseline pt-2 text-xs text-tambouille-muted">
-            <span v-if="mix.audioUrl">{{ mix.playsCount }} écoutes</span>
+            <!-- Aucune condition : ni sur `audioUrl` — les écoutes se comptent
+                 aussi dans les widgets —, ni sur le zéro, qui se dit. -->
+            <span>{{ mix.playsCount }} {{ mix.playsCount > 1 ? 'écoutes' : 'écoute' }}</span>
             <span v-if="duration" class="ml-auto">{{ duration }}</span>
           </p>
         </div>

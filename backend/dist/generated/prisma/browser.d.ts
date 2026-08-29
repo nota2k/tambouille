@@ -12,3 +12,4 @@ export type Follow = Prisma.FollowModel;
 export type PlayHistory = Prisma.PlayHistoryModel;
 export type Comment = Prisma.CommentModel;
 export type TracklistEntry = Prisma.TracklistEntryModel;
+export type WatchedSource = Prisma.WatchedSourceModel;

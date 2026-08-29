@@ -301,4 +301,11 @@ describe('parseArchiveItem', () => {
     expect(parseArchiveItem('my-item', {})).toEqual([]);
     expect(parseArchiveItem('my-item', null)).toEqual([]);
   });
+
+  it('donne à chaque item l’adresse de la page Archive.org de l’item', () => {
+    const items = parseArchiveItem('my-item', {
+      files: [{ name: 'a.mp3', format: 'VBR MP3', title: 'Track A' }],
+    });
+    expect(items[0]!.pageUrl).toBe('https://archive.org/details/my-item');
+  });
 });

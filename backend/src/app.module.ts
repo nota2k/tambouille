@@ -10,6 +10,7 @@ import { MixcloudModule } from './mixcloud/mixcloud.module';
 import { ImportsModule } from './imports/imports.module';
 import { FeedsModule } from './feeds/feeds.module';
 import { SeoModule } from './seo/seo.module';
+import { VeilleModule } from './veille/veille.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SeoModule } from './seo/seo.module';
     ImportsModule,
     FeedsModule,
     SeoModule,
+    VeilleModule,
   ],
 })
 export class AppModule {}

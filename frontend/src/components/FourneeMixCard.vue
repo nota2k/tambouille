@@ -97,10 +97,9 @@ const inkHover = computed(() => `color-mix(in srgb, ${props.zone.ink} 75%, trans
 
     <!-- Pas de « importé par » ici : la carte est étroite et le gabarit lui
          impose déjà trois informations. L'artiste remplace le compte. -->
-    <p class="pt-4 pb-3 text-[13px] leading-[1.45] opacity-85">
+    <p class="pt-4 pb-6 text-[13px] leading-[1.45] opacity-85">
       {{ credit.primary }}<br />
       <b :style="{ color: ink }">{{ formatDuration(mix.durationSec) ?? 'durée inconnue' }}</b>
-      <template v-if="mix.tracklist.length"> · {{ mix.tracklist.length }} morceaux</template>
     </p>
 
     <!-- `mt-auto` sans garde-fou de largeur : la carte est étirée à la hauteur

@@ -134,6 +134,7 @@ let LylImporter = class LylImporter {
             durationSec: parseLylDuration(episode.duration),
             coverUrl: episode.image?.url,
             publishedAt: episode.startAt,
+            pageUrl: `https://lyl.live/episode/${episode.slug}`,
         }));
     }
     async readEpisodes(endpoint) {

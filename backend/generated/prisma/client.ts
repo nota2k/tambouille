@@ -94,3 +94,11 @@ export type Comment = Prisma.CommentModel
  * 
  */
 export type TracklistEntry = Prisma.TracklistEntryModel
+/**
+ * Model WatchedSource
+ * Une source suivie par un compte : page d'artiste, de label, d'émission, ou
+ * flux. `items` est un instantané remplacé en bloc à chaque rafraîchissement —
+ * une colonne JSON plutôt qu'une table parce que ces données ne sont
+ * qu'affichées : rien ne les interroge, rien ne s'y rattache.
+ */
+export type WatchedSource = Prisma.WatchedSourceModel

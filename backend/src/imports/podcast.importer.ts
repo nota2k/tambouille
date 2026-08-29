@@ -28,6 +28,9 @@ export interface FeedEntry {
   durationSec?: number;
   publishedAt?: string;
   imageUrl?: string;
+  /** La page de l'épisode. Un `<link>` vide ou relatif ne donne pas un lien
+   *  utilisable — mieux vaut ne rien afficher qu'un lien mort. */
+  pageUrl?: string;
 }
 
 const parser = new XMLParser({
@@ -104,6 +107,7 @@ export function parseFeed(xml: string): {
     if (!audioUrl || !type.toLowerCase().startsWith('audio/')) continue;
 
     const description = text(raw.description) || text(raw['itunes:summary']);
+    const link = text(raw.link);
 
     items.push({
       guid: text(raw.guid) || audioUrl,
@@ -113,6 +117,7 @@ export function parseFeed(xml: string): {
       durationSec: parseItunesDuration(raw['itunes:duration']),
       publishedAt: text(raw.pubDate) || undefined,
       imageUrl: attribute(raw['itunes:image'], 'href') ?? channelImage,
+      pageUrl: link.startsWith('https://') ? link : undefined,
     });
   }
 
@@ -154,6 +159,7 @@ export class PodcastImporter implements SourceImporter {
       durationSec: entry.durationSec,
       coverUrl: entry.imageUrl,
       publishedAt: entry.publishedAt,
+      pageUrl: entry.pageUrl,
     }));
   }
 

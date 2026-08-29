@@ -160,6 +160,7 @@ export type UserWhereInput = {
     following?: Prisma.FollowListRelationFilter;
     followedBy?: Prisma.FollowListRelationFilter;
     passwordResetTokens?: Prisma.PasswordResetTokenListRelationFilter;
+    watchedSources?: Prisma.WatchedSourceListRelationFilter;
 };
 export type UserOrderByWithRelationInput = {
     id?: Prisma.SortOrder;
@@ -182,6 +183,7 @@ export type UserOrderByWithRelationInput = {
     following?: Prisma.FollowOrderByRelationAggregateInput;
     followedBy?: Prisma.FollowOrderByRelationAggregateInput;
     passwordResetTokens?: Prisma.PasswordResetTokenOrderByRelationAggregateInput;
+    watchedSources?: Prisma.WatchedSourceOrderByRelationAggregateInput;
 };
 export type UserWhereUniqueInput = Prisma.AtLeast<{
     id?: string;
@@ -207,6 +209,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
     following?: Prisma.FollowListRelationFilter;
     followedBy?: Prisma.FollowListRelationFilter;
     passwordResetTokens?: Prisma.PasswordResetTokenListRelationFilter;
+    watchedSources?: Prisma.WatchedSourceListRelationFilter;
 }, "id" | "email" | "username" | "googleId" | "keycloakId">;
 export type UserOrderByWithAggregationInput = {
     id?: Prisma.SortOrder;
@@ -263,6 +266,7 @@ export type UserCreateInput = {
     following?: Prisma.FollowCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceCreateNestedManyWithoutUserInput;
 };
 export type UserUncheckedCreateInput = {
     id?: string;
@@ -285,6 +289,7 @@ export type UserUncheckedCreateInput = {
     following?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedCreateNestedManyWithoutUserInput;
 };
 export type UserUpdateInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -307,6 +312,7 @@ export type UserUpdateInput = {
     following?: Prisma.FollowUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUpdateManyWithoutUserNestedInput;
 };
 export type UserUncheckedUpdateInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -329,6 +335,7 @@ export type UserUncheckedUpdateInput = {
     following?: Prisma.FollowUncheckedUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUncheckedUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedUpdateManyWithoutUserNestedInput;
 };
 export type UserCreateManyInput = {
     id?: string;
@@ -523,6 +530,18 @@ export type UserUpdateOneRequiredWithoutCommentsNestedInput = {
     connect?: Prisma.UserWhereUniqueInput;
     update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutCommentsInput, Prisma.UserUpdateWithoutCommentsInput>, Prisma.UserUncheckedUpdateWithoutCommentsInput>;
 };
+export type UserCreateNestedOneWithoutWatchedSourcesInput = {
+    create?: Prisma.XOR<Prisma.UserCreateWithoutWatchedSourcesInput, Prisma.UserUncheckedCreateWithoutWatchedSourcesInput>;
+    connectOrCreate?: Prisma.UserCreateOrConnectWithoutWatchedSourcesInput;
+    connect?: Prisma.UserWhereUniqueInput;
+};
+export type UserUpdateOneRequiredWithoutWatchedSourcesNestedInput = {
+    create?: Prisma.XOR<Prisma.UserCreateWithoutWatchedSourcesInput, Prisma.UserUncheckedCreateWithoutWatchedSourcesInput>;
+    connectOrCreate?: Prisma.UserCreateOrConnectWithoutWatchedSourcesInput;
+    upsert?: Prisma.UserUpsertWithoutWatchedSourcesInput;
+    connect?: Prisma.UserWhereUniqueInput;
+    update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutWatchedSourcesInput, Prisma.UserUpdateWithoutWatchedSourcesInput>, Prisma.UserUncheckedUpdateWithoutWatchedSourcesInput>;
+};
 export type UserCreateWithoutPasswordResetTokensInput = {
     id?: string;
     email: string;
@@ -543,6 +562,7 @@ export type UserCreateWithoutPasswordResetTokensInput = {
     comments?: Prisma.CommentCreateNestedManyWithoutUserInput;
     following?: Prisma.FollowCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowCreateNestedManyWithoutFollowingInput;
+    watchedSources?: Prisma.WatchedSourceCreateNestedManyWithoutUserInput;
 };
 export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
     id?: string;
@@ -564,6 +584,7 @@ export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
     comments?: Prisma.CommentUncheckedCreateNestedManyWithoutUserInput;
     following?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowingInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedCreateNestedManyWithoutUserInput;
 };
 export type UserCreateOrConnectWithoutPasswordResetTokensInput = {
     where: Prisma.UserWhereUniqueInput;
@@ -598,6 +619,7 @@ export type UserUpdateWithoutPasswordResetTokensInput = {
     comments?: Prisma.CommentUpdateManyWithoutUserNestedInput;
     following?: Prisma.FollowUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUpdateManyWithoutFollowingNestedInput;
+    watchedSources?: Prisma.WatchedSourceUpdateManyWithoutUserNestedInput;
 };
 export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -619,6 +641,7 @@ export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
     comments?: Prisma.CommentUncheckedUpdateManyWithoutUserNestedInput;
     following?: Prisma.FollowUncheckedUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUncheckedUpdateManyWithoutFollowingNestedInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedUpdateManyWithoutUserNestedInput;
 };
 export type UserCreateWithoutMixesInput = {
     id?: string;
@@ -640,6 +663,7 @@ export type UserCreateWithoutMixesInput = {
     following?: Prisma.FollowCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceCreateNestedManyWithoutUserInput;
 };
 export type UserUncheckedCreateWithoutMixesInput = {
     id?: string;
@@ -661,6 +685,7 @@ export type UserUncheckedCreateWithoutMixesInput = {
     following?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedCreateNestedManyWithoutUserInput;
 };
 export type UserCreateOrConnectWithoutMixesInput = {
     where: Prisma.UserWhereUniqueInput;
@@ -695,6 +720,7 @@ export type UserUpdateWithoutMixesInput = {
     following?: Prisma.FollowUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUpdateManyWithoutUserNestedInput;
 };
 export type UserUncheckedUpdateWithoutMixesInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -716,6 +742,7 @@ export type UserUncheckedUpdateWithoutMixesInput = {
     following?: Prisma.FollowUncheckedUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUncheckedUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedUpdateManyWithoutUserNestedInput;
 };
 export type UserCreateWithoutPlaylistsInput = {
     id?: string;
@@ -737,6 +764,7 @@ export type UserCreateWithoutPlaylistsInput = {
     following?: Prisma.FollowCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceCreateNestedManyWithoutUserInput;
 };
 export type UserUncheckedCreateWithoutPlaylistsInput = {
     id?: string;
@@ -758,6 +786,7 @@ export type UserUncheckedCreateWithoutPlaylistsInput = {
     following?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedCreateNestedManyWithoutUserInput;
 };
 export type UserCreateOrConnectWithoutPlaylistsInput = {
     where: Prisma.UserWhereUniqueInput;
@@ -792,6 +821,7 @@ export type UserUpdateWithoutPlaylistsInput = {
     following?: Prisma.FollowUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUpdateManyWithoutUserNestedInput;
 };
 export type UserUncheckedUpdateWithoutPlaylistsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -813,6 +843,7 @@ export type UserUncheckedUpdateWithoutPlaylistsInput = {
     following?: Prisma.FollowUncheckedUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUncheckedUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedUpdateManyWithoutUserNestedInput;
 };
 export type UserCreateWithoutFavoritesInput = {
     id?: string;
@@ -834,6 +865,7 @@ export type UserCreateWithoutFavoritesInput = {
     following?: Prisma.FollowCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceCreateNestedManyWithoutUserInput;
 };
 export type UserUncheckedCreateWithoutFavoritesInput = {
     id?: string;
@@ -855,6 +887,7 @@ export type UserUncheckedCreateWithoutFavoritesInput = {
     following?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedCreateNestedManyWithoutUserInput;
 };
 export type UserCreateOrConnectWithoutFavoritesInput = {
     where: Prisma.UserWhereUniqueInput;
@@ -889,6 +922,7 @@ export type UserUpdateWithoutFavoritesInput = {
     following?: Prisma.FollowUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUpdateManyWithoutUserNestedInput;
 };
 export type UserUncheckedUpdateWithoutFavoritesInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -910,6 +944,7 @@ export type UserUncheckedUpdateWithoutFavoritesInput = {
     following?: Prisma.FollowUncheckedUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUncheckedUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedUpdateManyWithoutUserNestedInput;
 };
 export type UserCreateWithoutFollowingInput = {
     id?: string;
@@ -931,6 +966,7 @@ export type UserCreateWithoutFollowingInput = {
     comments?: Prisma.CommentCreateNestedManyWithoutUserInput;
     followedBy?: Prisma.FollowCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceCreateNestedManyWithoutUserInput;
 };
 export type UserUncheckedCreateWithoutFollowingInput = {
     id?: string;
@@ -952,6 +988,7 @@ export type UserUncheckedCreateWithoutFollowingInput = {
     comments?: Prisma.CommentUncheckedCreateNestedManyWithoutUserInput;
     followedBy?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedCreateNestedManyWithoutUserInput;
 };
 export type UserCreateOrConnectWithoutFollowingInput = {
     where: Prisma.UserWhereUniqueInput;
@@ -977,6 +1014,7 @@ export type UserCreateWithoutFollowedByInput = {
     comments?: Prisma.CommentCreateNestedManyWithoutUserInput;
     following?: Prisma.FollowCreateNestedManyWithoutFollowerInput;
     passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceCreateNestedManyWithoutUserInput;
 };
 export type UserUncheckedCreateWithoutFollowedByInput = {
     id?: string;
@@ -998,6 +1036,7 @@ export type UserUncheckedCreateWithoutFollowedByInput = {
     comments?: Prisma.CommentUncheckedCreateNestedManyWithoutUserInput;
     following?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowerInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedCreateNestedManyWithoutUserInput;
 };
 export type UserCreateOrConnectWithoutFollowedByInput = {
     where: Prisma.UserWhereUniqueInput;
@@ -1032,6 +1071,7 @@ export type UserUpdateWithoutFollowingInput = {
     comments?: Prisma.CommentUpdateManyWithoutUserNestedInput;
     followedBy?: Prisma.FollowUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUpdateManyWithoutUserNestedInput;
 };
 export type UserUncheckedUpdateWithoutFollowingInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -1053,6 +1093,7 @@ export type UserUncheckedUpdateWithoutFollowingInput = {
     comments?: Prisma.CommentUncheckedUpdateManyWithoutUserNestedInput;
     followedBy?: Prisma.FollowUncheckedUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedUpdateManyWithoutUserNestedInput;
 };
 export type UserUpsertWithoutFollowedByInput = {
     update: Prisma.XOR<Prisma.UserUpdateWithoutFollowedByInput, Prisma.UserUncheckedUpdateWithoutFollowedByInput>;
@@ -1083,6 +1124,7 @@ export type UserUpdateWithoutFollowedByInput = {
     comments?: Prisma.CommentUpdateManyWithoutUserNestedInput;
     following?: Prisma.FollowUpdateManyWithoutFollowerNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUpdateManyWithoutUserNestedInput;
 };
 export type UserUncheckedUpdateWithoutFollowedByInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -1104,6 +1146,7 @@ export type UserUncheckedUpdateWithoutFollowedByInput = {
     comments?: Prisma.CommentUncheckedUpdateManyWithoutUserNestedInput;
     following?: Prisma.FollowUncheckedUpdateManyWithoutFollowerNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedUpdateManyWithoutUserNestedInput;
 };
 export type UserCreateWithoutPlayHistoryInput = {
     id?: string;
@@ -1125,6 +1168,7 @@ export type UserCreateWithoutPlayHistoryInput = {
     following?: Prisma.FollowCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceCreateNestedManyWithoutUserInput;
 };
 export type UserUncheckedCreateWithoutPlayHistoryInput = {
     id?: string;
@@ -1146,6 +1190,7 @@ export type UserUncheckedCreateWithoutPlayHistoryInput = {
     following?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedCreateNestedManyWithoutUserInput;
 };
 export type UserCreateOrConnectWithoutPlayHistoryInput = {
     where: Prisma.UserWhereUniqueInput;
@@ -1180,6 +1225,7 @@ export type UserUpdateWithoutPlayHistoryInput = {
     following?: Prisma.FollowUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUpdateManyWithoutUserNestedInput;
 };
 export type UserUncheckedUpdateWithoutPlayHistoryInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -1201,6 +1247,7 @@ export type UserUncheckedUpdateWithoutPlayHistoryInput = {
     following?: Prisma.FollowUncheckedUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUncheckedUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedUpdateManyWithoutUserNestedInput;
 };
 export type UserCreateWithoutCommentsInput = {
     id?: string;
@@ -1222,6 +1269,7 @@ export type UserCreateWithoutCommentsInput = {
     following?: Prisma.FollowCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceCreateNestedManyWithoutUserInput;
 };
 export type UserUncheckedCreateWithoutCommentsInput = {
     id?: string;
@@ -1243,6 +1291,7 @@ export type UserUncheckedCreateWithoutCommentsInput = {
     following?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowerInput;
     followedBy?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowingInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedCreateNestedManyWithoutUserInput;
 };
 export type UserCreateOrConnectWithoutCommentsInput = {
     where: Prisma.UserWhereUniqueInput;
@@ -1277,6 +1326,7 @@ export type UserUpdateWithoutCommentsInput = {
     following?: Prisma.FollowUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUpdateManyWithoutUserNestedInput;
 };
 export type UserUncheckedUpdateWithoutCommentsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -1298,6 +1348,108 @@ export type UserUncheckedUpdateWithoutCommentsInput = {
     following?: Prisma.FollowUncheckedUpdateManyWithoutFollowerNestedInput;
     followedBy?: Prisma.FollowUncheckedUpdateManyWithoutFollowingNestedInput;
     passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput;
+    watchedSources?: Prisma.WatchedSourceUncheckedUpdateManyWithoutUserNestedInput;
+};
+export type UserCreateWithoutWatchedSourcesInput = {
+    id?: string;
+    email: string;
+    username?: string | null;
+    password?: string | null;
+    googleId?: string | null;
+    keycloakId?: string | null;
+    displayName: string;
+    bio?: string | null;
+    avatarUrl?: string | null;
+    coverUrl?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    mixes?: Prisma.MixCreateNestedManyWithoutUserInput;
+    favorites?: Prisma.FavoriteCreateNestedManyWithoutUserInput;
+    playHistory?: Prisma.PlayHistoryCreateNestedManyWithoutUserInput;
+    playlists?: Prisma.PlaylistCreateNestedManyWithoutUserInput;
+    comments?: Prisma.CommentCreateNestedManyWithoutUserInput;
+    following?: Prisma.FollowCreateNestedManyWithoutFollowerInput;
+    followedBy?: Prisma.FollowCreateNestedManyWithoutFollowingInput;
+    passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput;
+};
+export type UserUncheckedCreateWithoutWatchedSourcesInput = {
+    id?: string;
+    email: string;
+    username?: string | null;
+    password?: string | null;
+    googleId?: string | null;
+    keycloakId?: string | null;
+    displayName: string;
+    bio?: string | null;
+    avatarUrl?: string | null;
+    coverUrl?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    mixes?: Prisma.MixUncheckedCreateNestedManyWithoutUserInput;
+    favorites?: Prisma.FavoriteUncheckedCreateNestedManyWithoutUserInput;
+    playHistory?: Prisma.PlayHistoryUncheckedCreateNestedManyWithoutUserInput;
+    playlists?: Prisma.PlaylistUncheckedCreateNestedManyWithoutUserInput;
+    comments?: Prisma.CommentUncheckedCreateNestedManyWithoutUserInput;
+    following?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowerInput;
+    followedBy?: Prisma.FollowUncheckedCreateNestedManyWithoutFollowingInput;
+    passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput;
+};
+export type UserCreateOrConnectWithoutWatchedSourcesInput = {
+    where: Prisma.UserWhereUniqueInput;
+    create: Prisma.XOR<Prisma.UserCreateWithoutWatchedSourcesInput, Prisma.UserUncheckedCreateWithoutWatchedSourcesInput>;
+};
+export type UserUpsertWithoutWatchedSourcesInput = {
+    update: Prisma.XOR<Prisma.UserUpdateWithoutWatchedSourcesInput, Prisma.UserUncheckedUpdateWithoutWatchedSourcesInput>;
+    create: Prisma.XOR<Prisma.UserCreateWithoutWatchedSourcesInput, Prisma.UserUncheckedCreateWithoutWatchedSourcesInput>;
+    where?: Prisma.UserWhereInput;
+};
+export type UserUpdateToOneWithWhereWithoutWatchedSourcesInput = {
+    where?: Prisma.UserWhereInput;
+    data: Prisma.XOR<Prisma.UserUpdateWithoutWatchedSourcesInput, Prisma.UserUncheckedUpdateWithoutWatchedSourcesInput>;
+};
+export type UserUpdateWithoutWatchedSourcesInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    email?: Prisma.StringFieldUpdateOperationsInput | string;
+    username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    displayName?: Prisma.StringFieldUpdateOperationsInput | string;
+    bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    coverUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    mixes?: Prisma.MixUpdateManyWithoutUserNestedInput;
+    favorites?: Prisma.FavoriteUpdateManyWithoutUserNestedInput;
+    playHistory?: Prisma.PlayHistoryUpdateManyWithoutUserNestedInput;
+    playlists?: Prisma.PlaylistUpdateManyWithoutUserNestedInput;
+    comments?: Prisma.CommentUpdateManyWithoutUserNestedInput;
+    following?: Prisma.FollowUpdateManyWithoutFollowerNestedInput;
+    followedBy?: Prisma.FollowUpdateManyWithoutFollowingNestedInput;
+    passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput;
+};
+export type UserUncheckedUpdateWithoutWatchedSourcesInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    email?: Prisma.StringFieldUpdateOperationsInput | string;
+    username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    displayName?: Prisma.StringFieldUpdateOperationsInput | string;
+    bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    coverUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    mixes?: Prisma.MixUncheckedUpdateManyWithoutUserNestedInput;
+    favorites?: Prisma.FavoriteUncheckedUpdateManyWithoutUserNestedInput;
+    playHistory?: Prisma.PlayHistoryUncheckedUpdateManyWithoutUserNestedInput;
+    playlists?: Prisma.PlaylistUncheckedUpdateManyWithoutUserNestedInput;
+    comments?: Prisma.CommentUncheckedUpdateManyWithoutUserNestedInput;
+    following?: Prisma.FollowUncheckedUpdateManyWithoutFollowerNestedInput;
+    followedBy?: Prisma.FollowUncheckedUpdateManyWithoutFollowingNestedInput;
+    passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput;
 };
 export type UserCountOutputType = {
     mixes: number;
@@ -1308,6 +1460,7 @@ export type UserCountOutputType = {
     following: number;
     followedBy: number;
     passwordResetTokens: number;
+    watchedSources: number;
 };
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     mixes?: boolean | UserCountOutputTypeCountMixesArgs;
@@ -1318,6 +1471,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
     following?: boolean | UserCountOutputTypeCountFollowingArgs;
     followedBy?: boolean | UserCountOutputTypeCountFollowedByArgs;
     passwordResetTokens?: boolean | UserCountOutputTypeCountPasswordResetTokensArgs;
+    watchedSources?: boolean | UserCountOutputTypeCountWatchedSourcesArgs;
 };
 export type UserCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     select?: Prisma.UserCountOutputTypeSelect<ExtArgs> | null;
@@ -1346,6 +1500,9 @@ export type UserCountOutputTypeCountFollowedByArgs<ExtArgs extends runtime.Types
 export type UserCountOutputTypeCountPasswordResetTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     where?: Prisma.PasswordResetTokenWhereInput;
 };
+export type UserCountOutputTypeCountWatchedSourcesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    where?: Prisma.WatchedSourceWhereInput;
+};
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
     id?: boolean;
     email?: boolean;
@@ -1367,6 +1524,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
     following?: boolean | Prisma.User$followingArgs<ExtArgs>;
     followedBy?: boolean | Prisma.User$followedByArgs<ExtArgs>;
     passwordResetTokens?: boolean | Prisma.User$passwordResetTokensArgs<ExtArgs>;
+    watchedSources?: boolean | Prisma.User$watchedSourcesArgs<ExtArgs>;
     _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>;
 }, ExtArgs["result"]["user"]>;
 export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1421,6 +1579,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
     following?: boolean | Prisma.User$followingArgs<ExtArgs>;
     followedBy?: boolean | Prisma.User$followedByArgs<ExtArgs>;
     passwordResetTokens?: boolean | Prisma.User$passwordResetTokensArgs<ExtArgs>;
+    watchedSources?: boolean | Prisma.User$watchedSourcesArgs<ExtArgs>;
     _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>;
 };
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {};
@@ -1436,6 +1595,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
         following: Prisma.$FollowPayload<ExtArgs>[];
         followedBy: Prisma.$FollowPayload<ExtArgs>[];
         passwordResetTokens: Prisma.$PasswordResetTokenPayload<ExtArgs>[];
+        watchedSources: Prisma.$WatchedSourcePayload<ExtArgs>[];
     };
     scalars: runtime.Types.Extensions.GetPayloadResult<{
         id: string;
@@ -1510,6 +1670,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
     following<T extends Prisma.User$followingArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$followingArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FollowPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
     followedBy<T extends Prisma.User$followedByArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$followedByArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FollowPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
     passwordResetTokens<T extends Prisma.User$passwordResetTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$passwordResetTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PasswordResetTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
+    watchedSources<T extends Prisma.User$watchedSourcesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$watchedSourcesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WatchedSourcePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
     then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): runtime.Types.Utils.JsPromise<TResult1 | TResult2>;
     catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): runtime.Types.Utils.JsPromise<T | TResult>;
     finally(onfinally?: (() => void) | undefined | null): runtime.Types.Utils.JsPromise<T>;
@@ -1713,6 +1874,17 @@ export type User$passwordResetTokensArgs<ExtArgs extends runtime.Types.Extension
     take?: number;
     skip?: number;
     distinct?: Prisma.PasswordResetTokenScalarFieldEnum | Prisma.PasswordResetTokenScalarFieldEnum[];
+};
+export type User$watchedSourcesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    select?: Prisma.WatchedSourceSelect<ExtArgs> | null;
+    omit?: Prisma.WatchedSourceOmit<ExtArgs> | null;
+    include?: Prisma.WatchedSourceInclude<ExtArgs> | null;
+    where?: Prisma.WatchedSourceWhereInput;
+    orderBy?: Prisma.WatchedSourceOrderByWithRelationInput | Prisma.WatchedSourceOrderByWithRelationInput[];
+    cursor?: Prisma.WatchedSourceWhereUniqueInput;
+    take?: number;
+    skip?: number;
+    distinct?: Prisma.WatchedSourceScalarFieldEnum | Prisma.WatchedSourceScalarFieldEnum[];
 };
 export type UserDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     select?: Prisma.UserSelect<ExtArgs> | null;

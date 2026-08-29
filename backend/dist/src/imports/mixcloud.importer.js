@@ -35,6 +35,8 @@ let MixcloudImporter = class MixcloudImporter {
             durationSec: summary.audioLengthSec,
             coverUrl: summary.pictureUrl,
             publishedAt: summary.createdAt,
+            pageUrl: `https://www.mixcloud.com${summary.key}`,
+            collectionLabel: summary.artist?.name || summary.artist?.username,
         }));
     }
     async importItem(key) {

@@ -52,5 +52,6 @@ import { PodcastImporter } from './podcast.importer';
       ) => [mixcloud, soundcloud, archive, ouiedire, lyl, brain, podcast],
     },
   ],
+  exports: [ImportsService],
 })
 export class ImportsModule {}

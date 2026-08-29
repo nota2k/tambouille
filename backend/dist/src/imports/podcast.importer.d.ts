@@ -7,6 +7,7 @@ export interface FeedEntry {
     durationSec?: number;
     publishedAt?: string;
     imageUrl?: string;
+    pageUrl?: string;
 }
 export declare function parseItunesDuration(raw: unknown): number | undefined;
 export declare function parseFeed(xml: string): {

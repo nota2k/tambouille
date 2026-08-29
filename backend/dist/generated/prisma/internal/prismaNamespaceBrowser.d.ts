@@ -21,6 +21,7 @@ export declare const ModelName: {
     readonly PlayHistory: "PlayHistory";
     readonly Comment: "Comment";
     readonly TracklistEntry: "TracklistEntry";
+    readonly WatchedSource: "WatchedSource";
 };
 export type ModelName = (typeof ModelName)[keyof typeof ModelName];
 export declare const TransactionIsolationLevel: {
@@ -129,11 +130,28 @@ export declare const TracklistEntryScalarFieldEnum: {
     readonly mixId: "mixId";
 };
 export type TracklistEntryScalarFieldEnum = (typeof TracklistEntryScalarFieldEnum)[keyof typeof TracklistEntryScalarFieldEnum];
+export declare const WatchedSourceScalarFieldEnum: {
+    readonly id: "id";
+    readonly userId: "userId";
+    readonly url: "url";
+    readonly label: "label";
+    readonly resolver: "resolver";
+    readonly items: "items";
+    readonly fetchedAt: "fetchedAt";
+    readonly lastError: "lastError";
+    readonly position: "position";
+    readonly createdAt: "createdAt";
+};
+export type WatchedSourceScalarFieldEnum = (typeof WatchedSourceScalarFieldEnum)[keyof typeof WatchedSourceScalarFieldEnum];
 export declare const SortOrder: {
     readonly asc: "asc";
     readonly desc: "desc";
 };
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder];
+export declare const JsonNullValueInput: {
+    readonly JsonNull: import("@prisma/client-runtime-utils").JsonNullClass;
+};
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput];
 export declare const QueryMode: {
     readonly default: "default";
     readonly insensitive: "insensitive";
@@ -144,3 +162,9 @@ export declare const NullsOrder: {
     readonly last: "last";
 };
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder];
+export declare const JsonNullValueFilter: {
+    readonly DbNull: import("@prisma/client-runtime-utils").DbNullClass;
+    readonly JsonNull: import("@prisma/client-runtime-utils").JsonNullClass;
+    readonly AnyNull: import("@prisma/client-runtime-utils").AnyNullClass;
+};
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter];

@@ -19,6 +19,7 @@ const mixcloud_module_1 = require("./mixcloud/mixcloud.module");
 const imports_module_1 = require("./imports/imports.module");
 const feeds_module_1 = require("./feeds/feeds.module");
 const seo_module_1 = require("./seo/seo.module");
+const veille_module_1 = require("./veille/veille.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -36,6 +37,7 @@ exports.AppModule = AppModule = __decorate([
             imports_module_1.ImportsModule,
             feeds_module_1.FeedsModule,
             seo_module_1.SeoModule,
+            veille_module_1.VeilleModule,
         ],
     })
 ], AppModule);

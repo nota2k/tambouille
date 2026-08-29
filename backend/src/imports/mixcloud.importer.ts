@@ -39,6 +39,10 @@ export class MixcloudImporter implements SourceImporter {
       durationSec: summary.audioLengthSec,
       coverUrl: summary.pictureUrl,
       publishedAt: summary.createdAt,
+      pageUrl: `https://www.mixcloud.com${summary.key}`,
+      // Le nom affiché du compte est déjà dans la réponse ; l'identifiant
+      // d'URL sert de repli quand Mixcloud ne le donne pas.
+      collectionLabel: summary.artist?.name || summary.artist?.username,
     }));
   }
 

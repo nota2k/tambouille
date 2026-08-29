@@ -48,6 +48,7 @@ exports.ImportsModule = ImportsModule = __decorate([
                 useFactory: (mixcloud, soundcloud, archive, ouiedire, lyl, brain, podcast) => [mixcloud, soundcloud, archive, ouiedire, lyl, brain, podcast],
             },
         ],
+        exports: [imports_service_1.ImportsService],
     })
 ], ImportsModule);
 //# sourceMappingURL=imports.module.js.map

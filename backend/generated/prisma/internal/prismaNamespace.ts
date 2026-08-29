@@ -406,7 +406,8 @@ export const ModelName = {
   Follow: 'Follow',
   PlayHistory: 'PlayHistory',
   Comment: 'Comment',
-  TracklistEntry: 'TracklistEntry'
+  TracklistEntry: 'TracklistEntry',
+  WatchedSource: 'WatchedSource'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -422,7 +423,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "passwordResetToken" | "mix" | "playlist" | "playlistItem" | "favorite" | "follow" | "playHistory" | "comment" | "tracklistEntry"
+    modelProps: "user" | "passwordResetToken" | "mix" | "playlist" | "playlistItem" | "favorite" | "follow" | "playHistory" | "comment" | "tracklistEntry" | "watchedSource"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1166,6 +1167,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    WatchedSource: {
+      payload: Prisma.$WatchedSourcePayload<ExtArgs>
+      fields: Prisma.WatchedSourceFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WatchedSourceFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WatchedSourceFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>
+        }
+        findFirst: {
+          args: Prisma.WatchedSourceFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WatchedSourceFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>
+        }
+        findMany: {
+          args: Prisma.WatchedSourceFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>[]
+        }
+        create: {
+          args: Prisma.WatchedSourceCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>
+        }
+        createMany: {
+          args: Prisma.WatchedSourceCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WatchedSourceCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>[]
+        }
+        delete: {
+          args: Prisma.WatchedSourceDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>
+        }
+        update: {
+          args: Prisma.WatchedSourceUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>
+        }
+        deleteMany: {
+          args: Prisma.WatchedSourceDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WatchedSourceUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WatchedSourceUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>[]
+        }
+        upsert: {
+          args: Prisma.WatchedSourceUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WatchedSourcePayload>
+        }
+        aggregate: {
+          args: Prisma.WatchedSourceAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWatchedSource>
+        }
+        groupBy: {
+          args: Prisma.WatchedSourceGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WatchedSourceGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WatchedSourceCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WatchedSourceCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1334,12 +1409,35 @@ export const TracklistEntryScalarFieldEnum = {
 export type TracklistEntryScalarFieldEnum = (typeof TracklistEntryScalarFieldEnum)[keyof typeof TracklistEntryScalarFieldEnum]
 
 
+export const WatchedSourceScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  url: 'url',
+  label: 'label',
+  resolver: 'resolver',
+  items: 'items',
+  fetchedAt: 'fetchedAt',
+  lastError: 'lastError',
+  position: 'position',
+  createdAt: 'createdAt'
+} as const
+
+export type WatchedSourceScalarFieldEnum = (typeof WatchedSourceScalarFieldEnum)[keyof typeof WatchedSourceScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
@@ -1356,6 +1454,15 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 
 
 
@@ -1403,6 +1510,20 @@ export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'In
  * Reference to a field of type 'Int[]'
  */
 export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -1580,6 +1701,7 @@ export type GlobalOmitConfig = {
   playHistory?: Prisma.PlayHistoryOmit
   comment?: Prisma.CommentOmit
   tracklistEntry?: Prisma.TracklistEntryOmit
+  watchedSource?: Prisma.WatchedSourceOmit
 }
 
 /* Types for Logging */

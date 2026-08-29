@@ -95,6 +95,10 @@ function parseArchiveItem(identifier, payload) {
         }
     }
     const coverUrl = pickCoverUrl(identifier, payload);
+    const metadata = isRecord(payload) && isRecord(payload.metadata) ? payload.metadata : {};
+    const collectionLabel = typeof metadata.creator === 'string' && metadata.creator.trim()
+        ? metadata.creator.trim()
+        : undefined;
     return [...groups.values()].map((file) => {
         const title = file.title;
         return {
@@ -104,6 +108,8 @@ function parseArchiveItem(identifier, payload) {
                 : file.name,
             durationSec: parseLength(file.length),
             coverUrl,
+            pageUrl: `https://archive.org/details/${identifier}`,
+            collectionLabel,
         };
     });
 }

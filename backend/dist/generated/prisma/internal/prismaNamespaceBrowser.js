@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NullsOrder = exports.QueryMode = exports.SortOrder = exports.TracklistEntryScalarFieldEnum = exports.CommentScalarFieldEnum = exports.PlayHistoryScalarFieldEnum = exports.FollowScalarFieldEnum = exports.FavoriteScalarFieldEnum = exports.PlaylistItemScalarFieldEnum = exports.PlaylistScalarFieldEnum = exports.MixScalarFieldEnum = exports.PasswordResetTokenScalarFieldEnum = exports.UserScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
+exports.JsonNullValueFilter = exports.NullsOrder = exports.QueryMode = exports.JsonNullValueInput = exports.SortOrder = exports.WatchedSourceScalarFieldEnum = exports.TracklistEntryScalarFieldEnum = exports.CommentScalarFieldEnum = exports.PlayHistoryScalarFieldEnum = exports.FollowScalarFieldEnum = exports.FavoriteScalarFieldEnum = exports.PlaylistItemScalarFieldEnum = exports.PlaylistScalarFieldEnum = exports.MixScalarFieldEnum = exports.PasswordResetTokenScalarFieldEnum = exports.UserScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/index-browser"));
 exports.Decimal = runtime.Decimal;
 exports.NullTypes = {
@@ -54,7 +54,8 @@ exports.ModelName = {
     Follow: 'Follow',
     PlayHistory: 'PlayHistory',
     Comment: 'Comment',
-    TracklistEntry: 'TracklistEntry'
+    TracklistEntry: 'TracklistEntry',
+    WatchedSource: 'WatchedSource'
 };
 exports.TransactionIsolationLevel = runtime.makeStrictEnum({
     ReadUncommitted: 'ReadUncommitted',
@@ -151,9 +152,24 @@ exports.TracklistEntryScalarFieldEnum = {
     timecodeSec: 'timecodeSec',
     mixId: 'mixId'
 };
+exports.WatchedSourceScalarFieldEnum = {
+    id: 'id',
+    userId: 'userId',
+    url: 'url',
+    label: 'label',
+    resolver: 'resolver',
+    items: 'items',
+    fetchedAt: 'fetchedAt',
+    lastError: 'lastError',
+    position: 'position',
+    createdAt: 'createdAt'
+};
 exports.SortOrder = {
     asc: 'asc',
     desc: 'desc'
+};
+exports.JsonNullValueInput = {
+    JsonNull: exports.JsonNull
 };
 exports.QueryMode = {
     default: 'default',
@@ -162,5 +178,10 @@ exports.QueryMode = {
 exports.NullsOrder = {
     first: 'first',
     last: 'last'
+};
+exports.JsonNullValueFilter = {
+    DbNull: exports.DbNull,
+    JsonNull: exports.JsonNull,
+    AnyNull: exports.AnyNull
 };
 //# sourceMappingURL=prismaNamespaceBrowser.js.map
