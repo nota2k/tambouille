@@ -138,4 +138,10 @@ describe('parseFeed', () => {
   it('throws on a document that does not parse as XML at all', () => {
     expect(() => parseFeed('not xml, just words')).toThrow();
   });
+
+  it('donne à chaque item l’adresse de la page de l’épisode', () => {
+    expect(parseFeed(feed).items[0]!.pageUrl).toBe(
+      'https://ouiedire.net/emission/ailleurs-331',
+    );
+  });
 });

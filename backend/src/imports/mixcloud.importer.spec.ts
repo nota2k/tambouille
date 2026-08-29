@@ -1,5 +1,6 @@
 import { MixcloudService } from '../mixcloud/mixcloud.service';
 import { MixcloudImporter } from './mixcloud.importer';
+import type { SourceItem } from './source-importer';
 
 function importerWith(relay: Partial<MixcloudService>): MixcloudImporter {
   return new MixcloudImporter(relay as MixcloudService);
@@ -74,8 +75,28 @@ describe('MixcloudImporter.resolve', () => {
         durationSec: 3600,
         coverUrl: 'https://thumbnailer.mixcloud.com/x.jpg',
         publishedAt: '2026-01-01T00:00:00Z',
+        pageUrl: 'https://www.mixcloud.com/Notamusic/antimythes/',
       },
     ]);
+  });
+
+  it('donne à chaque item du compte l’adresse de sa page Mixcloud', async () => {
+    const listCloudcasts = jest.fn().mockResolvedValue([
+      {
+        key: '/nota/un-mix/',
+        name: 'Un mix',
+        audioLengthSec: 3600,
+        pictureUrl: 'https://img.test/a.jpg',
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    const importer = importerWith({ listCloudcasts });
+
+    const items = (await importer.resolve(
+      new URL('https://www.mixcloud.com/nota/'),
+    )) as SourceItem[];
+
+    expect(items[0].pageUrl).toBe('https://www.mixcloud.com/nota/un-mix/');
   });
 
   it('keeps a percent-encoded slug encoded, as the relay pattern expects', async () => {

@@ -52,6 +52,8 @@ model User {
 
   passwordResetTokens PasswordResetToken[]
 
+  watchedSources WatchedSource[]
+
   @@map("users")
 }
 
@@ -244,4 +246,32 @@ model TracklistEntry {
 
   @@index([mixId])
   @@map("tracklist_entries")
+}
+
+/// Une source suivie par un compte : page d'artiste, de label, d'émission, ou
+/// flux. `items` est un instantané remplacé en bloc à chaque rafraîchissement —
+/// une colonne JSON plutôt qu'une table parce que ces données ne sont
+/// qu'affichées : rien ne les interroge, rien ne s'y rattache.
+model WatchedSource {
+  id        String    @id @default(uuid())
+  userId    String
+  /// Canonicalisée à l'ajout, pour que deux façons d'écrire la même adresse
+  /// tombent sur la même ligne et déclenchent la contrainte d'unicité.
+  url       String
+  label     String
+  /// Le maillon de résolution qui a réussi, pour le rafraîchissement et le
+  /// diagnostic : "bandcamp", "mixcloud", "podcast"…
+  resolver  String
+  items     Json      @default("[]")
+  fetchedAt DateTime?
+  /// Le dernier échec. Servi au seul titulaire du profil.
+  lastError String?
+  position  Int
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, url])
+  @@index([userId, position])
+  @@map("watched_sources")
 }

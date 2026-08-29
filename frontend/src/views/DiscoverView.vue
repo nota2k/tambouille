@@ -616,8 +616,13 @@ onMounted(loadSections)
                       :embed-height="HAUTEUR_EMBED_MIX"
                     />
                   </div>
-                  <span v-if="featuredMix.audioUrl" class="text-[13px] text-tambouille-muted">
-                    {{ featuredMix.playsCount }} écoutes
+                  <!-- Aucune condition : ni sur `audioUrl` — les écoutes se
+                       comptent aussi dans les widgets —, ni sur le zéro. Sur une
+                       carte qui annonce le mix le plus écouté du mois, taire son
+                       compteur était le plus fâcheux des trois endroits. -->
+                  <span class="text-[13px] text-tambouille-muted">
+                    {{ featuredMix.playsCount }}
+                    {{ featuredMix.playsCount > 1 ? 'écoutes' : 'écoute' }}
                   </span>
                 </div>
               </div>

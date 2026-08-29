@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { apiClient } from '@/api/client'
 import { mediaSrcset, mediaUrl } from '@/utils/media'
 import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
-import type { UserProfile } from '@/types'
+import type { UserProfile, VeilleSource } from '@/types'
 import { useSeo } from '@/composables/useSeo'
 import { apiErrorMessage } from '@/utils/apiError'
 
@@ -84,6 +84,82 @@ async function onGoogleCredential(credential: string) {
     linkingGoogle.value = false
   }
 }
+
+const watchedSources = ref<VeilleSource[]>([])
+const newSourceUrl = ref('')
+const addingSource = ref(false)
+const sourceError = ref('')
+
+// La liste est éditée en place par `v-model`, donc un renommage refusé laisse
+// la valeur tapée à l'écran comme si elle avait été prise. On garde le dernier
+// libellé accepté par le serveur pour pouvoir y revenir.
+const savedLabels = new Map<string, string>()
+
+async function loadWatchedSources() {
+  if (!authStore.user?.username) return
+  try {
+    const { data } = await apiClient.get<{ sources: VeilleSource[] }>(
+      `/users/${authStore.user.username}/watched-sources`,
+    )
+    watchedSources.value = data.sources
+    for (const source of data.sources) savedLabels.set(source.id, source.label)
+  } catch (error) {
+    sourceError.value = apiErrorMessage(error, 'Impossible de charger tes sources suivies')
+  }
+}
+
+async function addSource() {
+  sourceError.value = ''
+  addingSource.value = true
+  try {
+    const { data } = await apiClient.post<VeilleSource>('/users/me/watched-sources', {
+      url: newSourceUrl.value.trim(),
+    })
+    watchedSources.value.push(data)
+    savedLabels.set(data.id, data.label)
+    newSourceUrl.value = ''
+  } catch (error) {
+    // Le backend renvoie un message qui dit quelle adresse donner : le
+    // reformuler ici en perdrait la seule information utile.
+    sourceError.value = apiErrorMessage(error, 'Impossible de suivre cette source')
+  } finally {
+    addingSource.value = false
+  }
+}
+
+async function renameSource(source: VeilleSource) {
+  const libelle = source.label.trim()
+  // L'API refuse un libellé vide : inutile d'aller lui demander, et le
+  // rétablissement immédiat dit à l'utilisateur que sa saisie n'a pas pris.
+  if (!libelle) {
+    source.label = savedLabels.get(source.id) ?? source.label
+    return
+  }
+  sourceError.value = ''
+  try {
+    await apiClient.patch(`/users/me/watched-sources/${source.id}`, { label: libelle })
+    source.label = libelle
+    savedLabels.set(source.id, libelle)
+  } catch (error) {
+    source.label = savedLabels.get(source.id) ?? source.label
+    sourceError.value = apiErrorMessage(error, 'Impossible de renommer cette source')
+  }
+}
+
+async function removeSource(id: string) {
+  sourceError.value = ''
+  try {
+    await apiClient.delete(`/users/me/watched-sources/${id}`)
+    // Retirée de la liste seulement une fois le serveur d'accord : la faire
+    // disparaître avant laisserait croire à une suppression qui n'a pas eu lieu.
+    watchedSources.value = watchedSources.value.filter((s) => s.id !== id)
+    savedLabels.delete(id)
+  } catch (error) {
+    sourceError.value = apiErrorMessage(error, 'Impossible de retirer cette source')
+  }
+}
+
+onMounted(loadWatchedSources)
 
 const deleteConfirm = ref('')
 const deleting = ref(false)
@@ -178,6 +254,62 @@ async function submitDelete() {
           <button type="submit" :disabled="savingProfile" class="tb-btn">Enregistrer</button>
         </form>
       </div>
+    </section>
+
+    <!-- Sources suivies -->
+    <section class="mb-10">
+      <h2 class="mb-4 text-lg font-semibold">Sorties suivies</h2>
+      <p class="mb-4 text-sm text-tambouille-muted">
+        Colle la page d'un artiste, d'un label, d'une émission, ou l'adresse d'un flux. Les
+        dernières sorties s'affichent sur ton profil.
+      </p>
+
+      <form class="flex items-stretch" @submit.prevent="addSource">
+        <input
+          v-model="newSourceUrl"
+          type="url"
+          placeholder="https://…"
+          class="tb-field min-w-0 flex-1 border-r-0"
+        />
+        <button
+          type="submit"
+          :disabled="addingSource || !newSourceUrl.trim()"
+          class="tb-btn shrink-0"
+        >
+          {{ addingSource ? '…' : 'Suivre' }}
+        </button>
+      </form>
+
+      <p v-if="sourceError" class="pt-2 text-sm text-red-500">{{ sourceError }}</p>
+
+      <ul v-if="watchedSources.length" class="space-y-2 pt-4">
+        <li v-for="source in watchedSources" :key="source.id" class="flex items-center gap-2">
+          <input
+            v-model="source.label"
+            type="text"
+            maxlength="80"
+            class="tb-field min-w-0 flex-1"
+            @change="renameSource(source)"
+          />
+          <a
+            :href="source.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="shrink-0 text-xs text-tambouille-muted hover:underline"
+          >
+            voir
+          </a>
+          <button
+            type="button"
+            class="shrink-0 px-2 text-tambouille-muted hover:text-red-500"
+            :aria-label="`Ne plus suivre ${source.label}`"
+            @click="removeSource(source.id)"
+          >
+            ×
+          </button>
+        </li>
+      </ul>
+      <p v-else class="pt-4 text-sm text-tambouille-muted">Aucune source suivie pour l'instant.</p>
     </section>
 
     <!-- Password -->

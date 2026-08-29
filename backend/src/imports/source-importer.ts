@@ -7,6 +7,14 @@ export interface SourceItem {
   durationSec?: number;
   coverUrl?: string;
   publishedAt?: string;
+  /** La page où la source publie cet item. Facultatif : la veille écarte les
+   *  items sans adresse plutôt que d'afficher un lien mort. */
+  pageUrl?: string;
+  /** Le nom du compte ou de la collection auquel appartient la liste, quand la
+   *  source le donne dans la même réponse. La veille l'utilise comme nom
+   *  proposé à l'ajout plutôt que le nom de domaine, qui ne dit rien une fois
+   *  que le profil n'affiche plus qu'un item avec sa source en sous-titre. */
+  collectionLabel?: string;
 }
 
 /** Everything the upload form needs to prefill itself from one source entry. */

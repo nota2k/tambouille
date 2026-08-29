@@ -211,3 +211,24 @@ export interface Fournee {
   /** Les mix retenus, dans l'ordre d'affichage. Cinq dans le gabarit. */
   mixes: Mix[]
 }
+
+export interface VeilleItem {
+  title: string
+  pageUrl: string
+  coverUrl?: string
+  publishedAt?: string
+  sourceLabel: string
+}
+
+export interface VeilleSource {
+  id: string
+  label: string
+  url: string
+  /** Présent seulement pour le titulaire du profil : un visiteur ne voit jamais les erreurs des autres. */
+  lastError?: string
+}
+
+export interface VeilleFeed {
+  sources: VeilleSource[]
+  items: VeilleItem[]
+}
