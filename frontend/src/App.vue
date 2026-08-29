@@ -31,7 +31,29 @@ onMounted(() => {
     :class="playerStore.currentMix ? 'pb-28' : ''"
   >
     <NavBar />
-    <main class="flex-1 pb-16">
+    <!--
+         `min-h` en plus de `flex-1`, et ce n'est pas une ceinture avec des
+         bretelles : `flex-1` seul étire `main` jusqu'à ce que le conteneur
+         atteigne `min-h-screen`, PAS au-delà. Tant que la route n'a rien rendu,
+         `main` ne mesure donc que la place restante — 544 px sur un écran de
+         940 — et `EcoutezAilleurs` puis `AppFooter` se peignent dans le premier
+         écran, à y=608. Quand le composant de route arrive (un chunk paresseux,
+         donc une image plus tard sur un cache froid), les 332 px de bas de page
+         sont chassés sous la ligne de flottaison d'un seul coup : 0,3644 de
+         décalage cumulé le 29 août 2026, soit 86 % du total, pour un seuil de
+         0,1.
+
+         La hauteur minimale les place hors écran dès la première peinture. Ils
+         descendent toujours, mais un déplacement hors du cadre ne se voit pas
+         et ne se compte pas. Elle rend aussi la barre de défilement présente
+         d'emblée, ce qui supprime les 10 px dont l'en-tête glissait.
+
+         `4rem` est la hauteur de l'en-tête — le `h-16` de `NavBar.vue`. Les
+         deux valeurs doivent bouger ensemble ; trop grande, la page gagne du
+         vide en bas, trop petite, le bas de page revient dans l'écran et le
+         saut avec lui.
+    -->
+    <main class="min-h-[calc(100vh-4rem)] flex-1 pb-16">
       <RouterView />
     </main>
     <!-- Sous chaque page, avant le pied de page : c'est la « bande de pied de

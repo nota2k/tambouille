@@ -113,7 +113,7 @@ const cartesFantomes = computed(() =>
              comme tel. -->
         <Swiper
           wrapper-tag="ul"
-          class="fournee-swiper h-full w-full"
+          class="fournee-swiper fournee-swiper--large h-full w-full"
           :slides-per-view="1"
           :space-between="0"
           :breakpoints="{

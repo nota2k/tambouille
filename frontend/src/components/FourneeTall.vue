@@ -147,7 +147,7 @@ const cartesFantomes = computed(() => (props.fournee.mixes.length ? 0 : NOMBRE_D
              comme tel. -->
         <Swiper
           wrapper-tag="ul"
-          class="fournee-swiper w-full"
+          class="fournee-swiper fournee-swiper--tall w-full"
           :slides-per-view="1"
           :space-between="0"
           :breakpoints="{
