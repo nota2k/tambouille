@@ -49,7 +49,25 @@ let lenis: Lenis | null = null
  * lecteurs qui ont demandé qu'on ne leur anime rien.
  */
 export function poserLaPage(cible: number | string) {
+  poser(cible)
+
+  // Une seconde fois à la frame suivante, et ce n'est pas une ceinture avec des
+  // bretelles : `scrollBehavior` court avant que la vue qui arrive ait été
+  // mesurée. Le premier appel sert le cas courant, celui-ci rattrape les pages
+  // dont la hauteur n'était pas encore connue — c'est là que la limite périmée
+  // de Lenis faisait échouer la pose. L'opération est idempotente : les deux
+  // visent le même point.
+  requestAnimationFrame(() => poser(cible))
+}
+
+function poser(cible: number | string) {
   if (lenis) {
+    // `resize()` d'abord, sans quoi Lenis pose la page contre une limite
+    // mesurée pour la vue précédente. Observé : une limite de 421 px sur un
+    // document de 4093, et une remise en haut qui ne bougeait pas le document —
+    // la position interne passait bien à 0, le défilement réel restait où il
+    // était, puis remontait à la valeur rognée par la nouvelle hauteur.
+    lenis.resize()
     lenis.scrollTo(cible, { immediate: true, force: true })
     return
   }
