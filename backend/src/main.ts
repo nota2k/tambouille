@@ -31,6 +31,21 @@ async function bootstrap() {
 
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+    // Le front envoie un en-tête `Authorization`, ce qui suffit à rendre la
+    // requête « non simple » : le navigateur la fait précéder d'un OPTIONS et
+    // n'envoie la vraie qu'une fois la réponse revenue. Deux allers-retours au
+    // lieu d'un, sur chaque appel — l'accueil en fait une dizaine, et la mesure
+    // Lighthouse voyait 250 ms passer sur le seul préflight de `/auth/me`
+    // avant que la moindre donnée ne parte.
+    //
+    // `maxAge` autorise le navigateur à retenir la réponse au préflight. La
+    // clé de ce cache comprend l'URL, donc la toute première visite les paie
+    // encore ; tout ce qui suit — navigation dans l'application, retour sur le
+    // site, rechargement — ne les paie plus.
+    //
+    // 7200 parce que c'est le plafond de Chrome : au-delà, la valeur est
+    // ramenée à deux heures sans que rien ne le signale.
+    maxAge: 7200,
   });
 
   app.useGlobalPipes(
