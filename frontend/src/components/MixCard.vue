@@ -38,10 +38,24 @@ function play(event: Event) {
     :class="['group relative block shrink-0', landscape ? 'w-full' : 'w-40 sm:w-48']"
   >
     <div class="relative aspect-square w-full overflow-hidden bg-tambouille-surface-hover">
+      <!--
+        `hover:` sur l'image, et NON `group-hover:`.
+        ─────────────────────────────────────────────────────────────────────
+        Avec le survol de groupe, approcher le curseur d'un coin quelconque de
+        la carte éclaircissait la pochette ET le titre en même temps : deux
+        mouvements simultanés pour un seul geste, dont aucun ne désigne quoi
+        que ce soit. Chaque élément répond maintenant à son propre survol, et
+        la carte reste un lien entier — n'importe où on clique, on va au mix.
+
+        Le bouton de lecture, lui, garde son `group-hover` : il doit
+        APPARAÎTRE quand on approche de la carte, sans quoi on ne saurait pas
+        qu'il est là pour aller le chercher.
+      -->
       <CoverImage
         :src="mediaUrl(mix.coverUrl)"
         :srcset="mediaSrcset(mix.coverUrl)"
         :sizes="landscape ? '(min-width: 640px) 33vw, 100vw' : '(min-width: 640px) 192px, 160px'"
+        img-class="transition duration-200 hover:brightness-110"
       >
         <template #vide>
           <div class="flex h-full w-full items-center justify-center text-tambouille-faint">
@@ -67,12 +81,12 @@ function play(event: Event) {
     <AddToPlaylistButton :mix-id="mix.id" variant="overlay" />
 
     <p
-      class="mt-2.5 font-display text-[15px] font-bold leading-snug text-tambouille-text group-hover:underline"
+      class="mt-2.5 font-display text-[15px] font-bold leading-snug text-tambouille-text transition-colors hover:text-tambouille-text-hover"
     >
       {{ mix.title }}
     </p>
     <p class="mt-1 truncate text-[13px] text-tambouille-muted">
-      <span class="artiste group-hover:underline">{{ credit.primary }}</span
+      <span class="artiste hover:underline">{{ credit.primary }}</span
       ><template v-if="duration"> · {{ duration }}</template>
       <span v-if="credit.secondary" class="block text-tambouille-muted">
         importé par {{ credit.secondary }}

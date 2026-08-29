@@ -26,16 +26,19 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
 <template>
   <RouterLink
     :to="mixRoute(mix)"
-    class="group -mx-4 flex items-center gap-4 border-b border-black/12 px-4 py-4 transition sm:gap-5"
+    class="-mx-4 flex items-center gap-4 border-b border-black/12 px-4 py-4 transition sm:gap-5"
     :class="isCurrent ? 'bg-tambouille-accent-wash' : 'hover:bg-tambouille-surface-hover'"
   >
     <div
       class="aspect-square w-[122px] shrink-0 overflow-hidden bg-tambouille-surface-hover sm:w-[188px]"
     >
+      <!-- `hover:` et non `group-hover:`, comme sur les cartes : chaque partie
+           de la ligne répond à son propre survol. -->
       <CoverImage
         :src="mediaUrl(mix.coverUrl)"
         :srcset="mediaSrcset(mix.coverUrl)"
         sizes="(min-width: 640px) 188px, 122px"
+        img-class="transition duration-200 hover:brightness-110"
       >
         <template #vide>
           <div class="flex h-full w-full items-center justify-center text-tambouille-faint">
@@ -48,7 +51,22 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
     </div>
 
     <div class="min-w-0 flex-1">
-      <h3 class="font-display text-[24px] font-bold leading-tight text-tambouille-text sm:text-2xl">
+      <!--
+        Le titre s'éclaircit, comme sur les cartes.
+        ─────────────────────────────────────────────────────────────────────
+        Il se superpose au gris de la ligne, et les deux ne disent pas la même
+        chose : le fond annonce que la ligne entière est cliquable, le titre
+        que le curseur est précisément dessus. Ils ne se marchent dessus que si
+        le titre répond au survol du GROUPE — c'était le cas, et on ne voyait
+        alors plus que le rectangle. D'où le `hover:` et non `group-hover:`.
+
+        `inline-block` parce qu'un `h3` occupe toute la largeur : sans lui, la
+        zone de survol serait une bande allant jusqu'au bord droit, bien
+        au-delà du texte.
+      -->
+      <h3
+        class="inline-block font-display text-[24px] font-bold leading-tight text-tambouille-text transition-colors hover:text-tambouille-text-hover sm:text-2xl"
+      >
         {{ mix.title }}
       </h3>
 

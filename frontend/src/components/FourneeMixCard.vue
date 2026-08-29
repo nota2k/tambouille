@@ -35,6 +35,21 @@ const credit = computed(() => mixCredit(props.mix))
 const surface = computed(() => (isPlaying.value ? props.zone.ink : 'transparent'))
 const ink = computed(() => (isPlaying.value ? props.zone.surface : props.zone.ink))
 const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transparent)`)
+
+/**
+ * L'encre du titre au survol : la même, atténuée d'un cran.
+ *
+ * Pas le `--color-tambouille-text-hover` des autres cartes, qui est un noir
+ * levé : ici l'encre vient de la bande, et `inkOnPaper` la met à BLANC sur une
+ * fournée inversée. Un noir levé y serait illisible.
+ *
+ * `color-mix` vers `transparent` laisse passer un peu du fond de la bande, ce
+ * qui rapproche l'encre de ce fond quel qu'il soit — plus clair sur une bande
+ * claire, plus sombre sur une bande sombre. Dans les deux cas le titre recule
+ * d'un cran, ce qui est le signal cherché. C'est déjà le procédé du filet
+ * juste au-dessus, à 30 % ; 75 % ici, l'encre devant rester lisible.
+ */
+const inkHover = computed(() => `color-mix(in srgb, ${props.zone.ink} 75%, transparent)`)
 </script>
 
 <template>
@@ -69,10 +84,13 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
       />
     </RouterLink>
 
+    <!-- Pas de soulignement : le titre recule d'un cran au survol, comme sur
+         les cartes et les lignes de liste. La couleur passe par une variable
+         parce qu'elle dépend de la bande — voir `inkHover`. -->
     <RouterLink
       :to="mixRoute(mix)"
-      class="pt-3.5 text-[18px] leading-[1.15] text-pretty hover:underline sm:text-[22px]"
-      style="font-family: 'Gulax', sans-serif"
+      class="tb-titre-fournee pt-3.5 text-[18px] leading-[1.15] text-pretty sm:text-[22px]"
+      :style="{ fontFamily: 'Gulax, sans-serif', '--tb-encre-survol': inkHover }"
     >
       {{ mix.title }}
     </RouterLink>
@@ -104,3 +122,18 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
     </button>
   </div>
 </template>
+
+<style scoped>
+/*
+ * Le survol ne peut pas être un utilitaire Tailwind : la couleur est calculée
+ * à l'exécution depuis la bande, et une classe ne prend pas de valeur. Elle
+ * arrive donc par variable CSS, posée en `style` sur le lien.
+ */
+.tb-titre-fournee {
+  transition: color 0.15s ease;
+}
+
+.tb-titre-fournee:hover {
+  color: var(--tb-encre-survol);
+}
+</style>
