@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -27,6 +28,28 @@ function isUniqueConstraintError(error: unknown): boolean {
     error !== null &&
     (error as { code?: unknown }).code === 'P2002'
   );
+}
+
+/**
+ * Les pseudos du forum qu'un compte Tambouille a le droit de revendiquer.
+ *
+ * L'inscription est ouverte : sans cette liste, n'importe qui saisirait le
+ * pseudo d'un membre prolifique du forum et ferait paraître jusqu'à 50 mix
+ * d'autrui SOUS SON PROPRE COMPTE. Le design range explicitement la
+ * publication du contenu d'autrui dans ce qu'il ne traite pas.
+ *
+ * Lue à chaque appel plutôt qu'au chargement : `backend/.env` vit sur le
+ * serveur, et une liste changée doit prendre effet au redémarrage sans qu'on
+ * ait à se souvenir de l'ordre des imports.
+ *
+ * Absente ou vide, elle n'autorise RIEN — même règle que le webhook, où un
+ * secret absent ferme la route plutôt que de l'ouvrir à tous.
+ */
+function pseudosAutorises(): string[] {
+  return (process.env.INCONGRUES_ALLOWED_USERNAMES ?? '')
+    .split(',')
+    .map((pseudo) => pseudo.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 @Injectable()
@@ -121,7 +144,23 @@ export class UsersService {
       // `trim() || null` et non `trim()` : une chaîne vide entrerait en base,
       // où la contrainte d'unicité interdirait ensuite à un second compte de
       // se délier.
-      data.incongruesUsername = dto.incongruesUsername.trim() || null;
+      const pseudo = dto.incongruesUsername.trim() || null;
+
+      // Le champ vidé passe toujours : se délier n'est pas revendiquer, et une
+      // liste réduite ne doit pas enfermer un compte dans un lien qu'il ne peut
+      // plus défaire.
+      if (pseudo !== null) {
+        const autorises = pseudosAutorises();
+        if (!autorises.includes(pseudo.toLowerCase())) {
+          throw new ForbiddenException(
+            autorises.length
+              ? 'Ce pseudo Musiques Incongrues ne fait pas partie des comptes autorisés'
+              : 'La liaison avec Musiques Incongrues n’est pas ouverte sur cette instance',
+          );
+        }
+      }
+
+      data.incongruesUsername = pseudo;
     }
     try {
       await this.prisma.user.update({

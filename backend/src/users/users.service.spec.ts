@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -40,12 +40,23 @@ describe('UsersService', () => {
   let prisma: ReturnType<typeof createPrismaMock>;
   let service: UsersService;
 
+  const AUTORISES = process.env.INCONGRUES_ALLOWED_USERNAMES;
+
   beforeEach(() => {
     prisma = createPrismaMock();
     service = new UsersService(prisma as unknown as PrismaService);
     prisma.user.findUniqueOrThrow.mockResolvedValue(userRow());
     prisma.user.findUnique.mockResolvedValue(userRow());
     prisma.user.update.mockResolvedValue(userRow());
+    process.env.INCONGRUES_ALLOWED_USERNAMES = 'nota, AutreMembre';
+  });
+
+  afterEach(() => {
+    if (AUTORISES === undefined) {
+      delete process.env.INCONGRUES_ALLOWED_USERNAMES;
+    } else {
+      process.env.INCONGRUES_ALLOWED_USERNAMES = AUTORISES;
+    }
   });
 
   describe('incongruesUsername', () => {
@@ -64,6 +75,57 @@ describe('UsersService', () => {
     // compte de se délier à son tour.
     it('efface le lien quand le champ est vidé', async () => {
       await service.updateProfile(USER_ID, { incongruesUsername: '' });
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ incongruesUsername: null }),
+        }),
+      );
+    });
+
+    // L'inscription est ouverte : sans cette garde, n'importe qui saisirait le
+    // pseudo d'un membre prolifique du forum et ferait paraître jusqu'à 50 de
+    // ses mix sous son propre compte.
+    it('refuse un pseudo absent de la liste autorisée', async () => {
+      const error = await service
+        .updateProfile(USER_ID, { incongruesUsername: 'richardfoe' })
+        .catch((e: Error) => e);
+
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('accepte un pseudo autorisé, quelles que soient casse et espaces', async () => {
+      await service.updateProfile(USER_ID, {
+        incongruesUsername: '  autremembre  ',
+      });
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ incongruesUsername: 'autremembre' }),
+        }),
+      );
+    });
+
+    // Fail-closed, comme le webhook dont le secret absent ferme la route : une
+    // instance qui n'a pas renseigné la liste n'ouvre pas la liaison à tous.
+    it('n’autorise aucun pseudo quand la variable est absente', async () => {
+      delete process.env.INCONGRUES_ALLOWED_USERNAMES;
+
+      const error = await service
+        .updateProfile(USER_ID, { incongruesUsername: 'nota' })
+        .catch((e: Error) => e);
+
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    // Se délier n'est pas revendiquer : une liste réduite après coup ne doit
+    // pas enfermer un compte dans un lien qu'il ne peut plus défaire.
+    it('laisse toujours vider le champ, même liste fermée', async () => {
+      process.env.INCONGRUES_ALLOWED_USERNAMES = '';
+
+      await service.updateProfile(USER_ID, { incongruesUsername: '   ' });
 
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
