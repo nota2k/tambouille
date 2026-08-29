@@ -1,8 +1,10 @@
-// Fixtures figées le 29 août 2026 depuis
+// Fixture figée le 30 août 2026 depuis
 // https://www.musiques-incongrues.net/api/discussions?filter[author]=nota
-// et .../api/discussions/15617 — un compte réel, ses 24 discussions.
+// — un compte réel, ses 24 discussions à cette date. Représentative tant que
+// nota ne poste pas de nouvelle discussion sur le forum.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { BadGatewayException } from '@nestjs/common';
 import { FlarumClient } from './flarum.client';
 
 jest.mock('../common/safe-fetch', () => ({ safeFetch: jest.fn() }));
@@ -74,5 +76,76 @@ describe('FlarumClient.listByAuthor', () => {
     });
 
     await expect(new FlarumClient().listByAuthor('personne')).resolves.toEqual([]);
+  });
+});
+
+describe('FlarumClient.getDiscussion', () => {
+  beforeEach(() => mockSafeFetch.mockReset());
+
+  function reponds(document: unknown) {
+    mockSafeFetch.mockResolvedValue({
+      url: new URL('https://www.musiques-incongrues.net/api/discussions/15617'),
+      contentType: 'application/json',
+      body: Buffer.from(JSON.stringify(document)),
+    });
+  }
+
+  it('assemble une réponse à objet unique en FlarumDiscussion, termNames compris', async () => {
+    reponds({
+      data: {
+        type: 'discussions',
+        id: '15617',
+        attributes: {
+          title: 'Un titre',
+          createdAt: '2026-01-01T00:00:00Z',
+          slug: '15617-un-titre',
+        },
+        relationships: {
+          firstPost: { data: { id: '99' } },
+          taxonomyTerms: { data: [{ id: '7' }] },
+        },
+      },
+      included: [
+        {
+          type: 'posts',
+          id: '99',
+          attributes: { contentHtml: '<p>Salut</p>' },
+        },
+        {
+          type: 'flamarkt-taxonomy-terms',
+          id: '7',
+          attributes: { name: 'Mixcloud' },
+        },
+      ],
+    });
+
+    const discussion = await new FlarumClient().getDiscussion('15617');
+
+    expect(discussion).toEqual({
+      id: '15617',
+      title: 'Un titre',
+      createdAt: '2026-01-01T00:00:00Z',
+      pageUrl: 'https://www.musiques-incongrues.net/d/15617-un-titre',
+      contentHtml: '<p>Salut</p>',
+      termNames: ['Mixcloud'],
+    });
+  });
+
+  it('lève BadGatewayException quand la discussion est absente de la réponse', async () => {
+    reponds({ data: null });
+
+    await expect(new FlarumClient().getDiscussion('15617')).rejects.toThrow(
+      BadGatewayException,
+    );
+  });
+
+  it("encode l'id plutôt que de le coller tel quel", async () => {
+    reponds({ data: null });
+    await new FlarumClient().getDiscussion('a b/c').catch(() => undefined);
+
+    expect(mockSafeFetch).toHaveBeenCalledWith(
+      expect.stringContaining('a%20b%2Fc'),
+      expect.anything(),
+    );
   });
 });
