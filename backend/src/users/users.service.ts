@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PaginationDto } from './dto/pagination.dto';
 import { SearchUsersDto } from './dto/search-users.dto';
+import { pseudosAutorises } from '../incongrues/allowed-usernames';
 
 const userSummarySelect = {
   id: true,
@@ -28,28 +29,6 @@ function isUniqueConstraintError(error: unknown): boolean {
     error !== null &&
     (error as { code?: unknown }).code === 'P2002'
   );
-}
-
-/**
- * Les pseudos du forum qu'un compte Tambouille a le droit de revendiquer.
- *
- * L'inscription est ouverte : sans cette liste, n'importe qui saisirait le
- * pseudo d'un membre prolifique du forum et ferait paraître jusqu'à 50 mix
- * d'autrui SOUS SON PROPRE COMPTE. Le design range explicitement la
- * publication du contenu d'autrui dans ce qu'il ne traite pas.
- *
- * Lue à chaque appel plutôt qu'au chargement : `backend/.env` vit sur le
- * serveur, et une liste changée doit prendre effet au redémarrage sans qu'on
- * ait à se souvenir de l'ordre des imports.
- *
- * Absente ou vide, elle n'autorise RIEN — même règle que le webhook, où un
- * secret absent ferme la route plutôt que de l'ouvrir à tous.
- */
-function pseudosAutorises(): string[] {
-  return (process.env.INCONGRUES_ALLOWED_USERNAMES ?? '')
-    .split(',')
-    .map((pseudo) => pseudo.trim().toLowerCase())
-    .filter(Boolean);
 }
 
 @Injectable()

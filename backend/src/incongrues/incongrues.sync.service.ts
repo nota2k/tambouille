@@ -4,6 +4,7 @@ import { MusiquesIncongruesImporter } from '../imports/musiques-incongrues.impor
 import { MixesService } from '../mixes/mixes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CACHE_TTL_MS } from '../veille/veille.types';
+import { pseudoAutorise } from './allowed-usernames';
 
 /** La route est publique et déclenche des appels sortants. Une sonnerie de
  *  plus dans la minute ne peut rien apporter que la précédente n'ait déjà vu. */
@@ -62,6 +63,21 @@ export class IncongruesSyncService {
 
     let crees = 0;
     for (const user of lies) {
+      // La garde posée à la saisie du pseudo empêche une NOUVELLE revendication ;
+      // elle ne dit rien des liens déjà en base. Sans ce second contrôle,
+      // retirer un pseudo de la liste ne retirerait rien — le compte
+      // continuerait d'être servi à chaque passage, et la liste ne saurait
+      // qu'ajouter des droits, jamais en reprendre.
+      if (!pseudoAutorise(user.incongruesUsername!)) {
+        // `warn` et non `debug` : un lien devenu hors liste est une anomalie de
+        // configuration qu'on veut voir passer, pas un rejet de routine comme
+        // un post sans lecteur exploitable.
+        this.logger.warn(
+          `Compte ${user.incongruesUsername!} ignoré : absent de INCONGRUES_ALLOWED_USERNAMES`,
+        );
+        continue;
+      }
+
       // Chaque compte dans son propre `try` : `listByAuthor` est HORS du `try`
       // de `faire`, donc un forum injoignable ou un pseudo inexistant sortirait
       // de la boucle, et le webhook rendrait 502 au lieu de son compte de mix.

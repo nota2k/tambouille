@@ -149,6 +149,14 @@ sous son propre compte. Absente ou vide, elle n'autorise aucun pseudo — la
 liaison est fermée sur cette instance, ce n'est pas une panne. Se délier, en
 vidant le champ, reste possible en toutes circonstances.
 
+Elle est consultée à deux endroits, et c'est ce qui lui permet de **reprendre**
+un droit et pas seulement d'en accorder : à la saisie du pseudo, qui refuse une
+revendication, et à chaque passage de synchronisation, qui cesse de publier
+pour un pseudo que la liste ne couvre plus. Retirer un pseudo suffit donc à
+arrêter sa synchronisation, sans avoir à toucher la base — le compte garde son
+lien, il n'est simplement plus servi, et le journal le dit en `warn` à chaque
+passage.
+
 ## Les fournées, côté backend
 
 Le flux `/api/fournees/:numero/rss` lit les fichiers markdown de fournée. Ils
