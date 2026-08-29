@@ -30,6 +30,59 @@ import Lenis from 'lenis'
 let lenis: Lenis | null = null
 
 /**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * S'ABONNER AU DÉFILEMENT — ET POURQUOI `window` NE SUFFIT PAS
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Quand Lenis tourne, `window` NE REÇOIT AUCUN ÉVÉNEMENT `scroll`. Mesuré :
+ * `document.documentElement.scrollTop` passe bien de 0 à 900, et un écouteur
+ * posé sur `window` compte zéro événement. Lenis anime la position lui-même,
+ * frame par frame, et publie son avancement par son propre émetteur.
+ *
+ * Tout ce qui veut suivre le défilement doit donc passer par ici. Un
+ * `addEventListener('scroll')` posé ailleurs dans l'application a l'air correct,
+ * ne lève aucune erreur, et ne se déclenche jamais — c'est le genre de panne
+ * qui coûte une heure.
+ *
+ * La position est relue à chaque frame par la boucle de `useSmoothScroll`, qui
+ * explique pourquoi ni Lenis ni `window` ne suffisent.
+ */
+type Abonne = (y: number) => void
+
+const abonnes = new Set<Abonne>()
+
+/**
+ * Prévient les abonnés, si la page a bougé.
+ *
+ * Le garde sur la position est ce qui rend l'appel par frame gratuit : sans
+ * défilement, la boucle ne fait qu'une comparaison de nombres.
+ */
+let dernierY = -1
+
+function diffuser() {
+  const y = window.scrollY
+  if (y === dernierY) return
+  dernierY = y
+  for (const abonne of abonnes) abonne(y)
+}
+
+/**
+ * S'abonne à la position de défilement. Rend la fonction qui désabonne.
+ *
+ * L'abonnement fonctionne avant que Lenis n'existe : les `onMounted` des
+ * enfants courent AVANT celui du parent, et `App.vue` est le parent qui monte
+ * Lenis. Les abonnés sont donc tenus dans un ensemble au niveau du module, que
+ * Lenis alimente une fois créé.
+ */
+export function ecouterLeDefilement(abonne: Abonne): () => void {
+  abonnes.add(abonne)
+  abonne(window.scrollY)
+  return () => {
+    abonnes.delete(abonne)
+  }
+}
+
+/**
  * Pose la page à `cible` sans l'y conduire : un changement de route n'est pas
  * un défilement, c'est une autre page.
  *
@@ -84,6 +137,22 @@ export function useSmoothScroll() {
   let frame = 0
 
   onMounted(() => {
+    /*
+     * Les DEUX sources, toujours, et ce n'est pas une ceinture avec des
+     * bretelles.
+     *
+     * Chacune a un angle mort. L'écouteur natif ne voit rien de ce que Lenis
+     * anime lui-même. L'émetteur de Lenis, lui, ne connaît que SES
+     * déplacements : un `window.scrollTo` venu d'ailleurs — le navigateur qui
+     * restaure une position, une ancre, du code tiers — bouge le document sans
+     * qu'il en sache rien.
+     *
+     * Les deux appellent le même `diffuser`, qui relit `window.scrollY` : une
+     * double notification pour un même déplacement ne coûte qu'un calcul
+     * identique, alors qu'un déplacement manqué fige la couche pour de bon.
+     */
+    window.addEventListener('scroll', diffuser, { passive: true })
+
     const reduit = window.matchMedia('(prefers-reduced-motion: reduce)')
     if (reduit.matches) return
 
@@ -94,8 +163,27 @@ export function useSmoothScroll() {
       syncTouch: false,
     })
 
+    // C'est cet abonnement qui rattrape ce que `window` ne dit pas.
+    lenis.on('scroll', diffuser)
+
+    /*
+     * `diffuser` est appelé DEPUIS la boucle, et c'est la seule façon fiable.
+     *
+     * Ni l'émetteur de Lenis ni l'événement `scroll` de `window` ne suffisent.
+     * Mesuré sur ce site : un `window.scrollTo(0, 700)` déplace bien le
+     * document — le contenu monte de 700 pixels — et un écouteur posé sur
+     * `window` compte ZÉRO événement. L'émetteur de Lenis, lui, ne connaît que
+     * ce qu'il a animé, donc rien de ce déplacement-là.
+     *
+     * La boucle, en revanche, tourne déjà à chaque frame pour Lenis. Y ajouter
+     * une lecture de `window.scrollY` ne coûte rien et ne peut rien manquer :
+     * peu importe qui a bougé la page, on lit où elle est.
+     *
+     * `diffuser` ne fait rien quand la position n'a pas changé.
+     */
     const boucle = (temps: number) => {
       lenis?.raf(temps)
+      diffuser()
       frame = requestAnimationFrame(boucle)
     }
     frame = requestAnimationFrame(boucle)
@@ -105,6 +193,7 @@ export function useSmoothScroll() {
     // La boucle `raf` tourne tant qu'on ne l'arrête pas : sans ceci, elle
     // survivrait au composant et continuerait d'animer un document démonté.
     if (frame) cancelAnimationFrame(frame)
+    window.removeEventListener('scroll', diffuser)
     lenis?.destroy()
     lenis = null
   })
