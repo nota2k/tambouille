@@ -61,7 +61,7 @@ function onToggle(tag: string) {
           class="rounded-none border px-3 py-1.5 text-sm transition"
           :class="
             isSelected(tag)
-              ? 'border-tambouille-accent bg-tambouille-accent text-white'
+              ? 'border-tambouille-accent bg-tambouille-accent text-tambouille-ink-on-accent'
               : 'border-tambouille-border hover:border-tambouille-accent hover:text-tambouille-accent'
           "
           @click="onToggle(tag)"

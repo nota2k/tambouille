@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { loadGoogleIdentity } from '@/utils/googleIdentity'
 
 /**
  * Renders Google's own button and hands the resulting credential up. That is
@@ -15,32 +16,20 @@ const emit = defineEmits<{ (e: 'credential', credential: string): void }>()
 const container = ref<HTMLElement | null>(null)
 
 /**
- * Ce que ce composant utilise de Google Identity Services, et rien de plus.
+ * La bibliothèque part d'ici et non d'`index.html` : elle ne sert qu'à ce
+ * bouton, et l'accueil n'a pas à porter ses cent kilo-octets. Voir
+ * `utils/googleIdentity.ts`.
  *
- * La bibliothèque est chargée par une balise `<script>` dans `index.html`, donc
- * TypeScript n'en sait rien. Déclarer les deux appels qu'on lui fait vaut mieux
- * qu'un `any` qui accepterait n'importe quoi : une faute de frappe dans
- * `renderButton`, ou une option mal nommée, se verrait à la compilation.
+ * `onMounted` est asynchrone, donc le composant peut avoir été démonté entre
+ * temps — un aller-retour vers l'inscription suffit. `container` est alors nul
+ * et l'on ne dessine rien dans un élément détaché du document.
  */
-interface GoogleIdentity {
-  accounts: {
-    id: {
-      initialize(config: {
-        client_id: string
-        callback: (response: { credential: string }) => void
-      }): void
-      renderButton(
-        parent: HTMLElement,
-        options: { theme: string; size: string; text: string; locale: string },
-      ): void
-    }
-  }
-}
-
-onMounted(() => {
-  const google = (window as unknown as { google?: GoogleIdentity }).google
+onMounted(async () => {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-  if (!google || !clientId || !container.value) return
+  if (!clientId) return
+
+  const google = await loadGoogleIdentity()
+  if (!google || !container.value) return
 
   google.accounts.id.initialize({
     client_id: clientId,

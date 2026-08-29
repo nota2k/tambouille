@@ -4,6 +4,8 @@ import { usePlayerStore } from '@/stores/player'
 import { formatDuration } from '@/utils/time'
 import { useFourneeTheme, type FourneeZone } from '@/composables/useFourneeTheme'
 import FourneeMixCard from './FourneeMixCard.vue'
+import FourneeMixSkeleton from './FourneeMixSkeleton.vue'
+import { NOMBRE_DE_MIX } from '@/content/fournees'
 import type { Fournee } from '@/types'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import 'swiper/swiper.css'
@@ -40,6 +42,21 @@ function playAll() {
   const first = props.fournee.mixes[0]
   if (first) playerStore.play(first)
 }
+
+/**
+ * Combien de pochettes partent sans attendre la mise en page — deux, la moitié
+ * de ce que `large` montre au plus large. Voir `FourneeTall` pour le détail.
+ */
+const CARTES_PRIORITAIRES = 2
+
+/**
+ * Les cartes fantômes, tant que les mix ne sont pas revenus de l'API. Sans
+ * elles la colonne de droite restait vide puis s'installait d'un coup, et
+ * poussait toute la page vers le bas. Voir `FourneeTall` pour le détail.
+ */
+const cartesFantomes = computed(() =>
+  props.fournee.mixes.length ? 0 : NOMBRE_DE_MIX.large.attendu,
+)
 </script>
 
 <template>
@@ -58,7 +75,7 @@ function playAll() {
           >
             La fournée n°{{ fournee.number }}
           </span>
-          <span class="text-[11px] uppercase leading-none tracking-[0.16em] opacity-60">
+          <span class="text-[11px] uppercase leading-none tracking-[0.16em] opacity-85">
             {{ fournee.period }}
           </span>
         </div>
@@ -81,7 +98,7 @@ function playAll() {
           >
             Tout enfourner<template v-if="totalDuration"> — {{ totalDuration }}</template>
           </button>
-          <span class="text-[13px] opacity-60"
+          <span class="text-[13px] opacity-85"
             >{{ fournee.mixes.length }} mix · choisis par {{ fournee.curator }}</span
           >
         </div>
@@ -105,8 +122,17 @@ function playAll() {
             1024: { slidesPerView: 4 },
           }"
         >
-          <SwiperSlide v-for="mix in fournee.mixes" :key="mix.id" tag="li">
-            <FourneeMixCard :mix="mix" :zone="zone" layout="large" class="h-full" />
+          <SwiperSlide v-for="(mix, index) in fournee.mixes" :key="mix.id" tag="li">
+            <FourneeMixCard
+              :mix="mix"
+              :zone="zone"
+              layout="large"
+              :priority="index < CARTES_PRIORITAIRES"
+              class="h-full"
+            />
+          </SwiperSlide>
+          <SwiperSlide v-for="n in cartesFantomes" :key="`fantome-${n}`" tag="li">
+            <FourneeMixSkeleton :zone="zone" layout="large" class="h-full" />
           </SwiperSlide>
         </Swiper>
       </div>

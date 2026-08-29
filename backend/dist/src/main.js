@@ -10,6 +10,7 @@ async function bootstrap() {
     app.set('trust proxy', 1);
     app.enableCors({
         origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+        maxAge: 7200,
     });
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,

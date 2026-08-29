@@ -148,7 +148,7 @@ onUnmounted(() => {
   <header class="sticky top-0 z-[1001] bg-tambouille-accent">
     <div class="mx-auto flex h-16 max-w-[1900px] items-center gap-6 px-4 lg:gap-9">
       <RouterLink to="/" class="shrink-0 text-5xl tracking-tight">
-        <span class="font-wordmark text-tambouille-white flex items-center gap-4"
+        <span class="font-wordmark text-tambouille-ink-on-accent flex items-center gap-4"
           >Tambouille
           <svg
             class="logo-waves"
@@ -228,7 +228,7 @@ onUnmounted(() => {
                 />
                 <div
                   v-else
-                  class="flex h-9 w-9 items-center justify-center rounded-none bg-tambouille-accent text-xs font-semibold text-white"
+                  class="flex h-9 w-9 items-center justify-center rounded-none bg-tambouille-accent text-xs font-semibold text-tambouille-ink-on-accent"
                 >
                   {{ user.displayName?.[0]?.toUpperCase() }}
                 </div>
@@ -248,8 +248,8 @@ onUnmounted(() => {
         <div class="flex items-center gap-5 max-[400px]:hidden lg:gap-6">
           <RouterLink
             to="/"
-            class="text-lg text-tambouille-white hover:underline"
-            active-class="!text-tambouille-white"
+            class="text-lg text-tambouille-ink-on-accent hover:underline"
+            active-class="!text-tambouille-ink-on-accent"
           >
             Découvrir
           </RouterLink>
@@ -257,15 +257,15 @@ onUnmounted(() => {
           <template v-if="authStore.isAuthenticated">
             <RouterLink
               to="/collection"
-              class="text-lg text-tambouille-white hover:underline"
-              active-class="!text-tambouille-white"
+              class="text-lg text-tambouille-ink-on-accent hover:underline"
+              active-class="!text-tambouille-ink-on-accent"
             >
               Collection
             </RouterLink>
 
             <RouterLink
               to="/upload"
-              class="rounded-none border border-white px-4 py-2 text-lg font-bold text-white hover:bg-white hover:text-tambouille-accent"
+              class="rounded-none border border-black px-4 py-2 text-lg font-bold text-tambouille-ink-on-accent hover:bg-black hover:text-tambouille-accent"
             >
               Uploader
             </RouterLink>
@@ -287,7 +287,7 @@ onUnmounted(() => {
                   class="h-full w-full rounded-none object-cover"
                   alt=""
                 />
-                <span v-else class="text-xs font-bold text-tambouille-accent">
+                <span v-else class="text-xs font-bold text-tambouille-text">
                   {{ authStore.user?.displayName?.[0]?.toUpperCase() }}
                 </span>
               </button>
@@ -331,12 +331,12 @@ onUnmounted(() => {
           </template>
 
           <template v-else>
-            <RouterLink to="/login" class="text-sm text-tambouille-white hover:underline">
+            <RouterLink to="/login" class="text-sm text-tambouille-ink-on-accent hover:underline">
               Connexion
             </RouterLink>
             <RouterLink
               to="/register"
-              class="rounded-none border border-white px-4 py-2 text-[13px] font-bold text-white hover:bg-white hover:text-tambouille-accent"
+              class="rounded-none border border-black px-4 py-2 text-[13px] font-bold text-tambouille-ink-on-accent hover:bg-black hover:text-tambouille-accent"
             >
               S'inscrire
             </RouterLink>
@@ -345,7 +345,7 @@ onUnmounted(() => {
 
         <button
           type="button"
-          class="hidden h-10 w-10 items-center justify-center rounded-none text-tambouille-white hover:bg-white/15 max-[400px]:flex"
+          class="hidden h-10 w-10 items-center justify-center rounded-none text-tambouille-ink-on-accent hover:bg-white/15 max-[400px]:flex"
           aria-label="Ouvrir le menu"
           aria-controls="mobile-menu"
           :aria-expanded="mobileMenuOpen"
@@ -369,7 +369,7 @@ onUnmounted(() => {
         <div
           v-if="mobileMenuOpen"
           id="mobile-menu"
-          class="fixed inset-0 z-[1100] flex flex-col bg-tambouille-accent text-tambouille-white"
+          class="fixed inset-0 z-[1100] flex flex-col bg-tambouille-accent text-tambouille-ink-on-accent"
         >
           <div class="flex h-16 shrink-0 items-center justify-between px-4">
             <RouterLink
