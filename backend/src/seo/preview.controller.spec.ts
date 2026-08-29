@@ -94,7 +94,7 @@ describe('PreviewController', () => {
         .expect(200);
 
       expect(text).toContain(
-        '<meta property="og:title" content="Tabouïedire par Klaus Vomi, mijoté par Nelly Babillon — Tambouille">',
+        '<meta property="og:title" content="Tabouïedire par Klaus Vomi, dégoté par Nelly Babillon — Tambouille">',
       );
       expect(text).toContain(
         '<meta property="og:image" content="https://cdn.example/covers/abc.jpg">',
@@ -116,7 +116,7 @@ describe('PreviewController', () => {
         .expect(200);
 
       expect(text).toContain(
-        'Tabouïedire par Klaus Vomi, mijoté par Nelly Babillon',
+        'Tabouïedire par Klaus Vomi, dégoté par Nelly Babillon',
       );
     });
 
@@ -142,7 +142,7 @@ describe('PreviewController', () => {
       expect(text).toContain(
         '<meta property="og:title" content="Tabouïedire par Nelly Babillon — Tambouille">',
       );
-      expect(text).not.toContain('mijoté par');
+      expect(text).not.toContain('dégoté par');
     });
 
     it('sert l’adresse canonique à deux segments, celle que le site publie', async () => {

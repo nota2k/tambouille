@@ -20,7 +20,7 @@ function toggleFollow() {
 
 <template>
   <div>
-    <p class="tb-eyebrow">Mijoté par</p>
+    <p class="tb-eyebrow">Dégoté par</p>
 
     <div class="flex items-center gap-4 pt-4">
       <RouterLink
