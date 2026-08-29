@@ -112,6 +112,7 @@ export type PasswordResetTokenScalarFieldEnum = (typeof PasswordResetTokenScalar
 export const MixScalarFieldEnum = {
   id: 'id',
   title: 'title',
+  slug: 'slug',
   description: 'description',
   artist: 'artist',
   audioUrl: 'audioUrl',

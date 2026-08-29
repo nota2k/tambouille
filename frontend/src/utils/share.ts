@@ -1,5 +1,6 @@
 import router from '@/router'
 import type { RouteLocationRaw } from 'vue-router'
+import { mixRoute, type MixLocalisable } from '@/utils/routes'
 
 /** Absolute, shareable URL for a route. */
 export function shareUrl(to: RouteLocationRaw) {
@@ -7,8 +8,8 @@ export function shareUrl(to: RouteLocationRaw) {
   return new URL(href, window.location.origin).toString()
 }
 
-export function mixShareUrl(mixId: string) {
-  return shareUrl({ name: 'mix-detail', params: { id: mixId } })
+export function mixShareUrl(mix: MixLocalisable) {
+  return shareUrl(mixRoute(mix))
 }
 
 export function playlistShareUrl(playlistId: string) {

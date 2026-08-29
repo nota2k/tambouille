@@ -5,6 +5,7 @@ import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
 import { feedUrl, mediaUrl } from '@/utils/media'
+import { mixRoute } from '@/utils/routes'
 import { formatDate } from '@/utils/date'
 import { formatDuration } from '@/utils/time'
 import MixListItem from '@/components/MixListItem.vue'
@@ -441,7 +442,7 @@ onMounted(loadSections)
                    tabulation : le titre à droite mène au même mix. Le lien ne
                    contenant qu'une image décorative, il n'annoncerait rien. -->
               <RouterLink
-                :to="{ name: 'mix-detail', params: { id: featuredMix.id } }"
+                :to="mixRoute(featuredMix)"
                 class="aspect-square w-full max-w-[var(--width-max-large)] shrink-0 overflow-hidden bg-tambouille-surface-hover"
                 aria-hidden="true"
                 tabindex="-1"
@@ -450,7 +451,7 @@ onMounted(loadSections)
               </RouterLink>
 
               <div class="flex min-w-0 flex-1 flex-col">
-                <RouterLink :to="{ name: 'mix-detail', params: { id: featuredMix.id } }">
+                <RouterLink :to="mixRoute(featuredMix)">
                   <h2 class="font-display text-5xl font-medium leading-tight sm:text-[46px]">
                     {{ featuredMix.title }}
                   </h2>

@@ -984,6 +984,7 @@ export type PasswordResetTokenScalarFieldEnum = (typeof PasswordResetTokenScalar
 export declare const MixScalarFieldEnum: {
     readonly id: "id";
     readonly title: "title";
+    readonly slug: "slug";
     readonly description: "description";
     readonly artist: "artist";
     readonly audioUrl: "audioUrl";

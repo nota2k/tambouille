@@ -43,6 +43,7 @@ export declare class MixesController {
         totalPages: number;
     }>;
     findAllTags(): Promise<string[]>;
+    findBySlug(username: string, slug: string, currentUserId?: string): Promise<any>;
     findOne(id: string, currentUserId?: string): Promise<any>;
     resolveAudio(id: string, request: Request): Promise<{
         url: string;

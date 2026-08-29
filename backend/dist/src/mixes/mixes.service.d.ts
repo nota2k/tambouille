@@ -44,6 +44,7 @@ export declare class MixesService {
         audioUrl?: string;
         coverUrl?: string;
     }): Promise<any>;
+    private slugLibrePour;
     findAll(query: QueryMixesDto, currentUserId?: string): Promise<{
         items: any[];
         total: number;
@@ -51,6 +52,7 @@ export declare class MixesService {
         limit: number;
         totalPages: number;
     }>;
+    findBySlug(username: string, slug: string, currentUserId?: string): Promise<any>;
     findOne(id: string, currentUserId?: string): Promise<any>;
     resolveAudio(id: string, bases: MediaBases): Promise<{
         url: string;

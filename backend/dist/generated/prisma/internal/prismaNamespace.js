@@ -102,6 +102,7 @@ exports.PasswordResetTokenScalarFieldEnum = {
 exports.MixScalarFieldEnum = {
     id: 'id',
     title: 'title',
+    slug: 'slug',
     description: 'description',
     artist: 'artist',
     audioUrl: 'audioUrl',

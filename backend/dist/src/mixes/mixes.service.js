@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const upload_utils_1 = require("../common/upload.utils");
 const audio_source_1 = require("../common/audio-source");
+const slug_1 = require("../common/slug");
 function parseTags(tags) {
     if (!tags)
         return [];
@@ -119,6 +120,7 @@ let MixesService = class MixesService {
         const mix = await this.prisma.mix.create({
             data: {
                 title: dto.title,
+                slug: await this.slugLibrePour(userId, dto.title),
                 description: dto.description,
                 artist: dto.artist?.trim() || null,
                 tags: parseTags(dto.tags),
@@ -133,6 +135,15 @@ let MixesService = class MixesService {
             ...buildMixInclude(userId),
         });
         return toMixResponse(mix);
+    }
+    slugLibrePour(userId, titre) {
+        return (0, slug_1.slugUnique)(titre, async (slug) => {
+            const existe = await this.prisma.mix.findFirst({
+                where: { userId, slug },
+                select: { id: true },
+            });
+            return existe !== null;
+        });
     }
     async findAll(query, currentUserId) {
         const page = query.page ?? 1;
@@ -188,6 +199,19 @@ let MixesService = class MixesService {
             limit,
             totalPages: Math.max(1, Math.ceil(total / limit)),
         };
+    }
+    async findBySlug(username, slug, currentUserId) {
+        const mix = await this.prisma.mix.findFirst({
+            where: {
+                slug,
+                user: { username: { equals: username, mode: 'insensitive' } },
+            },
+            ...buildMixInclude(currentUserId),
+        });
+        if (!mix) {
+            throw new common_1.NotFoundException('Mix not found');
+        }
+        return toMixResponse(mix);
     }
     async findOne(id, currentUserId) {
         const mix = await this.prisma.mix.findUnique({

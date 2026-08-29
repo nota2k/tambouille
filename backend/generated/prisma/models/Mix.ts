@@ -39,6 +39,7 @@ export type MixSumAggregateOutputType = {
 export type MixMinAggregateOutputType = {
   id: string | null
   title: string | null
+  slug: string | null
   description: string | null
   artist: string | null
   audioUrl: string | null
@@ -55,6 +56,7 @@ export type MixMinAggregateOutputType = {
 export type MixMaxAggregateOutputType = {
   id: string | null
   title: string | null
+  slug: string | null
   description: string | null
   artist: string | null
   audioUrl: string | null
@@ -71,6 +73,7 @@ export type MixMaxAggregateOutputType = {
 export type MixCountAggregateOutputType = {
   id: number
   title: number
+  slug: number
   description: number
   artist: number
   audioUrl: number
@@ -100,6 +103,7 @@ export type MixSumAggregateInputType = {
 export type MixMinAggregateInputType = {
   id?: true
   title?: true
+  slug?: true
   description?: true
   artist?: true
   audioUrl?: true
@@ -116,6 +120,7 @@ export type MixMinAggregateInputType = {
 export type MixMaxAggregateInputType = {
   id?: true
   title?: true
+  slug?: true
   description?: true
   artist?: true
   audioUrl?: true
@@ -132,6 +137,7 @@ export type MixMaxAggregateInputType = {
 export type MixCountAggregateInputType = {
   id?: true
   title?: true
+  slug?: true
   description?: true
   artist?: true
   audioUrl?: true
@@ -236,6 +242,7 @@ export type MixGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
 export type MixGroupByOutputType = {
   id: string
   title: string
+  slug: string
   description: string | null
   artist: string | null
   audioUrl: string | null
@@ -276,6 +283,7 @@ export type MixWhereInput = {
   NOT?: Prisma.MixWhereInput | Prisma.MixWhereInput[]
   id?: Prisma.StringFilter<"Mix"> | string
   title?: Prisma.StringFilter<"Mix"> | string
+  slug?: Prisma.StringFilter<"Mix"> | string
   description?: Prisma.StringNullableFilter<"Mix"> | string | null
   artist?: Prisma.StringNullableFilter<"Mix"> | string | null
   audioUrl?: Prisma.StringNullableFilter<"Mix"> | string | null
@@ -299,6 +307,7 @@ export type MixWhereInput = {
 export type MixOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  slug?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   artist?: Prisma.SortOrderInput | Prisma.SortOrder
   audioUrl?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -321,10 +330,12 @@ export type MixOrderByWithRelationInput = {
 
 export type MixWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  userId_slug?: Prisma.MixUserIdSlugCompoundUniqueInput
   AND?: Prisma.MixWhereInput | Prisma.MixWhereInput[]
   OR?: Prisma.MixWhereInput[]
   NOT?: Prisma.MixWhereInput | Prisma.MixWhereInput[]
   title?: Prisma.StringFilter<"Mix"> | string
+  slug?: Prisma.StringFilter<"Mix"> | string
   description?: Prisma.StringNullableFilter<"Mix"> | string | null
   artist?: Prisma.StringNullableFilter<"Mix"> | string | null
   audioUrl?: Prisma.StringNullableFilter<"Mix"> | string | null
@@ -343,11 +354,12 @@ export type MixWhereUniqueInput = Prisma.AtLeast<{
   playHistory?: Prisma.PlayHistoryListRelationFilter
   playlistItems?: Prisma.PlaylistItemListRelationFilter
   comments?: Prisma.CommentListRelationFilter
-}, "id">
+}, "id" | "userId_slug">
 
 export type MixOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  slug?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   artist?: Prisma.SortOrderInput | Prisma.SortOrder
   audioUrl?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -373,6 +385,7 @@ export type MixScalarWhereWithAggregatesInput = {
   NOT?: Prisma.MixScalarWhereWithAggregatesInput | Prisma.MixScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"Mix"> | string
   title?: Prisma.StringWithAggregatesFilter<"Mix"> | string
+  slug?: Prisma.StringWithAggregatesFilter<"Mix"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"Mix"> | string | null
   artist?: Prisma.StringNullableWithAggregatesFilter<"Mix"> | string | null
   audioUrl?: Prisma.StringNullableWithAggregatesFilter<"Mix"> | string | null
@@ -390,6 +403,7 @@ export type MixScalarWhereWithAggregatesInput = {
 export type MixCreateInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -412,6 +426,7 @@ export type MixCreateInput = {
 export type MixUncheckedCreateInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -434,6 +449,7 @@ export type MixUncheckedCreateInput = {
 export type MixUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -456,6 +472,7 @@ export type MixUpdateInput = {
 export type MixUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -478,6 +495,7 @@ export type MixUncheckedUpdateInput = {
 export type MixCreateManyInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -495,6 +513,7 @@ export type MixCreateManyInput = {
 export type MixUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -511,6 +530,7 @@ export type MixUpdateManyMutationInput = {
 export type MixUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -543,9 +563,15 @@ export type StringNullableListFilter<$PrismaModel = never> = {
   isEmpty?: boolean
 }
 
+export type MixUserIdSlugCompoundUniqueInput = {
+  userId: string
+  slug: string
+}
+
 export type MixCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  slug?: Prisma.SortOrder
   description?: Prisma.SortOrder
   artist?: Prisma.SortOrder
   audioUrl?: Prisma.SortOrder
@@ -568,6 +594,7 @@ export type MixAvgOrderByAggregateInput = {
 export type MixMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  slug?: Prisma.SortOrder
   description?: Prisma.SortOrder
   artist?: Prisma.SortOrder
   audioUrl?: Prisma.SortOrder
@@ -584,6 +611,7 @@ export type MixMaxOrderByAggregateInput = {
 export type MixMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  slug?: Prisma.SortOrder
   description?: Prisma.SortOrder
   artist?: Prisma.SortOrder
   audioUrl?: Prisma.SortOrder
@@ -747,6 +775,7 @@ export type MixUpdateOneRequiredWithoutTracklistNestedInput = {
 export type MixCreateWithoutUserInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -768,6 +797,7 @@ export type MixCreateWithoutUserInput = {
 export type MixUncheckedCreateWithoutUserInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -818,6 +848,7 @@ export type MixScalarWhereInput = {
   NOT?: Prisma.MixScalarWhereInput | Prisma.MixScalarWhereInput[]
   id?: Prisma.StringFilter<"Mix"> | string
   title?: Prisma.StringFilter<"Mix"> | string
+  slug?: Prisma.StringFilter<"Mix"> | string
   description?: Prisma.StringNullableFilter<"Mix"> | string | null
   artist?: Prisma.StringNullableFilter<"Mix"> | string | null
   audioUrl?: Prisma.StringNullableFilter<"Mix"> | string | null
@@ -835,6 +866,7 @@ export type MixScalarWhereInput = {
 export type MixCreateWithoutPlaylistItemsInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -856,6 +888,7 @@ export type MixCreateWithoutPlaylistItemsInput = {
 export type MixUncheckedCreateWithoutPlaylistItemsInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -893,6 +926,7 @@ export type MixUpdateToOneWithWhereWithoutPlaylistItemsInput = {
 export type MixUpdateWithoutPlaylistItemsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -914,6 +948,7 @@ export type MixUpdateWithoutPlaylistItemsInput = {
 export type MixUncheckedUpdateWithoutPlaylistItemsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -935,6 +970,7 @@ export type MixUncheckedUpdateWithoutPlaylistItemsInput = {
 export type MixCreateWithoutFavoritesInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -956,6 +992,7 @@ export type MixCreateWithoutFavoritesInput = {
 export type MixUncheckedCreateWithoutFavoritesInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -993,6 +1030,7 @@ export type MixUpdateToOneWithWhereWithoutFavoritesInput = {
 export type MixUpdateWithoutFavoritesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1014,6 +1052,7 @@ export type MixUpdateWithoutFavoritesInput = {
 export type MixUncheckedUpdateWithoutFavoritesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1035,6 +1074,7 @@ export type MixUncheckedUpdateWithoutFavoritesInput = {
 export type MixCreateWithoutPlayHistoryInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -1056,6 +1096,7 @@ export type MixCreateWithoutPlayHistoryInput = {
 export type MixUncheckedCreateWithoutPlayHistoryInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -1093,6 +1134,7 @@ export type MixUpdateToOneWithWhereWithoutPlayHistoryInput = {
 export type MixUpdateWithoutPlayHistoryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1114,6 +1156,7 @@ export type MixUpdateWithoutPlayHistoryInput = {
 export type MixUncheckedUpdateWithoutPlayHistoryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1135,6 +1178,7 @@ export type MixUncheckedUpdateWithoutPlayHistoryInput = {
 export type MixCreateWithoutCommentsInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -1156,6 +1200,7 @@ export type MixCreateWithoutCommentsInput = {
 export type MixUncheckedCreateWithoutCommentsInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -1193,6 +1238,7 @@ export type MixUpdateToOneWithWhereWithoutCommentsInput = {
 export type MixUpdateWithoutCommentsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1214,6 +1260,7 @@ export type MixUpdateWithoutCommentsInput = {
 export type MixUncheckedUpdateWithoutCommentsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1235,6 +1282,7 @@ export type MixUncheckedUpdateWithoutCommentsInput = {
 export type MixCreateWithoutTracklistInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -1256,6 +1304,7 @@ export type MixCreateWithoutTracklistInput = {
 export type MixUncheckedCreateWithoutTracklistInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -1293,6 +1342,7 @@ export type MixUpdateToOneWithWhereWithoutTracklistInput = {
 export type MixUpdateWithoutTracklistInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1314,6 +1364,7 @@ export type MixUpdateWithoutTracklistInput = {
 export type MixUncheckedUpdateWithoutTracklistInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1335,6 +1386,7 @@ export type MixUncheckedUpdateWithoutTracklistInput = {
 export type MixCreateManyUserInput = {
   id?: string
   title: string
+  slug: string
   description?: string | null
   artist?: string | null
   audioUrl?: string | null
@@ -1351,6 +1403,7 @@ export type MixCreateManyUserInput = {
 export type MixUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1372,6 +1425,7 @@ export type MixUpdateWithoutUserInput = {
 export type MixUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1393,6 +1447,7 @@ export type MixUncheckedUpdateWithoutUserInput = {
 export type MixUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1476,6 +1531,7 @@ export type MixCountOutputTypeCountCommentsArgs<ExtArgs extends runtime.Types.Ex
 export type MixSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   title?: boolean
+  slug?: boolean
   description?: boolean
   artist?: boolean
   audioUrl?: boolean
@@ -1500,6 +1556,7 @@ export type MixSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = ru
 export type MixSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   title?: boolean
+  slug?: boolean
   description?: boolean
   artist?: boolean
   audioUrl?: boolean
@@ -1518,6 +1575,7 @@ export type MixSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extension
 export type MixSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   title?: boolean
+  slug?: boolean
   description?: boolean
   artist?: boolean
   audioUrl?: boolean
@@ -1536,6 +1594,7 @@ export type MixSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extension
 export type MixSelectScalar = {
   id?: boolean
   title?: boolean
+  slug?: boolean
   description?: boolean
   artist?: boolean
   audioUrl?: boolean
@@ -1550,7 +1609,7 @@ export type MixSelectScalar = {
   userId?: boolean
 }
 
-export type MixOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "artist" | "audioUrl" | "sourceType" | "sourceRef" | "coverUrl" | "durationSec" | "playsCount" | "tags" | "createdAt" | "updatedAt" | "userId", ExtArgs["result"]["mix"]>
+export type MixOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "slug" | "description" | "artist" | "audioUrl" | "sourceType" | "sourceRef" | "coverUrl" | "durationSec" | "playsCount" | "tags" | "createdAt" | "updatedAt" | "userId", ExtArgs["result"]["mix"]>
 export type MixInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   tracklist?: boolean | Prisma.Mix$tracklistArgs<ExtArgs>
@@ -1580,6 +1639,13 @@ export type $MixPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     title: string
+    /**
+     * Le titre rendu passable dans une URL : `/mixes/<compte>/<slug>`. Figé à la
+     * création et jamais recalculé — un titre corrigé ne doit pas casser les liens
+     * déjà partagés. Unique par compte seulement : deux personnes ont le droit de
+     * publier « mix 57 ». Voir `src/common/slug.ts`.
+     */
+    slug: string
     description: string | null
     /**
      * Le nom de l'artiste tel que la source l'écrit, casse comprise. Null sur
@@ -2040,6 +2106,7 @@ export interface Prisma__MixClient<T, Null = never, ExtArgs extends runtime.Type
 export interface MixFieldRefs {
   readonly id: Prisma.FieldRef<"Mix", 'String'>
   readonly title: Prisma.FieldRef<"Mix", 'String'>
+  readonly slug: Prisma.FieldRef<"Mix", 'String'>
   readonly description: Prisma.FieldRef<"Mix", 'String'>
   readonly artist: Prisma.FieldRef<"Mix", 'String'>
   readonly audioUrl: Prisma.FieldRef<"Mix", 'String'>

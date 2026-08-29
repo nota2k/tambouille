@@ -17,6 +17,8 @@ import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import { mixShareUrl } from '@/utils/share'
+import { mixEditRoute, mixRoute } from '@/utils/routes'
+import { taireLeProchainVoile } from '@/composables/useTransitionDePage'
 import { useSeo } from '@/composables/useSeo'
 import type { Mix, TracklistEntry, UserProfile } from '@/types'
 
@@ -76,11 +78,48 @@ const sourcePageUrl = computed(() => {
     : current.sourceRef
 })
 
+/**
+ * L'adresse du mix dans l'API, selon la route par laquelle on est arrivé.
+ *
+ * Deux routes mènent ici : la canonique, `/mixes/<compte>/<slug>`, et l'ancienne
+ * à un seul segment, qui ne connaît qu'un identifiant. Le paramètre présent
+ * suffit à les distinguer.
+ */
+function urlDeLApi(): string {
+  const { username, slug, id } = route.params
+  if (typeof id === 'string') return `/mixes/${id}`
+  return `/mixes/by-slug/${encodeURIComponent(String(username))}/${encodeURIComponent(String(slug))}`
+}
+
+/**
+ * Remplace une ancienne adresse `/mixes/<id>` par la canonique.
+ *
+ * C'est ce qui fait vivre les liens déjà partagés sans les dupliquer : ils
+ * affichent la page, puis l'adresse devient la bonne. Aucune requête de plus —
+ * celle du mix venait d'aboutir, et c'est elle qui apprend compte et slug.
+ *
+ * `taireLeProchainVoile` parce que rien de ce qui est affiché ne change : sans
+ * lui, le voile rose tomberait sur une page déjà lue.
+ *
+ * Query et fragment sont reconduits : un lien partagé peut porter un `?t=` ou
+ * une ancre, et les perdre en chemin viderait le partage de son sens.
+ */
+function canoniserLUrl(courant: Mix) {
+  // Sur la route canonique il n'y a rien à corriger. Un username qui ne
+  // correspond pas n'y est plus rattrapable : le slug n'est unique que par
+  // compte, donc l'username fait partie de la désignation — l'API répond 404,
+  // ce qui est la bonne réponse.
+  if (typeof route.params.id !== 'string') return
+  taireLeProchainVoile()
+  router.replace({ ...mixRoute(courant), query: route.query, hash: route.hash })
+}
+
 async function loadMix() {
   loading.value = true
   try {
-    const { data } = await apiClient.get<Mix>(`/mixes/${route.params.id}`)
+    const { data } = await apiClient.get<Mix>(urlDeLApi())
     mix.value = data
+    canoniserLUrl(data)
     const { data: profileData } = await apiClient.get<UserProfile>(`/users/${data.user.username}`)
     uploaderProfile.value = profileData
   } finally {
@@ -101,9 +140,18 @@ async function loadSuggestions(id: string) {
   }
 }
 
-async function loadAll(id: string) {
+/**
+ * Les deux chargements, en séquence et non plus de front.
+ *
+ * L'identifiant du mix n'est plus dans l'URL : il faut le mix pour demander ses
+ * suggestions. C'est un aller-retour de plus avant qu'elles n'arrivent, et
+ * c'est sans conséquence — elles sont sous la ligne de flottaison, et déjà
+ * traitées comme un complément qui peut manquer.
+ */
+async function loadAll() {
   suggestions.value = []
-  await Promise.all([loadMix(), loadSuggestions(id)])
+  await loadMix()
+  if (mix.value) await loadSuggestions(mix.value.id)
 }
 
 function playFromTrack(entry: TracklistEntry) {
@@ -197,12 +245,12 @@ useSeo(() => {
         .join(' · '),
     image: cover,
     type: 'music.song',
-    canonical: mixShareUrl(current.id),
+    canonical: mixShareUrl(current),
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'MusicRecording',
       name: current.title,
-      url: mixShareUrl(current.id),
+      url: mixShareUrl(current),
       byArtist: { '@type': 'MusicGroup', name: auteur },
       datePublished: current.createdAt,
       ...(current.description ? { description: current.description } : {}),
@@ -213,13 +261,27 @@ useSeo(() => {
   }
 })
 
+/**
+ * Ce qui est affiché correspond-il déjà à ce que l'URL demande ?
+ *
+ * La question se pose parce que la réécriture d'une ancienne adresse change
+ * tous les paramètres d'un coup : sans cette comparaison, le veilleur y verrait
+ * un autre mix et redemanderait celui qu'il vient de recevoir.
+ */
+function correspondALUrl(): boolean {
+  const courant = mix.value
+  if (!courant) return false
+  if (typeof route.params.id === 'string') return route.params.id === courant.id
+  return route.params.username === courant.user.username && route.params.slug === courant.slug
+}
+
 // Une carte de suggestion mène d'un mix à un autre : même route, même composant, que Vue
 // Router réutilise sans le remonter. `onMounted` seul laissait alors l'ancien mix affiché
-// sous la nouvelle URL. On suit donc le paramètre, `immediate` remplaçant le montage.
+// sous la nouvelle URL. On suit donc les paramètres, `immediate` remplaçant le montage.
 watch(
-  () => route.params.id,
-  (id) => {
-    if (typeof id === 'string') loadAll(id)
+  () => [route.params.username, route.params.slug, route.params.id] as const,
+  () => {
+    if (!correspondALUrl()) loadAll()
   },
   { immediate: true },
 )
@@ -290,17 +352,14 @@ watch(
               {{ mix.isFavorited ? 'Favori' : 'Mettre en favori' }}
             </button>
             <AddToPlaylistButton :mix-id="mix.id" />
-            <ShareButton :url="mixShareUrl(mix.id)" />
+            <ShareButton :url="mixShareUrl(mix)" />
           </div>
 
           <div
             v-if="authStore.user?.id === mix.userId"
             class="mt-5 flex items-center gap-5 text-sm"
           >
-            <RouterLink
-              :to="{ name: 'mix-edit', params: { id: mix.id } }"
-              class="text-tambouille-muted hover:underline"
-            >
+            <RouterLink :to="mixEditRoute(mix)" class="text-tambouille-muted hover:underline">
               Modifier ce mix
             </RouterLink>
             <button

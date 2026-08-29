@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   couvrirLaPage,
+  taireLeProchainVoile,
   signalerImage,
   useTransitionDePage,
   reinitialiserPourTest,
@@ -140,6 +141,28 @@ describe('useTransitionDePage', () => {
 
     vi.advanceTimersByTime(MAXIMUM + FONDU)
     expect(etat().visible.value).toBe(false)
+  })
+
+  /**
+   * Une page ouverte depuis un ancien lien `/mixes/<id>` réécrit son URL en
+   * `/mixes/<username>/<id>` une fois le mix connu. C'est une navigation, mais
+   * rien de ce qui est affiché ne change : le voile tomberait sur une page déjà
+   * lue, ce qui se lirait comme une panne.
+   */
+  it("se tait pour une navigation qui ne change rien à l'écran", () => {
+    taireLeProchainVoile()
+    couvrirLaPage()
+    expect(etat().visible.value).toBe(false)
+  })
+
+  /** Le silence ne vaut que pour une navigation : la suivante couvre à nouveau. */
+  it('ne se tait que pour une seule navigation', () => {
+    taireLeProchainVoile()
+    couvrirLaPage()
+    expect(etat().visible.value).toBe(false)
+
+    couvrirLaPage()
+    expect(etat().visible.value).toBe(true)
   })
 
   it('recouvre la page à la navigation suivante, une fois le voile levé', () => {

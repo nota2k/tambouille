@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
+import { mixRoute } from '@/utils/routes'
 import CoverImage from '@/components/CoverImage.vue'
 import { formatDuration } from '@/utils/time'
 import { mixCredit } from '@/composables/useMixCredit'
@@ -50,7 +51,7 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
          n'annonce rien — il ne contient qu'une image décorative — et un
          lecteur d'écran énonce deux fois le même mix. -->
     <RouterLink
-      :to="{ name: 'mix-detail', params: { id: mix.id } }"
+      :to="mixRoute(mix)"
       class="isolate block w-full overflow-hidden"
       :class="layout === 'large' ? 'aspect-2/3' : 'aspect-3/2'"
       :style="{ backgroundColor: zone.wash }"
@@ -67,7 +68,7 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
     </RouterLink>
 
     <RouterLink
-      :to="{ name: 'mix-detail', params: { id: mix.id } }"
+      :to="mixRoute(mix)"
       class="pt-3.5 text-[18px] leading-[1.15] text-pretty hover:underline sm:text-[22px]"
       style="font-family: 'Gulax', sans-serif"
     >
