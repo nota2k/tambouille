@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { safeFetch } from '../common/safe-fetch';
 import { stripHtml } from '../common/strip-html';
+import { parseTimecode } from '../common/timecode';
 import {
   type MixImport,
   type SourceImporter,
@@ -41,15 +42,6 @@ export function isEmissionUrl(url: URL): boolean {
   if (!HOSTS.includes(url.hostname.toLowerCase())) return false;
   const segments = url.pathname.split('/').filter(Boolean);
   return segments[0] === 'emission' && Boolean(segments[1]);
-}
-
-/** "00:03:20" or "3:20" into seconds. Null when it is not a timecode. */
-export function parseTimecode(raw: string): number | null {
-  const parts = raw.trim().split(':');
-  if (parts.length < 2 || parts.length > 3) return null;
-  const numbers = parts.map(Number);
-  if (numbers.some((part) => !Number.isInteger(part) || part < 0)) return null;
-  return numbers.reduce((acc, part) => acc * 60 + part, 0);
 }
 
 /**

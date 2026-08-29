@@ -8,8 +8,8 @@ import {
   OuiedireImporter,
   parseEmissionPage,
   parseOuiedireTitle,
-  parseTimecode,
 } from './ouiedire.importer';
+import { parseTimecode } from '../common/timecode';
 
 jest.mock('../common/safe-fetch', () => ({ safeFetch: jest.fn() }));
 import { safeFetch } from '../common/safe-fetch';

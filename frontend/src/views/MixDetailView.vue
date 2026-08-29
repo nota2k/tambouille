@@ -50,6 +50,8 @@ const SOURCE_NAMES: Record<string, string> = {
   // LYL sert ses mp3 depuis un sous-domaine de fichiers, jamais depuis lyl.live :
   // sans cette entrée le lien vers la source s'annoncerait « static.lyl.live ».
   'static.lyl.live': 'LYL Radio',
+  // L'importateur ramène tout épisode à `www.`, donc une seule entrée suffit.
+  'www.thebrainradio.com': 'The Brain Radioshow',
 }
 
 /**
