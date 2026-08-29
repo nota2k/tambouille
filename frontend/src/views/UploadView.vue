@@ -8,6 +8,7 @@ import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
 import type { Mix, MixImport, ResolveResponse, SourceItem } from '@/types'
 import { useSeo } from '@/composables/useSeo'
+import { apiErrorMessage } from '@/utils/apiError'
 
 // Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
 // de toute façon la même page vide à un robot, faute de session.
@@ -101,8 +102,8 @@ async function resolveSource() {
     if (data.kind === 'mix') applyImport(data.mix)
     else if (data.items.length > 0) sourceItems.value = data.items
     else sourceError.value = 'Rien à importer à cette adresse.'
-  } catch (err: any) {
-    sourceError.value = err.response?.data?.message ?? 'Impossible de lire cette source'
+  } catch (err) {
+    sourceError.value = apiErrorMessage(err, 'Impossible de lire cette source')
   } finally {
     sourceLoading.value = false
   }
@@ -117,8 +118,8 @@ async function importItem(item: SourceItem) {
   try {
     const { data } = await apiClient.post<MixImport>('/imports/item', { ref: item.ref })
     applyImport(data)
-  } catch (err: any) {
-    sourceError.value = err.response?.data?.message ?? "Impossible d'importer cet élément"
+  } catch (err) {
+    sourceError.value = apiErrorMessage(err, "Impossible d'importer cet élément")
   } finally {
     importingRef.value = null
   }
@@ -213,8 +214,8 @@ async function onSubmit() {
       },
     })
     router.push({ name: 'mix-detail', params: { id: data.id } })
-  } catch (err: any) {
-    error.value = err.response?.data?.message ?? "Échec de l'upload"
+  } catch (err) {
+    error.value = apiErrorMessage(err, "Échec de l'upload")
   } finally {
     uploading.value = false
   }

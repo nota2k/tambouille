@@ -14,8 +14,31 @@ const emit = defineEmits<{ (e: 'credential', credential: string): void }>()
 
 const container = ref<HTMLElement | null>(null)
 
+/**
+ * Ce que ce composant utilise de Google Identity Services, et rien de plus.
+ *
+ * La bibliothèque est chargée par une balise `<script>` dans `index.html`, donc
+ * TypeScript n'en sait rien. Déclarer les deux appels qu'on lui fait vaut mieux
+ * qu'un `any` qui accepterait n'importe quoi : une faute de frappe dans
+ * `renderButton`, ou une option mal nommée, se verrait à la compilation.
+ */
+interface GoogleIdentity {
+  accounts: {
+    id: {
+      initialize(config: {
+        client_id: string
+        callback: (response: { credential: string }) => void
+      }): void
+      renderButton(
+        parent: HTMLElement,
+        options: { theme: string; size: string; text: string; locale: string },
+      ): void
+    }
+  }
+}
+
 onMounted(() => {
-  const google = (window as any).google
+  const google = (window as unknown as { google?: GoogleIdentity }).google
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
   if (!google || !clientId || !container.value) return
 

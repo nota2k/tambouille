@@ -1,0 +1,1 @@
+import{s as e}from"./useSeo-BI-1ioC0.js";function t(t,n){if(!e.isAxiosError(t))return n;let r=t.response?.data?.message;if(typeof r==`string`)return r;if(Array.isArray(r)){let e=r.filter(e=>typeof e==`string`);if(e.length)return e.join(`, `)}return n}function n(t){return e.isAxiosError(t)?t.response?.status:void 0}export{n,t};

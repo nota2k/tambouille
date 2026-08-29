@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSeo } from '@/composables/useSeo'
+import { apiErrorMessage } from '@/utils/apiError'
 
 // Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
 // de toute façon la même page vide à un robot, faute de session.
@@ -24,8 +25,8 @@ async function submit() {
   try {
     await authStore.setUsername(username.value.trim())
     router.push({ name: 'discover' })
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Ce pseudo est indisponible.'
+  } catch (e) {
+    error.value = apiErrorMessage(e, 'Ce pseudo est indisponible.')
   } finally {
     submitting.value = false
   }

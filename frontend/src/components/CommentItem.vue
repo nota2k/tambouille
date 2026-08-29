@@ -7,6 +7,7 @@ import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
 import { formatTime } from '@/utils/time'
 import type { Comment, CommentReply, Mix } from '@/types'
+import { apiErrorMessage } from '@/utils/apiError'
 
 const props = defineProps<{ comment: Comment; mix: Mix }>()
 /**
@@ -65,8 +66,8 @@ async function submitReply() {
     emit('reply-added', data)
     replyBody.value = ''
     replying.value = false
-  } catch (err: any) {
-    error.value = err.response?.data?.message ?? "Échec de l'envoi de la réponse"
+  } catch (err) {
+    error.value = apiErrorMessage(err, "Échec de l'envoi de la réponse")
   } finally {
     postingReply.value = false
   }

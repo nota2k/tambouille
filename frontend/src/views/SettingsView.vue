@@ -8,6 +8,7 @@ import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
 import type { UserProfile } from '@/types'
 import { useSeo } from '@/composables/useSeo'
+import { apiErrorMessage } from '@/utils/apiError'
 
 // Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
 // de toute façon la même page vide à un robot, faute de session.
@@ -63,8 +64,8 @@ async function submitPassword() {
     await authStore.setPassword(newPassword.value)
     newPassword.value = ''
     passwordSaved.value = true
-  } catch (e: any) {
-    passwordError.value = e?.response?.data?.message ?? 'Enregistrement impossible.'
+  } catch (e) {
+    passwordError.value = apiErrorMessage(e, 'Enregistrement impossible.')
   }
 }
 
@@ -77,8 +78,8 @@ async function onGoogleCredential(credential: string) {
   linkingGoogle.value = true
   try {
     await authStore.linkGoogle(credential)
-  } catch (e: any) {
-    googleError.value = e?.response?.data?.message ?? 'Association impossible.'
+  } catch (e) {
+    googleError.value = apiErrorMessage(e, 'Association impossible.')
   } finally {
     linkingGoogle.value = false
   }
@@ -95,8 +96,8 @@ async function submitDelete() {
   try {
     await authStore.deleteAccount()
     router.push({ name: 'discover' })
-  } catch (e: any) {
-    deleteError.value = e?.response?.data?.message ?? 'Suppression impossible.'
+  } catch (e) {
+    deleteError.value = apiErrorMessage(e, 'Suppression impossible.')
     deleting.value = false
   }
 }

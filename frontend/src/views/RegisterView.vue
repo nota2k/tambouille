@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
 import { useSeo } from '@/composables/useSeo'
+import { apiErrorMessage } from '@/utils/apiError'
 
 // Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
 // de toute façon la même page vide à un robot, faute de session.
@@ -34,8 +35,8 @@ async function onGoogleCredential(credential: string) {
   try {
     await authStore.loginWithGoogle(credential)
     router.push({ name: 'discover' })
-  } catch (e: any) {
-    googleError.value = e?.response?.data?.message ?? 'La connexion avec Google a échoué. Réessaie.'
+  } catch (e) {
+    googleError.value = apiErrorMessage(e, 'La connexion avec Google a échoué. Réessaie.')
   }
 }
 
@@ -50,8 +51,8 @@ async function onSubmit() {
       password: password.value,
     })
     router.push('/')
-  } catch (err: any) {
-    error.value = err.response?.data?.message ?? 'Une erreur est survenue'
+  } catch (err) {
+    error.value = apiErrorMessage(err, 'Une erreur est survenue')
   } finally {
     loading.value = false
   }
