@@ -100,7 +100,10 @@ onMounted(() => {
 }
 
 .tb-contenu-revele {
-  animation: tb-contenu-apparition var(--tb-sortie) ease forwards;
+  /* Même durée ET même courbe que la sortie du volet : sans cela les deux ne
+     partagent que leurs bornes, et progressent différemment entre elles — le
+     contenu apparaîtrait en retard sur le mouvement qui le découvre. */
+  animation: tb-contenu-apparition var(--tb-sortie) var(--tb-courbe-sortie) forwards;
 }
 
 @keyframes tb-contenu-apparition {

@@ -50,14 +50,14 @@ const { visible, sortie, dureeDeLaMontee, dureeDeLaSortie } = useTransitionDePag
   pointer-events: none;
   /* Le volet part sous l'écran et y monte. `forwards` le laisse sur sa
      dernière image : arrivé, il couvre, et il y reste jusqu'à sa sortie. */
-  animation: tb-volet-montee var(--tb-montee) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: tb-volet-montee var(--tb-montee) var(--tb-courbe-montee) forwards;
 }
 
 /* La montée est terminée ou n'a plus lieu d'être : le volet repart par le haut,
    depuis là où il est. La déclaration l'emporte sur celle du dessus, et
    remplace donc l'animation d'entrée plutôt que de s'y ajouter. */
 .tb-volet--sortie {
-  animation: tb-volet-sortie var(--tb-sortie) cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  animation: tb-volet-sortie var(--tb-sortie) var(--tb-courbe-sortie) forwards;
 }
 
 @keyframes tb-volet-montee {

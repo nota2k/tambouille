@@ -242,6 +242,15 @@
      autorisé dans un flux, pour dire « c'est celui-là qui tourne ». */
   --color-tambouille-accent-wash: #fff5f8;
 
+  /* --- Transition de page -------------------------------------------------
+     Les deux courbes du volet, déclarées ici parce qu'elles servent à DEUX
+     endroits : le volet lui-même dans `PageFade`, et le fondu du contenu
+     qu'il découvre dans `App.vue`. Écrites deux fois, elles finiraient par
+     diverger, et le contenu n'épouserait plus le mouvement qui le révèle.
+     Les durées, elles, viennent de `useTransitionDePage` — voir ce fichier. */
+  --tb-courbe-montee: cubic-bezier(0.22, 1, 0.36, 1);
+  --tb-courbe-sortie: cubic-bezier(0.65, 0, 0.35, 1);
+
   /* --- Typographie ------------------------------------------------------- */
   --font-sans: Rambla, 'Rambla repli', system-ui, sans-serif;
   --font-display: Arvo, 'Arvo repli', Georgia, serif;
