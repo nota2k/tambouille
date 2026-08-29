@@ -281,6 +281,25 @@ describe('LylImporter.resolve on a show', () => {
     expect(items[0].coverUrl).toBeTruthy();
   });
 
+  it('gives each entry the page it lists on, like a single episode does (I1)', async () => {
+    // Sans `pageUrl`, `toVeilleItems` du résolveur de veille écarte tous les
+    // items faute d'adresse — la liste devient vide et l'utilisateur reçoit
+    // « Aucune sortie lisible » pour une émission pourtant bien listable.
+    answerWith('lyl-show-episodes.json');
+
+    const items = (await new LylImporter().resolve(
+      new URL('https://lyl.live/show/temple-of-faitiche'),
+    )) as { ref: string; pageUrl?: string }[];
+
+    expect(items).toHaveLength(5);
+    for (const item of items) {
+      expect(item.pageUrl).toMatch(/^https:\/\/lyl\.live\/episode\//);
+    }
+    expect(items[0].pageUrl).toBe(
+      'https://lyl.live/episode/temple-of-faitiche-2026-08-13',
+    );
+  });
+
   it('dates each entry, because a show reuses one title for every episode', () => {
     answerWith('lyl-show-episodes.json');
 

@@ -224,6 +224,9 @@ export class LylImporter implements SourceImporter {
       durationSec: parseLylDuration(episode.duration),
       coverUrl: episode.image?.url,
       publishedAt: episode.startAt,
+      // Same shape `fromSlug` already gives a single episode: without it,
+      // `toVeilleItems` drops every item for lack of a page to link to.
+      pageUrl: `https://lyl.live/episode/${episode.slug}`,
     }));
   }
 
