@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import type { AuthorSummary } from '@/types'
 
 defineProps<{ user: AuthorSummary }>()
@@ -13,6 +13,8 @@ defineProps<{ user: AuthorSummary }>()
     <img
       v-if="user.avatarUrl"
       :src="mediaUrl(user.avatarUrl)"
+      :srcset="mediaSrcset(user.avatarUrl)"
+      sizes="48px"
       loading="lazy"
       decoding="async"
       class="h-12 w-12 shrink-0 rounded-none object-cover"

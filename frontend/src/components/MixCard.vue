@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import CoverImage from '@/components/CoverImage.vue'
 import { formatDuration } from '@/utils/time'
 import { mixCredit } from '@/composables/useMixCredit'
@@ -38,7 +38,11 @@ function play(event: Event) {
     :class="['group relative block shrink-0', landscape ? 'w-full' : 'w-40 sm:w-48']"
   >
     <div class="relative aspect-square w-full overflow-hidden bg-tambouille-surface-hover">
-      <CoverImage :src="mediaUrl(mix.coverUrl)">
+      <CoverImage
+        :src="mediaUrl(mix.coverUrl)"
+        :srcset="mediaSrcset(mix.coverUrl)"
+        :sizes="landscape ? '(min-width: 640px) 33vw, 100vw' : '(min-width: 640px) 192px, 160px'"
+      >
         <template #vide>
           <div class="flex h-full w-full items-center justify-center text-tambouille-faint">
             <svg viewBox="0 0 24 24" class="h-10 w-10 fill-current">

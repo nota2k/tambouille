@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import { mixRoute } from '@/utils/routes'
 import CoverImage from '@/components/CoverImage.vue'
 import { formatDuration } from '@/utils/time'
@@ -40,7 +40,11 @@ function onToggle(event: Event) {
     <div
       class="aspect-square w-[122px] shrink-0 overflow-hidden bg-tambouille-surface-hover sm:w-[188px]"
     >
-      <CoverImage :src="mediaUrl(mix.coverUrl)">
+      <CoverImage
+        :src="mediaUrl(mix.coverUrl)"
+        :srcset="mediaSrcset(mix.coverUrl)"
+        sizes="(min-width: 640px) 188px, 122px"
+      >
         <template #vide>
           <div class="flex h-full w-full items-center justify-center text-tambouille-faint">
             <svg viewBox="0 0 24 24" class="h-7 w-7 fill-current">

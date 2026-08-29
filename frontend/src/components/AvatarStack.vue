@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import type { AuthorSummary } from '@/types'
 import type { RouteLocationRaw } from 'vue-router'
 
@@ -47,6 +47,8 @@ const visible = computed(() => props.users.slice(0, props.max))
         <img
           v-if="user.avatarUrl"
           :src="mediaUrl(user.avatarUrl)"
+          :srcset="mediaSrcset(user.avatarUrl)"
+          sizes="56px"
           loading="lazy"
           decoding="async"
           class="h-14 w-14 rounded-none object-cover ring-2 ring-white"
