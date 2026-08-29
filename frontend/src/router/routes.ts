@@ -51,6 +51,29 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/PlaylistDetailView.vue'),
   },
   {
+    // ── Les lecteurs intégrables ──────────────────────────────────────────
+    //
+    // Deux routes pour ce que le bouton de partage propose de coller ailleurs.
+    // `layout: 'embed'` est lu par `App.vue`, qui retire alors la navigation,
+    // le bas de page et le voile de transition : dans un cadre de 200 pixels,
+    // il ne reste que le lecteur.
+    //
+    // Elles sont volontairement sous leur propre préfixe plutôt qu'en variante
+    // de l'adresse canonique (`?embed=1`) : une intégration ne doit pas
+    // partager son URL avec la page qu'indexent les moteurs, sans quoi les
+    // deux se disputeraient la canonique.
+    path: '/embed/mixes/:username/:slug',
+    name: 'mix-embed',
+    component: () => import('@/views/EmbedMixView.vue'),
+    meta: { layout: 'embed' },
+  },
+  {
+    path: '/embed/playlists/:id',
+    name: 'playlist-embed',
+    component: () => import('@/views/EmbedPlaylistView.vue'),
+    meta: { layout: 'embed' },
+  },
+  {
     path: '/bienvenue',
     name: 'choose-username',
     component: () => import('@/views/ChooseUsernameView.vue'),
