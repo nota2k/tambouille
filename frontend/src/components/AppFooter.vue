@@ -8,7 +8,9 @@
         <span class="mx-1.5 text-tambouille-faint" aria-hidden="true">//</span>
         <span>2026</span>
       </p>
-      <a class="text-lg text-tambouille-muted" href="mailto:noreply@tambouille.pantagruweb.club">Contact</a>
+      <a class="text-lg text-tambouille-muted" href="mailto:noreply@tambouille.pantagruweb.club"
+        >Contact</a
+      >
     </div>
   </footer>
 </template>
