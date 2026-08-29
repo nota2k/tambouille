@@ -9,7 +9,21 @@ import { formatTime } from '@/utils/time'
 import type { Comment, CommentReply, Mix } from '@/types'
 
 const props = defineProps<{ comment: Comment; mix: Mix }>()
-const emit = defineEmits<{ deleted: [] }>()
+/**
+ * Trois signaux, et plus aucune écriture.
+ *
+ * Ce composant écrivait à quatre endroits dans `comment.replies` et
+ * `mix.commentsCount` — deux objets qui ne lui appartiennent pas. Cela marchait, les objets voyageant par
+ * référence, mais ni `CommentsSection` qui tient la liste, ni `MixDetailView`
+ * qui tient le mix, n'étaient au courant que leur donnée avait changé. Le jour
+ * où l'un des deux passerait une copie ou un calculé, l'affichage cesserait de
+ * suivre sans que rien ne le signale.
+ */
+const emit = defineEmits<{
+  deleted: []
+  'reply-added': [reply: CommentReply]
+  'reply-deleted': [reply: CommentReply]
+}>()
 
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
@@ -48,8 +62,7 @@ async function submitReply() {
       body: trimmed,
       parentId: props.comment.id,
     })
-    props.comment.replies.push(data)
-    props.mix.commentsCount += 1
+    emit('reply-added', data)
     replyBody.value = ''
     replying.value = false
   } catch (err: any) {
@@ -73,8 +86,7 @@ async function deleteComment() {
 async function deleteReply(reply: CommentReply) {
   if (!confirm('Supprimer cette réponse ?')) return
   await apiClient.delete(`/comments/${reply.id}`)
-  props.comment.replies = props.comment.replies.filter((r) => r.id !== reply.id)
-  props.mix.commentsCount -= 1
+  emit('reply-deleted', reply)
 }
 </script>
 

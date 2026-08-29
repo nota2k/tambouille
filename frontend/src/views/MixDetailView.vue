@@ -130,6 +130,18 @@ async function removeMix() {
   }
 }
 
+/**
+ * Le compte de commentaires du mix, tenu ici parce que le mix est ici.
+ *
+ * `CommentsSection` et `CommentItem` l'écrivaient directement, à travers la
+ * prop : cela fonctionnait, mais cette vue ne savait pas que sa donnée bougeait.
+ * Elles annoncent maintenant l'écart, et c'est cette vue qui l'applique — à sa
+ * propre référence, ce qui est son droit.
+ */
+function onCommentsCountChanged(ecart: number) {
+  if (mix.value) mix.value.commentsCount += ecart
+}
+
 const duration = computed(() => formatDuration(mix.value?.durationSec))
 const isCurrent = computed(() => mix.value != null && playerStore.currentMix?.id === mix.value.id)
 const isPlaying = computed(() => isCurrent.value && playerStore.isPlaying)
@@ -387,7 +399,7 @@ watch(
             </p>
           </template>
 
-          <CommentsSection :mix="mix" />
+          <CommentsSection :mix="mix" @count-changed="onCommentsCountChanged" />
 
           <div v-if="uploaderProfile" class="pt-9">
             <UploaderCard :profile="uploaderProfile" />
