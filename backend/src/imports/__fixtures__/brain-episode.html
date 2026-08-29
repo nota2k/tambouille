@@ -1,0 +1,195 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="author" content="Puyo Puyo &amp; Divag" />
+<meta name="keywords" content="the brain, thebrain, freaky, radio, music, musique, émission, radioshow, mix, free mp3, musiques incongrues" />
+<meta name="description" content="The Brain radioshow" />
+<meta name="follow.it-verification-code" content="DXfQN8dxpaZQjmw7s9n3"/>
+<meta name="robots" content="all" />
+<title>The Brain radioshow</title>
+<link rel="shortcut icon" type="image/png" href="css/favicon.ico" />
+<link rel="alternate" type="application/rss+xml" href="https://follow.it/the-brain-radioshow" />
+<link rel="stylesheet" type="text/css" href="css/thebrain.css" />
+<link rel="stylesheet" type="text/css" href="css/mailing.css" />
+
+	<!-- required -->
+	<link rel="stylesheet" type="text/css" href="modules/soundmanager/demo/css/divagSpecialFeatures.css" />
+
+		
+	
+	<!-- Opengraph tags (@see http://ogp.me/) -->
+	<meta property="og:site_name" content="The Brain" />
+	<meta property="og:description" content="The Brain #213. Playlist :  // 00:00 La chêvre droguée - Emission de merde - Youtube - 2026 // 00:27 The Brain - Générique - Unreleased - 2016 // 00:55 Cumbia machuca - Cumbia de los Bee Gees - Aries - 1981 // 03:30 Il Est Vilaine - Pobuvai Na Dni - Bandcamp - 2026 // 07:30 Kim Gordon - Play me - Matador - 2026 // 09:50 Rubin Steiner - Les synthétiseurs - platinum - 2026 // 15:35 Carmen Jaci - Oh ah eh ih ah oh - Noumenal Loum - 2023 // 20:08 Musique Chienne - Je Sors (Steppin' out Cover) - Bandcamp - 2023 // 24:09 Kraftwerk - The Telephone Call - Warner bros Records - 1987 // 27:54 Ebn-Ozn - AEIOU Sometimes Y - Elektra - 1983 // 31:36 Dodudaboum - Jardin Potager - Les disques du paradis - 2026 // 35:58 Forevert pavot & Melchior - Reality (La boum) - Born bad records - 2026 // 39:50 Tonstartssbandht - What Has Happened - Mexican summer - 2021 // 46:30 Epépé - Epépé partie 1 - Bandcamp - 2019 // 48:34 Operelly - Encyclopedia - Deadair - 2026 // 50:52 Angela y Consuelo - Por un Flirt - Sonolux - 1971 // 54:26 Francis Lai - Saint Tropez - Playtime - 2019 // 55:36 Solar Boat - Guess What - Catapulte Records - 2025 // 58:56 Frederik Schikowski - Générique The Brain - The Brain Records - 2014"/>
+	<meta property="og:title" content="The Brain #213" />
+	<meta property="og:image" content="https://www.thebrainradio.com/pochettes/thebrain213.jpg" />
+	<meta property="og:audio" content="https://www.thebrainradio.com/mp3/thebrain213.mp3" />
+	
+	<meta property="og:audio:title" content="The Brain #213" />
+	<meta property="og:audio:artist" content="" />
+	<meta property="og:audio:album" content="The Brain" />
+	
+	<meta property="og:audio:type" content="application/mp3" />
+
+	<!-- special IE-only canvas fix -->
+	<!--[if IE]><script type="text/javascript" src="modules/soundmanager/script/excanvas.js"></script><![endif]-->
+
+	<!-- Page player core CSS -->
+	<link rel="stylesheet" type="text/css" href="modules/soundmanager/demo/css/page-player.css" />
+	<!-- soundManager.useFlashBlock: related CSS -->
+	<link rel="stylesheet" type="text/css" href="modules/soundmanager/demo/flashblock/flashblock.css" />
+	<!-- optional: annotations/sub-tracks/notes, and alternate themes -->
+	<link rel="stylesheet" type="text/css" href="modules/soundmanager/demo/css/optional-annotations.css" />
+	<link rel="stylesheet" type="text/css" href="modules/soundmanager/demo/css/optional-themes.css" />
+	<link rel="stylesheet" type="text/css" href="modules/soundmanager/demo/css/theBrainPlayerStyle.css" />
+	<!-- soundManager API -->
+	<script src="modules/soundmanager/demo/script/soundmanager2.js"></script>
+
+	<script>
+
+	/* --------
+
+	  Config override: This demo uses shiny flash 9 stuff, overwriting Flash 8-based defaults
+	  Alternate PP_CONFIG object must be defined before soundManager.onready()/onload() fire.
+	  Alternately, edit the config in page-player.js to simply use the values below by default
+
+	-------- */
+
+	// demo only, but you can use these settings too..
+	soundManager.flashVersion = 9;
+	soundManager.preferFlash = true; // for visualization effects
+	soundManager.useHighPerformance = true; // keep flash on screen, boost performance
+	soundManager.wmode = 'transparent'; // transparent SWF, if possible
+	soundManager.useFastPolling = true; // increased JS callback frequency
+	soundManager.url = 'modules/soundmanager/demo/swf/';
+	soundManager.radioclashSpecialFeatures = true;
+	soundManager.radioclashSpecialRedirectUrl = 'listen.php?episode=212&auto=1';
+	soundManager.radioclashSpecialFirstPlay = 0;
+
+	// custom page player configuration
+
+	var PP_CONFIG = {
+	  divagSpecialFeatures: true,
+	  autoStart: false,      // begin playing first sound when page loads
+	  playNext: true,        // stop after one sound, or play through list until end
+	  useThrottling: false,  // try to rate-limit potentially-expensive calls (eg. dragging position around)</span>
+	  usePeakData: true,     // [Flash 9 only] whether or not to show peak data (left/right channel values) - nor noticable on CPU
+	  useWaveformData: false,// [Flash 9 only] show raw waveform data - WARNING: LIKELY VERY CPU-HEAVY
+	  useEQData: false,      // [Flash 9 only] show EQ (frequency spectrum) data
+	  useFavIcon: false,     // try to apply peakData to address bar (Firefox + Opera) - performance note: appears to make Firefox 3 do some temporary, heavy disk access/swapping/garbage collection at first(?) - may be too heavy on CPU
+	  useMovieStar: true     // Flash 9.0r115+ only: Support for a subset of MPEG4 formats.
+	}
+
+	</script>
+	<!-- Page player main script -->
+	<script src="modules/soundmanager/demo/script/page-player.js"></script>
+	<!-- optional: Metadata UI prototype (not needed unless you want the bottom-most demo bits) -->
+	<script src="modules/soundmanager/demo/script/optional-page-player-metadata.js"></script>
+
+
+
+	<!-- Lightbox -->
+	<script type="text/javascript" src="modules/lightbox/js/prototype.js"></script>
+	<script type="text/javascript" src="modules/lightbox/js/scriptaculous.js?load=effects"></script>
+	<script type="text/javascript">
+		var fileLoadingImage = "modules/lightbox/css/loading.gif";
+		var fileBottomNavCloseImage = "modules/lightbox/css/closelabel.gif";
+	</script>
+	<script type="text/javascript" src="modules/lightbox/js/lightbox.js"></script>
+	
+	<link rel="stylesheet" href="modules/lightbox/css/lightbox.css" type="text/css" media="screen" />
+
+	<link rel="stylesheet" type="text/css" href="css/thebrain.css" />
+
+</head>
+<body>
+
+<div class="pageContent">
+
+<ul class="enligne" style="height:350px;">
+<li>
+	<a href="pochettes/thebrain213.jpg" rel="lightbox" title="Click to download/print the cover" rev="pochettes/thebrain213.jpg"><img src="pochettes/thebrain213.jpg" width="350" height="350" border="0" /></a>
+</li>
+<li class="center">
+	<a href="https://www.thebrainradio.com/" title="Accueil">
+		<img src="css/logoListen.jpg" alt=\"The Brain radioshow logo\" />
+	</a>
+	<br />
+	<a href="playlists.php" title="Shows">
+		<span>SHOWS</span>
+	</a>
+	<br />
+	<br />
+	<h2>#213		<br />
+		<span style="font-size:smaller;">05/2026</span>
+	</h2>
+	<br />
+	<a class="myShortcut" cible="lecteur">
+		<div>
+		<span class="nomEmission"><font>&nbsp;PLAY&nbsp;</font></span>
+		</div>
+	</a>
+	<br />
+	<br />	<a href="mp3/thebrain213.mp3" class="exclude">
+		<span class="lienDownloadEmission">Download</span>
+	</a>
+	<br />
+	<a href="https://follow.it/the-brain-radioshow">
+		<span class="lienDownloadEmission">Peau de castor</span>
+	</a>
+		<br />
+	<!--
+	<a href="http://deeperinside.thebrainradio.com/">
+		<span class="lienDownloadEmission">Deeper Inside</span>
+	</a>
+	-->
+</li>
+<li>
+	<img src="pochettes/thebrain213.gif" height="350" border="0" />
+</li>
+</ul>
+<br class="clear" />
+<div class="player">
+	 <ul class="playlist">
+	  <li>
+	   <a id="lecteur" href="mp3/thebrain213.mp3"><span class="titre">The Brain #213</span></a>
+	   <div class="metadata">
+		<div class="duration">59:38</div> <!-- total track time (for positioning while loading, until determined -->
+		<ul>
+			<li><p>La chêvre droguée - Emission de merde</p><span>00:00</span></li>
+<li><p>The Brain - Générique</p><span>00:27</span></li>
+<li><p>Cumbia machuca - Cumbia de los Bee Gees</p><span>00:55</span></li>
+<li><p>Jingle</p><span>07:30</span></li>
+		</ul>
+	   </div>
+	  </li>
+	</ul>
+</div>
+<h3>
+<span class="metadataShortCut" id="lecteurmetadataShortCut0">00:00 <span class="upper">La chêvre droguée</span> - Emission de merde - Youtube - 2026</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut1">00:27 <span class="upper">The Brain</span> - Générique - Unreleased - 2016</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut2">00:55 <span class="upper">Cumbia machuca</span> - Cumbia de los Bee Gees - Aries - 1981</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut3">03:30 <span class="upper">Il Est Vilaine</span> - Pobuvai Na Dni - Bandcamp - 2026</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut4">07:30 <span class="upper">Kim Gordon</span> - Play me - Matador - 2026</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut5">09:50 <span class="upper">Rubin Steiner</span> - Les synthétiseurs - platinum - 2026</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut6">15:35 <span class="upper">Carmen Jaci</span> - Oh ah eh ih ah oh - Noumenal Loum - 2023</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut7">20:08 <span class="upper">Musique Chienne</span> - Je Sors (Steppin' out Cover) - Bandcamp - 2023</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut8">24:09 <span class="upper">Kraftwerk</span> - The Telephone Call - Warner bros Records - 1987</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut9">27:54 <span class="upper">Ebn-Ozn</span> - AEIOU Sometimes Y - Elektra - 1983</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut10">31:36 <span class="upper">Dodudaboum</span> - Jardin Potager - Les disques du paradis - 2026</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut11">35:58 <span class="upper">Forevert pavot & Melchior</span> - Reality (La boum) - Born bad records - 2026</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut12">39:50 <span class="upper">Tonstartssbandht</span> - What Has Happened - Mexican summer - 2021</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut13">46:30 <span class="upper">Epépé</span> - Epépé partie 1 - Bandcamp - 2019</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut14">48:34 <span class="upper">Operelly</span> - Encyclopedia - Deadair - 2026</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut15">50:52 <span class="upper">Angela y Consuelo</span> - Por un Flirt - Sonolux - 1971</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut16">54:26 <span class="upper">Francis Lai</span> - Saint Tropez - Playtime - 2019</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut17">55:36 <span class="upper">Solar Boat</span> - Guess What - Catapulte Records - 2025</span><br />
+<span class="metadataShortCut" id="lecteurmetadataShortCut18">58:56 <span class="upper">Frederik Schikowski</span> - Générique The Brain - The Brain Records - 2014</span><br />
+</h3><div><iframe width="400" height="350" style="float:left;" src="https://www.youtube.com/embed/aVgbDP8yEz0?si=0rf36NpLqvNqNaWP" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe><iframe width="400" height="350" style="float:left;" src="https://www.youtube.com/embed/zII22OM1FNE?si=3Zo1-RT5QJjSlhWq" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe><iframe width="400" height="350" style="float:left;" src="https://www.youtube.com/embed/OYhQVrXBgxU?si=xtPMqlLxU-UMBitj" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe><iframe width="400" height="350" style="float:left;" src="https://www.youtube.com/embed/BTsPJeNPc-w?si=3JUUUKgUtgrHcqZ_" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe><iframe width="400" height="350" style="float:left;" src="https://www.youtube.com/embed/GeiWBcgZPj0?si=Q3fcNanreRaSjJqz" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe><iframe width="400" height="350" style="float:left;" src="https://www.youtube.com/embed/EPDqH9lv-Q0?si=JO2jnRHSiJSrRWlh" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe><iframe width="400" height="350" style="float:left;" src="https://www.youtube.com/embed/thddQdI1lOg?si=T3d66bSUHn2CSdPl" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe><br class="clear" /></div>  <br clear="all" /></div>
+
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a96eddcb9e674e57832d7183480bfb45"}'></script><!-- End Cloudflare Web Analytics --><!-- Google tag (gtag.js) --><script async src="https://www.googletagmanager.com/gtag/js?id=G-ZCNC7T7KW3"></script><script>    window.dataLayer = window.dataLayer || [];    function gtag(){dataLayer.push(arguments);}    gtag('js', new Date());    gtag('config', 'G-ZCNC7T7KW3');</script>
+<div class="playerHeight">
+</div>
+</body>
+</html>
