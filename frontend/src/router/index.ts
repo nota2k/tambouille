@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { resetSeo } from '@/composables/useSeo'
+import { couvrirLaPage } from '@/composables/useTransitionDePage'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -157,6 +158,11 @@ router.beforeEach((to) => {
  */
 router.afterEach(() => {
   resetSeo()
+  // Même raison de vivre ici que la remise à zéro du `<head>` : `afterEach`
+  // court avant que la vue suivante ne monte, donc le voile est déjà en place
+  // quand ses pochettes commencent à s'annoncer. Posé dans la vue, il
+  // arriverait après elles et ne couvrirait plus rien.
+  couvrirLaPage()
 })
 
 export default router
