@@ -9,6 +9,7 @@ import { buildTracklist, type TrackRow } from '@/utils/tracklist'
 import { mixRoute } from '@/utils/routes'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
+import TagsField from '@/components/TagsField.vue'
 import type { Mix } from '@/types'
 import { useSeo } from '@/composables/useSeo'
 import { apiErrorMessage } from '@/utils/apiError'
@@ -181,12 +182,7 @@ onMounted(load)
         <label class="mb-1 block text-sm text-tambouille-muted"
           >Tags (séparés par des virgules)</label
         >
-        <input
-          v-model="tags"
-          type="text"
-          placeholder="house, deep-house, live"
-          class="w-full tb-field"
-        />
+        <TagsField v-model="tags" placeholder="house, deep-house, live" />
       </div>
 
       <!--

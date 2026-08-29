@@ -7,6 +7,7 @@ import { buildTracklist, type TrackRow } from '@/utils/tracklist'
 import { mixRoute } from '@/utils/routes'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
+import TagsField from '@/components/TagsField.vue'
 import type { Mix, MixImport, ResolveResponse, SourceItem } from '@/types'
 import { useSeo } from '@/composables/useSeo'
 import { apiErrorMessage } from '@/utils/apiError'
@@ -355,12 +356,7 @@ async function onSubmit() {
             <label class="mb-1.5 block text-md text-tambouille-muted"
               >Tags (séparés par des virgules)</label
             >
-            <input
-              v-model="tags"
-              type="text"
-              placeholder="house, deep-house, live"
-              class="tb-field"
-            />
+            <TagsField v-model="tags" placeholder="house, deep-house, live" />
             <!-- Sans cette ligne, un tag apparaîtrait dans le champ sans que rien n'explique
                  d'où il vient. Le champ reste éditable : c'est une proposition, pas un verrou.
                  L'auteur n'y figure plus — il a son propre champ Artiste — donc la mention
