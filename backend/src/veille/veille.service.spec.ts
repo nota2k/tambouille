@@ -154,14 +154,21 @@ describe('VeilleService', () => {
 
     // L'échec de A n'a pas empêché B de se rafraîchir…
     expect(resolver.refresh).toHaveBeenCalledWith('https://b.test/feed');
-    // … et l'instantané périmé de A (plus récent que le fresh de B) est
-    // bien celui rendu : la panne de A ne l'a pas vidé de son cache.
+    // … et l'instantané périmé de A (rang 0 de la source en position 0) est
+    // bien rendu, aux côtés du fresh de B : la panne de A ne l'a pas vidé de
+    // son cache, elle ne l'a pas non plus fait disparaître du tourniquet.
     expect(feed.items).toEqual([
       {
         title: 'A périmé',
         pageUrl: 'https://a.test/1',
         publishedAt: '2026-06-01T00:00:00Z',
         sourceLabel: 'A',
+      },
+      {
+        title: 'B neuf',
+        pageUrl: 'https://b.test/2',
+        publishedAt: '2020-01-01T00:00:00Z',
+        sourceLabel: 'B',
       },
     ]);
     expect(feed.sources.find((s) => s.id === 'src-1')?.lastError).toBeTruthy();
@@ -218,6 +225,12 @@ describe('VeilleService', () => {
         pageUrl: 'https://a.test/1',
         publishedAt: '2026-06-01T00:00:00Z',
         sourceLabel: 'A',
+      },
+      {
+        title: 'B neuf',
+        pageUrl: 'https://b.test/2',
+        publishedAt: '2020-01-01T00:00:00Z',
+        sourceLabel: 'B',
       },
     ]);
     expect(feed.sources.find((s) => s.id === 'src-1')?.lastError).toBeTruthy();
@@ -285,7 +298,7 @@ describe('VeilleService', () => {
     expect(feed.sources[0].lastError).toBeUndefined();
   });
 
-  it('ne rend que la sortie la plus récente parmi plusieurs sources', async () => {
+  it('rend une sortie par source, la plus récente en tête', async () => {
     prisma.watchedSource.findMany.mockResolvedValue([
       source({
         id: 'src-a',
@@ -293,8 +306,13 @@ describe('VeilleService', () => {
         position: 0,
         items: [
           {
-            title: 'A-vieux',
+            title: 'A-recent',
             pageUrl: 'https://a.test/1',
+            publishedAt: '2026-03-01T00:00:00Z',
+          },
+          {
+            title: 'A-vieux',
+            pageUrl: 'https://a.test/2',
             publishedAt: '2020-01-01T00:00:00Z',
           },
         ],
@@ -307,34 +325,19 @@ describe('VeilleService', () => {
           {
             title: 'B-recent',
             pageUrl: 'https://b.test/1',
-            publishedAt: '2026-01-01T00:00:00Z',
+            publishedAt: '2026-06-01T00:00:00Z',
           },
         ],
       }),
-    ]);
-
-    const feed = await service.getFeed('nota');
-
-    expect(feed.items.map((i) => i.title)).toEqual(['B-recent']);
-  });
-
-  it('un item daté bat un item sans date même si ce dernier vient d’une source mieux placée', async () => {
-    prisma.watchedSource.findMany.mockResolvedValue([
       source({
-        id: 'src-a',
-        label: 'A',
-        position: 0,
-        items: [{ title: 'Sans date', pageUrl: 'https://a.test/1' }],
-      }),
-      source({
-        id: 'src-b',
-        label: 'B',
-        position: 1,
+        id: 'src-c',
+        label: 'C',
+        position: 2,
         items: [
           {
-            title: 'Daté',
-            pageUrl: 'https://b.test/1',
-            publishedAt: '2020-01-01T00:00:00Z',
+            title: 'C-recent',
+            pageUrl: 'https://c.test/1',
+            publishedAt: '2019-01-01T00:00:00Z',
           },
         ],
       }),
@@ -342,10 +345,43 @@ describe('VeilleService', () => {
 
     const feed = await service.getFeed('nota');
 
-    expect(feed.items.map((i) => i.title)).toEqual(['Daté']);
+    // Une ligne par source (donc pas 'A-vieux', écarté au profit du seul
+    // 'A-recent' de sa source), classées entre elles par date décroissante.
+    expect(feed.items.map((i) => i.title)).toEqual([
+      'B-recent',
+      'A-recent',
+      'C-recent',
+    ]);
   });
 
-  it('une sortie datée dans le futur (précommande) ne rafle pas la place unique', async () => {
+  it('deux sources ne peuvent jamais contribuer deux lignes chacune', async () => {
+    // Chaque source a plusieurs items déjà parus : l'ancienne règle en
+    // tourniquet en aurait rendu plusieurs par source. La nouvelle n'en
+    // retient qu'un, quel que soit le nombre d'items disponibles derrière.
+    function sourceGarnie(id: string, label: string, position: number) {
+      return source({
+        id,
+        label,
+        position,
+        items: Array.from({ length: 6 }, (_, i) => ({
+          title: `${label}${i}`,
+          pageUrl: `https://${id}.test/${i}`,
+          publishedAt: new Date(2026, 0, 6 - i).toISOString(),
+        })),
+      });
+    }
+    prisma.watchedSource.findMany.mockResolvedValue([
+      sourceGarnie('src-a', 'A', 0),
+      sourceGarnie('src-b', 'B', 1),
+    ]);
+
+    const feed = await service.getFeed('nota');
+
+    expect(feed.items).toHaveLength(2);
+    expect(feed.items.map((i) => i.title)).toEqual(['A0', 'B0']);
+  });
+
+  it('une source dont la sortie la plus récente est une précommande contribue la suivante', async () => {
     const dansLeFutur = new Date(
       Date.now() + 1000 * 60 * 60 * 24 * 30,
     ).toISOString();
@@ -354,25 +390,15 @@ describe('VeilleService', () => {
         id: 'src-a',
         label: 'A',
         position: 0,
-        // Un item par ailleurs plus « récent » d'après sa date, mais qui
-        // n'est pas encore sorti : il ne doit pas gagner la place unique
-        // tant que sa sortie n'a pas eu lieu.
         items: [
           {
-            title: 'Précommande',
+            title: 'A-precommande',
             pageUrl: 'https://a.test/1',
             publishedAt: dansLeFutur,
           },
-        ],
-      }),
-      source({
-        id: 'src-b',
-        label: 'B',
-        position: 1,
-        items: [
           {
-            title: 'Déjà sorti',
-            pageUrl: 'https://b.test/1',
+            title: 'A-deja-sorti',
+            pageUrl: 'https://a.test/2',
             publishedAt: '2020-01-01T00:00:00Z',
           },
         ],
@@ -381,10 +407,10 @@ describe('VeilleService', () => {
 
     const feed = await service.getFeed('nota');
 
-    expect(feed.items.map((i) => i.title)).toEqual(['Déjà sorti']);
+    expect(feed.items.map((i) => i.title)).toEqual(['A-deja-sorti']);
   });
 
-  it('une précommande sans aucune sortie déjà parue nulle part ne bloque pas le feed', async () => {
+  it('une source dont toutes les sorties sont à venir ne contribue rien', async () => {
     const dansLeFutur = new Date(
       Date.now() + 1000 * 60 * 60 * 24 * 30,
     ).toISOString();
@@ -411,11 +437,47 @@ describe('VeilleService', () => {
 
     const feed = await service.getFeed('nota');
 
-    // La précommande de A est inéligible ; l'item sans date de B, lui, l'est.
+    // A ne contribue aucune ligne (aucun item déjà paru) ; elle ne laisse pas
+    // de trou, elle disparaît simplement du feed.
     expect(feed.items.map((i) => i.title)).toEqual(['Sans date']);
   });
 
-  it('rend quand même un item si aucune source n’en date aucun', async () => {
+  it('une source sans aucune date contribue son premier item, classé après les sorties datées', async () => {
+    prisma.watchedSource.findMany.mockResolvedValue([
+      source({
+        id: 'src-a',
+        label: 'A',
+        position: 0,
+        items: [
+          { title: 'A1-sans-date', pageUrl: 'https://a.test/1' },
+          { title: 'A2-sans-date', pageUrl: 'https://a.test/2' },
+        ],
+      }),
+      source({
+        id: 'src-b',
+        label: 'B',
+        position: 1,
+        items: [
+          {
+            title: 'B-vieux-mais-date',
+            pageUrl: 'https://b.test/1',
+            publishedAt: '2019-01-01T00:00:00Z',
+          },
+        ],
+      }),
+    ]);
+
+    const feed = await service.getFeed('nota');
+
+    // A ne disparaît pas faute de date : elle contribue son premier item,
+    // mais celui-ci passe après B, daté même très anciennement.
+    expect(feed.items.map((i) => i.title)).toEqual([
+      'B-vieux-mais-date',
+      'A1-sans-date',
+    ]);
+  });
+
+  it('rend quand même les items non datés si aucune source n’en date aucun', async () => {
     prisma.watchedSource.findMany.mockResolvedValue([
       source({
         id: 'src-a',
@@ -433,9 +495,9 @@ describe('VeilleService', () => {
 
     const feed = await service.getFeed('nota');
 
-    // Ni A1 ni B1 n'est daté : l'ordre des sources départage, A (position 0)
-    // l'emporte plutôt que de rendre un feed vide.
-    expect(feed.items.map((i) => i.title)).toEqual(['A1']);
+    // Ni A1 ni B1 n'est daté : à égalité, l'ordre des positions des sources
+    // départage.
+    expect(feed.items.map((i) => i.title)).toEqual(['A1', 'B1']);
   });
 
   it('rend un feed sans item quand il n’y a aucune source', async () => {
@@ -446,8 +508,8 @@ describe('VeilleService', () => {
     expect(feed.items).toEqual([]);
   });
 
-  it('refuse la neuvième source', async () => {
-    prisma.watchedSource.count.mockResolvedValue(8);
+  it('refuse la onzième source', async () => {
+    prisma.watchedSource.count.mockResolvedValue(10);
 
     await expect(service.addSource('u-1', 'https://c.test/')).rejects.toThrow(
       BadRequestException,

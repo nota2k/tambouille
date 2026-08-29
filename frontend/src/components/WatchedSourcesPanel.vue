@@ -9,10 +9,6 @@ const items = ref<VeilleItem[]>([])
 const sources = ref<VeilleSource[]>([])
 const loading = ref(true)
 
-// Le backend ne rend plus que zéro ou un item, déjà élu : rien à trier ni à
-// couper ici.
-const item = computed(() => items.value[0])
-
 function stripLastError(source: VeilleSource): VeilleSource {
   return { id: source.id, label: source.label, url: source.url }
 }
@@ -30,8 +26,9 @@ onMounted(async () => {
     // part ailleurs dans le composant — un garde au rendu serait contournable
     // par n'importe quel accès direct à `sources`.
     sources.value = props.isOwnProfile ? data.sources : data.sources.map(stripLastError)
-    // Le backend a déjà classé par date de sortie et écarté les précommandes :
-    // il ne reste plus rien à choisir ni à couper ici.
+    // Le backend a déjà choisi l'ordre (une ligne par source, classées entre
+    // elles par date décroissante) et le nombre (dix sources au plus),
+    // précommandes écartées : rien à trier ni à couper ici.
     items.value = data.items
   } catch {
     // Un widget secondaire de colonne latérale ; une panne ici ne doit pas
@@ -65,44 +62,51 @@ function formatDate(iso?: string): string {
 
 <template>
   <div v-if="loading" class="pt-8">
-    <p class="tb-eyebrow">Sa dernière sortie</p>
-    <div class="flex gap-3 pt-4">
-      <div class="h-16 w-16 shrink-0 animate-pulse bg-white/10" />
-      <div class="min-w-0 flex-1 space-y-2 pt-1">
-        <div class="h-3 w-3/4 animate-pulse bg-white/10" />
-        <div class="h-2.5 w-1/2 animate-pulse bg-white/10" />
+    <p class="tb-eyebrow">Ses sorties suivies</p>
+    <div class="space-y-3 pt-4">
+      <div v-for="n in 3" :key="n" class="flex gap-3">
+        <div class="h-10 w-10 shrink-0 animate-pulse bg-white/10" />
+        <div class="min-w-0 flex-1 space-y-2">
+          <div class="h-3 w-3/4 animate-pulse bg-white/10" />
+          <div class="h-2.5 w-1/2 animate-pulse bg-white/10" />
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Un seul item, déjà élu par le backend : plus de liste à parcourir, donc
-       une pochette qui peut prendre la place qu'aurait tenue une rangée de cinq. -->
-  <div v-else-if="item" class="pt-8">
-    <p class="tb-eyebrow">Sa dernière sortie</p>
-    <a
-      :href="item.pageUrl"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="group mt-4 flex gap-3"
-    >
-      <img
-        v-if="item.coverUrl"
-        :src="item.coverUrl"
-        alt=""
-        loading="lazy"
-        class="h-16 w-16 shrink-0 object-cover"
-      />
-      <div v-else class="h-16 w-16 shrink-0 bg-white/10" />
-      <div class="min-w-0">
-        <p class="text-[15px] font-bold leading-snug group-hover:underline">
-          {{ item.title }}
-        </p>
-        <p class="mt-1 text-xs text-tambouille-muted">
-          {{ item.sourceLabel
-          }}<template v-if="item.publishedAt"> · {{ formatDate(item.publishedAt) }}</template>
-        </p>
-      </div>
-    </a>
+  <!-- Une ligne par source (dix au plus), déjà ordonnée et coupée par le
+       backend : une vignette par ligne plutôt que la pochette généreuse d'un
+       item unique, pour tenir dans les 320px de la colonne. -->
+  <div v-else-if="items.length" class="pt-8 pb-8">
+    <p class="tb-eyebrow">Ses sorties suivies</p>
+    <ul class="space-y-3 pt-4">
+      <li v-for="item in items" :key="item.pageUrl">
+        <a
+          :href="item.pageUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="group flex gap-3"
+        >
+          <img
+            v-if="item.coverUrl"
+            :src="item.coverUrl"
+            alt=""
+            loading="lazy"
+            class="h-10 w-10 shrink-0 object-cover"
+          />
+          <div v-else class="h-10 w-10 shrink-0 bg-white/10" />
+          <div class="min-w-0">
+            <p class="line-clamp-2 text-[13.5px] leading-snug group-hover:underline">
+              {{ item.title }}
+            </p>
+            <p class="mt-0.5 text-xs text-tambouille-muted">
+              {{ item.sourceLabel
+              }}<template v-if="item.publishedAt"> · {{ formatDate(item.publishedAt) }}</template>
+            </p>
+          </div>
+        </a>
+      </li>
+    </ul>
   </div>
 
   <!-- Des sources existent mais n'ont rien produit de lisible (feed vide, ou en
@@ -110,7 +114,7 @@ function formatDate(iso?: string): string {
        en ajouter une. Le détail de l'erreur reste réservé au titulaire, car
        `lastError` n'arrive du backend que pour lui. -->
   <div v-else-if="sources.length" class="pt-8">
-    <p class="tb-eyebrow">Sa dernière sortie</p>
+    <p class="tb-eyebrow">Ses sorties suivies</p>
     <p class="mt-4 text-sm text-tambouille-muted">Rien à montrer pour l'instant.</p>
     <p
       v-for="source in erroredSources"
@@ -125,7 +129,7 @@ function formatDate(iso?: string): string {
        s'affiche pas du tout, pas même son titre. Sur le sien, il montre par
        quoi commencer. -->
   <div v-else-if="isOwnProfile" class="pt-8">
-    <p class="tb-eyebrow">Sa dernière sortie</p>
+    <p class="tb-eyebrow">Ses sorties suivies</p>
     <RouterLink
       :to="{ name: 'settings' }"
       class="mt-4 inline-block text-sm text-tambouille-accent hover:underline"

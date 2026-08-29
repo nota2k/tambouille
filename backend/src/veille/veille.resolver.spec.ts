@@ -23,7 +23,9 @@ describe('canonicalUrl', () => {
 
   it('refuse ce qui n’est pas une URL https', () => {
     expect(() => canonicalUrl('pas une url')).toThrow(BadRequestException);
-    expect(() => canonicalUrl('http://ouiedire.net')).toThrow(BadRequestException);
+    expect(() => canonicalUrl('http://ouiedire.net')).toThrow(
+      BadRequestException,
+    );
   });
 
   it.each([
@@ -115,7 +117,10 @@ describe('VeilleResolver', () => {
   });
 
   it('refuse une adresse qui ne désigne qu’un seul mix', async () => {
-    imports.resolve.mockResolvedValue({ kind: 'mix', mix: { title: 'Un mix' } });
+    imports.resolve.mockResolvedValue({
+      kind: 'mix',
+      mix: { title: 'Un mix' },
+    });
 
     await expect(
       resolver.resolve('https://ouiedire.net/emission/ailleurs-331'),
@@ -137,13 +142,17 @@ describe('VeilleResolver', () => {
 
     const resolved = await resolver.resolve('https://blog.test/');
 
-    expect(imports.resolve).toHaveBeenLastCalledWith('https://blog.test/rss.xml');
+    expect(imports.resolve).toHaveBeenLastCalledWith(
+      'https://blog.test/rss.xml',
+    );
     expect(resolved.url).toBe('https://blog.test/rss.xml');
     expect(resolved.items).toHaveLength(1);
   });
 
   it('dit quoi donner quand aucun maillon ne trouve de liste', async () => {
-    imports.resolve.mockRejectedValue(new BadRequestException('Lien non reconnu'));
+    imports.resolve.mockRejectedValue(
+      new BadRequestException('Lien non reconnu'),
+    );
     fetchMock.mockResolvedValue({ body: Buffer.from('<html></html>') });
 
     await expect(resolver.resolve('https://rien.test/')).rejects.toThrow(

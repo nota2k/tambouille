@@ -44,57 +44,30 @@ function parDateDecroissante(a: VeilleItem, b: VeilleItem): number {
   return instant(b.publishedAt) - instant(a.publishedAt);
 }
 
-/** Une date absente ou illisible ne compte pas comme une date : `instant`
- *  vaut alors 0 pour les deux, ce qui suffit pour le tri mais confondrait ici
- *  un item réellement daté de 1970 avec un item sans date. */
-function estDatee(item: VeilleItem): boolean {
-  return (
-    item.publishedAt !== undefined &&
-    !Number.isNaN(Date.parse(item.publishedAt))
-  );
-}
-
 /**
- * Choisit l'unique item du feed : le plus récent, toutes sources confondues.
- * Chaque source ne concourt qu'avec sa sortie la plus fraîche parmi celles
- * déjà sorties — le rang le plus haut de son tri interne déjà fait par
- * l'appelant qui n'est pas datée dans le futur — puisqu'aucune autre de ses
- * sorties déjà sorties ne peut jamais gagner face à celle-là. Un item daté
- * l'emporte toujours sur un item sans date ; à égalité de date (ou si aucune
- * source n'en a une), l'ordre des sources — `parSource` est déjà trié par
- * position croissante — départage en gardant le premier trouvé.
+ * Rend au plus une ligne par source : sa sortie la plus récente déjà parue.
+ * Une précommande (date de sortie dans le futur) ne peut pas occuper cette
+ * ligne — on descend au premier item éligible de la source, pas seulement à
+ * son rang 0 — et une source dont rien n'est encore paru ne contribue rien
+ * du tout plutôt qu'une ligne vide. Une source qui ne date aucun de ses
+ * items reste éligible dès son rang 0 (`instant` vaut alors 0, toujours dans
+ * le passé) : elle contribue donc son premier item plutôt que de disparaître.
+ *
+ * Chaque source garde son tri interne (déjà fait par l'appelant, du plus
+ * récent au plus ancien) ; les lignes retenues sont ensuite reclassées entre
+ * elles par date décroissante, sources sans date en dernier.
  */
-function itemLePlusRecent(parSource: VeilleFeedItem[][]): VeilleFeedItem[] {
+function derniereSortieParSource(
+  parSource: VeilleFeedItem[][],
+): VeilleFeedItem[] {
   const maintenant = Date.now();
-  let meilleur: VeilleFeedItem | undefined;
-  let meilleurDatee = false;
-  let meilleurInstant = -Infinity;
+  const retenues = parSource
+    .map((items) =>
+      items.find((item) => instant(item.publishedAt) <= maintenant),
+    )
+    .filter((item): item is VeilleFeedItem => item !== undefined);
 
-  for (const items of parSource) {
-    // Une précommande porte la vraie date de sortie de l'album, mais cette
-    // date peut être dans le futur : tant que la sortie n'a pas eu lieu, ce
-    // n'est pas « la dernière sortie » et elle ne doit pas rafler la place
-    // unique. On cherche donc le premier item de la source qui n'est pas
-    // daté dans le futur, pas seulement son rang 0.
-    const candidat = items.find(
-      (item) => instant(item.publishedAt) <= maintenant,
-    );
-    if (!candidat) continue;
-    const datee = estDatee(candidat);
-    const t = instant(candidat.publishedAt);
-
-    if (
-      !meilleur ||
-      (datee && !meilleurDatee) ||
-      (datee === meilleurDatee && t > meilleurInstant)
-    ) {
-      meilleur = candidat;
-      meilleurDatee = datee;
-      meilleurInstant = t;
-    }
-  }
-
-  return meilleur ? [meilleur] : [];
+  return retenues.sort(parDateDecroissante);
 }
 
 @Injectable()
@@ -144,7 +117,7 @@ export class VeilleService {
       parSource.push(avecLabel);
     });
 
-    return { sources: rendues, items: itemLePlusRecent(parSource) };
+    return { sources: rendues, items: derniereSortieParSource(parSource) };
   }
 
   /**

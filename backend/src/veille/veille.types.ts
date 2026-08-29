@@ -38,6 +38,6 @@ export interface ResolvedSource {
   items: VeilleItem[];
 }
 
-export const MAX_SOURCES_PER_USER = 8;
+export const MAX_SOURCES_PER_USER = 10;
 export const MAX_ITEMS_PER_SOURCE = 10;
 export const CACHE_TTL_MS = 60 * 60 * 1000;
