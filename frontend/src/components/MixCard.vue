@@ -12,9 +12,22 @@ import { mixShareUrl } from '@/utils/share'
 import { mixRoute } from '@/utils/routes'
 import type { Mix } from '@/types'
 
-const props = withDefaults(defineProps<{ mix: Mix; landscape?: boolean }>(), {
-  landscape: false,
-})
+const props = withDefaults(
+  defineProps<{
+    mix: Mix
+    landscape?: boolean
+    /**
+     * Les trois commandes du coin — favori, playlist, partage.
+     *
+     * Se coupent pour les vignettes d'une bande où l'on ne fait que reprendre
+     * une écoute : trois boutons sur une carte large de quelques centimètres
+     * pèsent plus que ce qu'ils apportent là. Le bouton de lecture reste, lui :
+     * c'est la raison d'être de la bande.
+     */
+    actions?: boolean
+  }>(),
+  { landscape: false, actions: true },
+)
 const playerStore = usePlayerStore()
 
 const duration = computed(() => formatDuration(props.mix.durationSec))
@@ -111,6 +124,7 @@ function play(event: Event) {
       sans quoi on les atteindrait en tabulant sans jamais les voir.
     -->
     <div
+      v-if="actions"
       class="absolute right-2 top-2 z-10 flex flex-col items-end gap-2 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100"
     >
       <FavoriteButton :mix="mix" variant="overlay" />

@@ -10,7 +10,8 @@ import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import FavoriteButton from '@/components/FavoriteButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import ShareButton from '@/components/ShareButton.vue'
-import { mixShareUrl } from '@/utils/share'
+import { mixEmbedUrl, mixShareUrl } from '@/utils/share'
+import { HAUTEUR_EMBED_MIX } from '@/utils/embed'
 import type { Mix } from '@/types'
 
 const props = defineProps<{ mix: Mix }>()
@@ -150,7 +151,15 @@ const visibleTags = computed(() => props.mix.tags.slice(0, 2))
         <!-- Aligné à droite : le bouton touche le bord de la ligne, un menu
              parti vers la droite sortirait de l'écran. -->
         <AddToPlaylistButton :mix-id="mix.id" align="right" />
-        <ShareButton :url="mixShareUrl(mix)" />
+        <!-- La fenêtre à onglets, comme sur la page d'un mix : le lien d'un
+             côté, le code d'intégration et son aperçu de l'autre. Elle est
+             téléportée et centrée, donc elle ne dépend pas de la place
+             disponible autour du bouton. -->
+        <ShareButton
+          :url="mixShareUrl(mix)"
+          :embed-url="mixEmbedUrl(mix)"
+          :embed-height="HAUTEUR_EMBED_MIX"
+        />
       </div>
     </div>
 

@@ -5,6 +5,7 @@ import { apiClient } from '@/api/client'
 import { formatDuration, formatTime } from '@/utils/time'
 import { buildTracklist, type TrackRow } from '@/utils/tracklist'
 import { mixRoute } from '@/utils/routes'
+import { mediaUrl } from '@/utils/media'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
 import TagsField from '@/components/TagsField.vue'
@@ -65,6 +66,40 @@ const keepAudioAtSource = ref(false)
 // form falls back to requiring a file rather than submitting a sourceless mix.
 const useRemoteAudio = computed(() => keepAudioAtSource.value && importedSource.value !== null)
 
+/**
+ * Le mix déjà en base pour cette source, quand il y en a un.
+ *
+ * La même émission importée deux fois produisait deux mix identiques, que plus
+ * rien ne rapprochait ensuite. Le contrôle a lieu APRÈS l'import et non à la
+ * soumission : c'est à ce moment qu'on connaît la référence de la source, et
+ * c'est encore le moment où l'on peut renoncer sans avoir rien rempli.
+ *
+ * Il n'a pas lieu pour un dépôt de fichier à la main : deux fichiers n'ont
+ * aucune identité comparable — ni référence, ni page d'origine — et une
+ * comparaison sur le titre rejetterait deux mix légitimement homonymes.
+ */
+const doublon = ref<{
+  id: string
+  title: string
+  slug: string
+  coverUrl: string | null
+  user: { username: string; displayName: string }
+} | null>(null)
+
+async function verifierLeDoublon(source: { ref: string; pageUrl?: string }) {
+  doublon.value = null
+  try {
+    const { data } = await apiClient.get<typeof doublon.value>('/mixes/by-source', {
+      params: { ref: source.ref, pageUrl: source.pageUrl },
+    })
+    doublon.value = data ?? null
+  } catch {
+    // Le contrôle est un garde-fou, pas une étape du dépôt : s'il échoue, on
+    // laisse publier plutôt que de bloquer sur une question secondaire.
+    doublon.value = null
+  }
+}
+
 function applyImport(mix: MixImport) {
   title.value = mix.title
   artist.value = mix.artist ?? ''
@@ -89,6 +124,8 @@ function applyImport(mix: MixImport) {
   // The choice has been made; leaving the list up would invite a second one
   // that silently overwrites the form.
   sourceItems.value = []
+
+  void verifierLeDoublon({ ref: mix.sourceRef, pageUrl: mix.sourcePageUrl })
 }
 
 async function resolveSource() {
@@ -169,6 +206,19 @@ onBeforeUnmount(() => {
 })
 
 async function onSubmit() {
+  /*
+   * Le doublon ferme la porte, et pas seulement en grisant le bouton.
+   *
+   * Un bouton désactivé est une indication, pas une garantie : il se réactive
+   * depuis n'importe quel inspecteur, et il ne dit rien d'une soumission au
+   * clavier partie avant que la vérification ne réponde. Le refus est donc
+   * aussi ici, sur le chemin qu'emprunte réellement l'envoi.
+   */
+  if (doublon.value) {
+    error.value = 'Ce mix est déjà en ligne. Voir le lien ci-dessous.'
+    return
+  }
+
   // A mix carries exactly one audio source. `useRemoteAudio` is the only case
   // where no file is needed, and it cannot be true without an imported source.
   if (!useRemoteAudio.value && !audioFile.value) {
@@ -485,9 +535,57 @@ async function onSubmit() {
           </div>
 
           <div class="pt-8">
-            <button type="submit" :disabled="uploading" class="tb-btn px-8 py-4">
+            <button
+              type="submit"
+              :disabled="uploading || doublon !== null"
+              class="tb-btn px-8 py-4"
+            >
               {{ uploading ? 'Envoi en cours…' : 'Publier le mix' }}
             </button>
+
+            <!--
+              L'encart du doublon : cerclé d'accent, avec la pochette.
+
+              Il occupe de la place à dessein. Une ligne de texte sous le bouton
+              se lisait comme une note de bas de page, alors qu'elle annonce que
+              la publication est refusée — un formulaire rempli en entier et un
+              bouton qui ne répond plus, sans explication qu'on remarque, c'est
+              une panne du point de vue de qui dépose.
+
+              La pochette parce qu'on reconnaît un mix à son image avant de lire
+              son titre : elle répond en une seconde à « est-ce vraiment le même
+              que le mien ? ».
+            -->
+            <div
+              v-if="doublon"
+              role="alert"
+              class="mt-6 flex max-w-prose items-start gap-4 border-2 border-tambouille-accent bg-tambouille-accent-wash p-5"
+            >
+              <img
+                v-if="doublon.coverUrl"
+                :src="mediaUrl(doublon.coverUrl)"
+                alt=""
+                class="h-20 w-20 shrink-0 object-cover"
+              />
+              <div class="min-w-0">
+                <p class="font-display text-lg font-bold">Ce mix est déjà en ligne.</p>
+                <p class="mt-1 text-sm text-tambouille-muted">
+                  La publication est bloquée pour éviter un doublon.
+                </p>
+                <RouterLink
+                  :to="{
+                    name: 'mix-detail',
+                    params: { username: doublon.user.username, slug: doublon.slug },
+                  }"
+                  target="_blank"
+                  rel="noopener"
+                  class="mt-3 inline-block font-display text-base font-bold underline hover:text-tambouille-accent"
+                >
+                  {{ doublon.title }}
+                </RouterLink>
+                <p class="text-sm text-tambouille-muted">par {{ doublon.user.displayName }}</p>
+              </div>
+            </div>
           </div>
         </form>
       </div>
