@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { parseFournee, parseLocalDate, FourneeParseError, selectFournee } from '../fournees'
 import type { FourneeSource } from '../fournees'
 
+const CINQ =
+  '[djnelly/tabouiedire, djnelly/vorwerk-2, Lenta-po/antimythes, djnelly/absorbed, djnelly/passages-pas-sages]'
+const QUATRE = '[djnelly/tabouiedire, djnelly/vorwerk-2, Lenta-po/antimythes, djnelly/absorbed]'
+
 const VALIDE = `---
 layout: tall
 number: 18
@@ -12,7 +16,7 @@ inverted: false
 curator: pierrot
 from: 2026-12-01
 to: 2027-02-28
-mixes: [a, b, c, d, e]
+mixes: ${CINQ}
 ---
 
 Il fait noir à 16 h et ça nous va.
@@ -48,7 +52,13 @@ describe('parseFournee', () => {
     expect(source.color).toBe('#2D5FA8')
     expect(source.inverted).toBe(false)
     expect(source.curator).toBe('pierrot')
-    expect(source.mixIds).toEqual(['a', 'b', 'c', 'd', 'e'])
+    expect(source.mixRefs).toEqual([
+      { username: 'djnelly', slug: 'tabouiedire' },
+      { username: 'djnelly', slug: 'vorwerk-2' },
+      { username: 'Lenta-po', slug: 'antimythes' },
+      { username: 'djnelly', slug: 'absorbed' },
+      { username: 'djnelly', slug: 'passages-pas-sages' },
+    ])
     expect(source.intro).toBe('Il fait noir à 16 h et ça nous va.')
   })
 
@@ -107,21 +117,53 @@ describe('parseFournee', () => {
   })
 
   it('exige cinq mix pour `tall`', () => {
-    expect(() => parseFournee(VALIDE.replace('[a, b, c, d, e]', '[a, b, c, d]'), 'x.md')).toThrow(
-      /cinq/,
-    )
+    expect(() => parseFournee(VALIDE.replace(CINQ, QUATRE), 'x.md')).toThrow(/cinq/)
   })
 
   it('exige quatre mix pour `large`', () => {
     const large = VALIDE.replace('layout: tall', 'layout: large')
     expect(() => parseFournee(large, 'x.md')).toThrow(/quatre/)
-    expect(
-      parseFournee(large.replace('[a, b, c, d, e]', '[a, b, c, d]'), 'x.md').mixIds,
-    ).toHaveLength(4)
+    expect(parseFournee(large.replace(CINQ, QUATRE), 'x.md').mixRefs).toHaveLength(4)
+  })
+
+  it('affiche la fournée quand `display` est absent', () => {
+    expect(parseFournee(VALIDE, 'x.md').display).toBe(true)
+  })
+
+  it('met la fournée en veille sur `display: false`', () => {
+    const veille = VALIDE.replace('inverted: false', 'inverted: false\ndisplay: false')
+    expect(parseFournee(veille, 'x.md').display).toBe(false)
+  })
+
+  it('refuse un `display` qui n’est ni `true` ni `false`', () => {
+    const faute = VALIDE.replace('inverted: false', 'inverted: false\ndisplay: fasle')
+    expect(() => parseFournee(faute, 'x.md')).toThrow(/display/)
+  })
+
+  it('refuse un mix cité sans son compte, en le nommant', () => {
+    // Le format d'avant : un UUID nu. Il ne désigne plus rien.
+    const nu = VALIDE.replace('djnelly/tabouiedire', '7578d396-c389-48de-905e-c688c1040864')
+    expect(() => parseFournee(nu, 'x.md')).toThrow(/7578d396-c389-48de-905e-c688c1040864/)
+    expect(() => parseFournee(nu, 'x.md')).toThrow(/compte\/titre/)
+  })
+
+  it('refuse une référence dont une moitié manque', () => {
+    expect(() =>
+      parseFournee(VALIDE.replace('djnelly/tabouiedire', '/tabouiedire'), 'x.md'),
+    ).toThrow(/compte\/titre/)
+    expect(() => parseFournee(VALIDE.replace('djnelly/tabouiedire', 'djnelly/'), 'x.md')).toThrow(
+      /compte\/titre/,
+    )
+  })
+
+  it('refuse une référence à plus de deux segments', () => {
+    expect(() =>
+      parseFournee(VALIDE.replace('djnelly/tabouiedire', 'djnelly/mixes/tabouiedire'), 'x.md'),
+    ).toThrow(/compte\/titre/)
   })
 })
 
-function source(from: string, to: string, title = 'x'): FourneeSource {
+function source(from: string, to: string, title = 'x', display = true): FourneeSource {
   return {
     layout: 'tall',
     number: 1,
@@ -131,9 +173,16 @@ function source(from: string, to: string, title = 'x'): FourneeSource {
     inverted: false,
     curator: 'c',
     intro: 'i',
+    display,
     from: new Date(from),
     to: new Date(to),
-    mixIds: ['a', 'b', 'c', 'd', 'e'],
+    mixRefs: [
+      { username: 'n', slug: 'a' },
+      { username: 'n', slug: 'b' },
+      { username: 'n', slug: 'c' },
+      { username: 'n', slug: 'd' },
+      { username: 'n', slug: 'e' },
+    ],
   }
 }
 
@@ -171,6 +220,19 @@ describe('selectFournee', () => {
 
   it(`rend null le lendemain de la clôture`, () => {
     expect(selectFournee([hiver], new Date('2027-03-01T00:00:00'))).toBeNull()
+  })
+
+  it(`écarte une fournée en veille, même en pleine fenêtre`, () => {
+    const veille = source('2026-12-01T00:00:00', '2027-03-31T00:00:00', 'veille', false)
+    expect(selectFournee([veille], midi('2027-01-15T00:00:00'))).toBeNull()
+  })
+
+  it(`laisse la place à une fournée en cours quand la plus récente est en veille`, () => {
+    // Sans quoi mettre une fournée en veille éteindrait le bandeau au lieu de
+    // rendre la main à celle d'avant.
+    const ancienne = source('2026-12-01T00:00:00', '2027-03-31T00:00:00', 'ancienne')
+    const veille = source('2027-01-01T00:00:00', '2027-03-31T00:00:00', 'veille', false)
+    expect(selectFournee([ancienne, veille], midi('2027-02-01T00:00:00'))?.title).toBe('ancienne')
   })
 
   it(`départage un recouvrement par le \`from\` le plus récent`, () => {

@@ -31,6 +31,11 @@ function mix(id: string): Mix {
   }
 }
 
+/** Un mix cité comme dans son adresse : `compte/titre`. */
+function ref(slug: string, username = 'djnelly') {
+  return { username, slug }
+}
+
 describe('resolveMixes', () => {
   beforeEach(() => {
     // Accolades nécessaires : `() => get.mockReset()` renvoie le mock
@@ -46,7 +51,7 @@ describe('resolveMixes', () => {
       const delai = id === 'a' ? 20 : 0
       return new Promise((resolve) => setTimeout(() => resolve({ data: mix(id) }), delai))
     })
-    const resolus = await resolveMixes(['a', 'b', 'c'])
+    const resolus = await resolveMixes([ref('a'), ref('b'), ref('c')])
     expect(resolus.map((m) => m.id)).toEqual(['a', 'b', 'c'])
   })
 
@@ -55,17 +60,27 @@ describe('resolveMixes', () => {
       const id = url.split('/').pop() as string
       return id === 'b' ? Promise.reject(new Error('404')) : Promise.resolve({ data: mix(id) })
     })
-    const resolus = await resolveMixes(['a', 'b', 'c'])
+    const resolus = await resolveMixes([ref('a'), ref('b'), ref('c')])
     expect(resolus.map((m) => m.id)).toEqual(['a', 'c'])
   })
 
-  it('interroge chaque identifiant une fois', async () => {
+  it('interroge chaque mix une fois, par son compte et son titre', async () => {
     get.mockImplementation((url: string) =>
       Promise.resolve({ data: mix(url.split('/').pop() as string) }),
     )
-    await resolveMixes(['a', 'b'])
+    await resolveMixes([ref('a'), ref('b')])
     expect(get).toHaveBeenCalledTimes(2)
-    expect(get).toHaveBeenCalledWith('/mixes/a')
-    expect(get).toHaveBeenCalledWith('/mixes/b')
+    expect(get).toHaveBeenCalledWith('/mixes/by-slug/djnelly/a')
+    expect(get).toHaveBeenCalledWith('/mixes/by-slug/djnelly/b')
+  })
+
+  it('distingue deux mix de même titre déposés par deux comptes', async () => {
+    // Un titre d'URL n'est unique que par compte : sans le compte dans la
+    // requête, ces deux-là seraient le même mix demandé deux fois.
+    get.mockImplementation((url: string) =>
+      Promise.resolve({ data: mix(url.split('/').slice(-2).join('-')) }),
+    )
+    const resolus = await resolveMixes([ref('mix-57'), ref('mix-57', 'Lenta-po')])
+    expect(resolus.map((m) => m.id)).toEqual(['djnelly-mix-57', 'Lenta-po-mix-57'])
   })
 })
