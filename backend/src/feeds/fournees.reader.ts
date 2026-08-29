@@ -19,13 +19,23 @@ import { join, resolve } from 'path';
  * que soit sa période, puisque des abonnés le détiennent.
  */
 
+/**
+ * Un mix désigné comme il l'est dans son adresse : `compte/titre`, et non par
+ * son identifiant, qui est propre à la base qui l'a émise. Voir le pendant
+ * frontend, `MixRef` dans `frontend/src/content/fournees.ts`.
+ */
+export interface MixRef {
+  username: string;
+  slug: string;
+}
+
 export interface Fournee {
   number: number;
   title: string;
   period: string;
   intro: string;
   /** Dans l'ordre du fichier, dédoublonné. */
-  mixIds: string[];
+  mixRefs: MixRef[];
 }
 
 export class FourneeParseError extends Error {
@@ -53,6 +63,15 @@ function parseInlineList(value: string): string[] | null {
     .split(',')
     .map((item) => unquote(item.trim()))
     .filter((item) => item.length > 0);
+}
+
+/** `compte/titre`. Rend `null` sur tout le reste, un UUID nu compris. */
+function parseMixRef(item: string): MixRef | null {
+  const parts = item.split('/');
+  if (parts.length !== 2) return null;
+  const [username, slug] = parts;
+  if (!username || !slug) return null;
+  return { username, slug };
 }
 
 export function parseFournee(raw: string, path: string): Fournee {
@@ -90,9 +109,29 @@ export function parseFournee(raw: string, path: string): Fournee {
     );
   }
 
-  const mixIds = parseInlineList(require('mixes'));
-  if (mixIds === null) {
+  const items = parseInlineList(require('mixes'));
+  if (items === null) {
     throw new FourneeParseError(path, '`mixes` n’est pas une liste en ligne');
+  }
+
+  // Le fichier peut citer deux fois le même mix. Deux items de même `guid` :
+  // certains clients n'en gardent qu'un, d'autres affichent un doublon. La
+  // première occurrence gagne, l'ordre est conservé. La casse du compte ne
+  // distingue pas deux mix — l'API la compare sans y prendre garde.
+  const vus = new Set<string>();
+  const mixRefs: MixRef[] = [];
+  for (const item of items) {
+    const ref = parseMixRef(item);
+    if (!ref) {
+      throw new FourneeParseError(
+        path,
+        `« ${item} » n’est pas de la forme \`compte/titre\`, celle de l’adresse du mix`,
+      );
+    }
+    const cle = `${ref.username.toLowerCase()}/${ref.slug}`;
+    if (vus.has(cle)) continue;
+    vus.add(cle);
+    mixRefs.push(ref);
   }
 
   return {
@@ -100,10 +139,7 @@ export function parseFournee(raw: string, path: string): Fournee {
     title: require('title'),
     period: require('period'),
     intro: (found[2] ?? '').trim(),
-    // Le fichier peut citer deux fois le même mix — `2026-hiver.md` le fait.
-    // Deux items de même `guid` : certains clients n'en gardent qu'un, d'autres
-    // affichent un doublon. La première occurrence gagne, l'ordre est conservé.
-    mixIds: [...new Set(mixIds)],
+    mixRefs,
   };
 }
 

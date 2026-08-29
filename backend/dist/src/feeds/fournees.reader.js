@@ -30,6 +30,15 @@ function parseInlineList(value) {
         .map((item) => unquote(item.trim()))
         .filter((item) => item.length > 0);
 }
+function parseMixRef(item) {
+    const parts = item.split('/');
+    if (parts.length !== 2)
+        return null;
+    const [username, slug] = parts;
+    if (!username || !slug)
+        return null;
+    return { username, slug };
+}
 function parseFournee(raw, path) {
     const found = FRONTMATTER.exec(raw.trim());
     if (!found) {
@@ -57,16 +66,29 @@ function parseFournee(raw, path) {
     if (!Number.isInteger(number) || number <= 0) {
         throw new FourneeParseError(path, `\`number\` vaut « ${rawNumber} », attendu un entier positif`);
     }
-    const mixIds = parseInlineList(require('mixes'));
-    if (mixIds === null) {
+    const items = parseInlineList(require('mixes'));
+    if (items === null) {
         throw new FourneeParseError(path, '`mixes` n’est pas une liste en ligne');
+    }
+    const vus = new Set();
+    const mixRefs = [];
+    for (const item of items) {
+        const ref = parseMixRef(item);
+        if (!ref) {
+            throw new FourneeParseError(path, `« ${item} » n’est pas de la forme \`compte/titre\`, celle de l’adresse du mix`);
+        }
+        const cle = `${ref.username.toLowerCase()}/${ref.slug}`;
+        if (vus.has(cle))
+            continue;
+        vus.add(cle);
+        mixRefs.push(ref);
     }
     return {
         number,
         title: require('title'),
         period: require('period'),
         intro: (found[2] ?? '').trim(),
-        mixIds: [...new Set(mixIds)],
+        mixRefs,
     };
 }
 function fourneesDir() {

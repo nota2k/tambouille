@@ -16,6 +16,9 @@ const audio_source_1 = require("../common/audio-source");
 const feed_items_1 = require("./feed.items");
 const fournees_reader_1 = require("./fournees.reader");
 exports.FEED_MAX_ITEMS = 50;
+function cleDeRef(username, slug) {
+    return `${(username ?? '').toLowerCase()}/${slug}`;
+}
 let FeedsService = class FeedsService {
     prisma;
     constructor(prisma) {
@@ -80,13 +83,23 @@ let FeedsService = class FeedsService {
     }
     async fournee(numero, context) {
         const fournee = this.findFournee(numero);
+        const refs = fournee.mixRefs.slice(0, exports.FEED_MAX_ITEMS);
         const mixes = await this.prisma.mix.findMany({
-            where: { id: { in: fournee.mixIds.slice(0, exports.FEED_MAX_ITEMS) } },
-            select: feed_items_1.FEED_MIX_SELECT,
+            where: {
+                OR: refs.map((ref) => ({
+                    slug: ref.slug,
+                    user: { username: { equals: ref.username, mode: 'insensitive' } },
+                })),
+            },
+            select: {
+                ...feed_items_1.FEED_MIX_SELECT,
+                slug: true,
+                user: { select: { username: true } },
+            },
         });
-        const parId = new Map(mixes.map((mix) => [mix.id, mix]));
-        const ordonnes = fournee.mixIds
-            .map((id) => parId.get(id))
+        const parRef = new Map(mixes.map((mix) => [cleDeRef(mix.user.username, mix.slug), mix]));
+        const ordonnes = refs
+            .map((ref) => parRef.get(cleDeRef(ref.username, ref.slug)))
             .filter((mix) => mix !== undefined);
         return this.channel(context, ordonnes, {
             title: `La fournée n°${fournee.number} — ${fournee.title}`,

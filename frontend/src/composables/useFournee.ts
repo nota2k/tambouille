@@ -1,6 +1,6 @@
 import { ref, onMounted, type Ref } from 'vue'
 import { apiClient } from '@/api/client'
-import { parseFournee, selectFournee, type FourneeSource } from '@/content/fournees'
+import { parseFournee, selectFournee, type FourneeSource, type MixRef } from '@/content/fournees'
 import type { Fournee, Mix } from '@/types'
 
 /**
@@ -38,9 +38,14 @@ export function loadFourneeSources(): FourneeSource[] {
  * réponses. Un mix supprimé depuis l'écriture renvoie 404 : il disparaît de la
  * liste sans bruit, une fournée amputée d'un titre restant plus lisible qu'une
  * home en erreur.
+ *
+ * L'interrogation se fait par compte et titre, comme l'adresse du mix : le
+ * compte n'est pas décoratif, un titre d'URL n'étant unique que par compte.
  */
-export async function resolveMixes(ids: string[]): Promise<Mix[]> {
-  const reponses = await Promise.allSettled(ids.map((id) => apiClient.get<Mix>(`/mixes/${id}`)))
+export async function resolveMixes(refs: MixRef[]): Promise<Mix[]> {
+  const reponses = await Promise.allSettled(
+    refs.map((ref) => apiClient.get<Mix>(`/mixes/by-slug/${ref.username}/${ref.slug}`)),
+  )
   const mixes: Mix[] = []
   for (const reponse of reponses) {
     if (reponse.status === 'fulfilled') mixes.push(reponse.value.data)
@@ -58,7 +63,7 @@ const MIX_MINIMUM = 3
 
 /** L'éditorial seul : ce que le fichier dit, sans ses dates ni ses identifiants. */
 function sansMixes(source: FourneeSource): Fournee {
-  const { from: _from, to: _to, mixIds: _mixIds, ...editorial } = source
+  const { from: _from, to: _to, display: _display, mixRefs: _mixRefs, ...editorial } = source
   return { ...editorial, mixes: [] }
 }
 
@@ -81,7 +86,7 @@ export function useFournee(): { fournee: Ref<Fournee | null> } {
 
   onMounted(async () => {
     if (!source) return
-    const mixes = await resolveMixes(source.mixIds)
+    const mixes = await resolveMixes(source.mixRefs)
     // Un bandeau amputé de sa bande n'a plus de tenue : il disparaît, au prix
     // d'un décalage que seule une erreur éditoriale peut provoquer — un fichier
     // qui cite des mix supprimés depuis.
