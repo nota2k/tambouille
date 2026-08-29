@@ -1,7 +1,8 @@
 import { onUnmounted, readonly, ref } from 'vue'
 
 /**
- * Le voile rose qui couvre la page tant que ses pochettes ne sont pas là.
+ * Le voile rose qui couvre une navigation interne tant que ses pochettes ne sont
+ * pas là. Le premier chargement, lui, n'en a pas — voir `visible` plus bas.
  *
  * ─── La règle qui prime sur toutes les autres ────────────────────────────────
  *
@@ -19,16 +20,18 @@ import { onUnmounted, readonly, ref } from 'vue'
 /** Ce que la page attend encore. Jamais lu comme « tout est fini » sans délai. */
 const enAttente = ref(0)
 /**
- * Vrai dès l'évaluation du module, et non allumé par un appel.
+ * Faux au départ : **le premier chargement n'a pas de voile.**
  *
- * C'est ce qui évite le double allumage du démarrage — `main.ts` puis
- * l'`afterEach` de la navigation initiale — sans avoir à s'en garder. La
- * version d'avant s'en gardait par un retour anticipé, et ce retour tombait
- * aussi sur les navigations rapides : le compte n'était pas remis à zéro,
- * les pochettes de la vue précédente restaient dues, et le voile tenait quatre
- * secondes au lieu d'une et demie. Mesuré.
+ * C'est là que la mesure se joue. Le Speed Index se calcule sur la progression
+ * visuelle de l'écran, et un aplat rose n'est pas du contenu : couvrir l'arrivée
+ * sur le site, c'est rendre les 246 ms gagnées sur les polices et le travail
+ * fait sur le LCP. Une navigation interne, elle, ne compte dans aucune de ces
+ * métriques — c'est là que le fondu est gratuit.
+ *
+ * L'`afterEach` du routeur écarte donc la navigation initiale (`START_LOCATION`)
+ * et n'appelle `couvrirLaPage` qu'à partir de la seconde.
  */
-const visible = ref(true)
+const visible = ref(false)
 const sortie = ref(false)
 
 /**
@@ -118,17 +121,8 @@ export function reinitialiserPourTest() {
   nettoyer()
   enAttente.value = 0
   sortie.value = false
-  visible.value = true
+  visible.value = false
 }
-
-/**
- * Le premier chargement n'a pas encore d'`afterEach` derrière lui : le voile est
- * déjà baissé, mais aucune minuterie ne le relèverait si la navigation initiale
- * n'aboutissait pas — une garde de routeur qui pend, et le site reste rose.
- * On arme donc dès l'import, ce que l'`afterEach` refera quelques
- * millisecondes plus tard sans dommage.
- */
-armer()
 
 export function useTransitionDePage() {
   onUnmounted(nettoyer)

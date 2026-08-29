@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, START_LOCATION } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { resetSeo } from '@/composables/useSeo'
 import { couvrirLaPage } from '@/composables/useTransitionDePage'
@@ -156,13 +156,23 @@ router.beforeEach((to) => {
  * titre, la pochette et les données structurées de la précédente — un mix
  * annoncé sous une URL qui n'est plus la sienne.
  */
-router.afterEach(() => {
+router.afterEach((_to, from) => {
   resetSeo()
-  // Même raison de vivre ici que la remise à zéro du `<head>` : `afterEach`
-  // court avant que la vue suivante ne monte, donc le voile est déjà en place
-  // quand ses pochettes commencent à s'annoncer. Posé dans la vue, il
-  // arriverait après elles et ne couvrirait plus rien.
-  couvrirLaPage()
+
+  // Le voile ne couvre QUE les navigations internes.
+  //
+  // `START_LOCATION` est la position d'où part la toute première navigation :
+  // l'écarter, c'est laisser l'arrivée sur le site s'afficher sans fondu. C'est
+  // là que se mesurent le First Contentful Paint et le Speed Index, et un aplat
+  // rose n'est pas du contenu — le couvrir rendrait ce que le chantier
+  // précédent a gagné. Une navigation interne ne compte dans aucune de ces
+  // métriques.
+  //
+  // Pour les suivantes, `afterEach` est le bon endroit pour la même raison que
+  // la remise à zéro du `<head>` juste au-dessus : il court avant que la vue
+  // suivante ne monte, donc le voile est déjà là quand ses pochettes
+  // s'annoncent. Posé dans la vue, il arriverait après elles.
+  if (from !== START_LOCATION) couvrirLaPage()
 })
 
 export default router

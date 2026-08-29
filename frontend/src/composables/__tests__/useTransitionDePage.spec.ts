@@ -33,6 +33,27 @@ describe('useTransitionDePage', () => {
     vi.useRealTimers()
   })
 
+  /**
+   * Le premier chargement n'a pas de voile, et c'est un choix de mesure : le
+   * Speed Index se calcule sur la progression visuelle de l'écran, un aplat
+   * rose n'est pas du contenu, et l'arrivée sur le site est la seule des deux
+   * situations que Lighthouse regarde. Le routeur écarte donc la navigation
+   * initiale (`START_LOCATION`) — ce test tient l'autre moitié de la promesse :
+   * même sollicité par les pochettes de la première vue, l'état de départ reste
+   * découvert.
+   */
+  it('ne couvre pas le premier chargement', () => {
+    expect(etat().visible.value).toBe(false)
+
+    // Les pochettes de la première vue s'annoncent quand même — `CoverImage`
+    // ne sait pas d'où vient la navigation. Elles ne doivent rien allumer.
+    signalerImage.attendue()
+    signalerImage.arrivee()
+
+    vi.advanceTimersByTime(MAXIMUM + FONDU)
+    expect(etat().visible.value).toBe(false)
+  })
+
   it("couvre la page dès qu'on le lui demande", () => {
     couvrirLaPage()
     expect(etat().visible.value).toBe(true)
