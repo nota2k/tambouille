@@ -39,6 +39,14 @@
   <link rel="preload" href="/fonts/rambla-400-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/fonts/rambla-700-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/fonts/arvo-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- Arvo 700, et pas seulement 400 : tous les titres de contenu sont en gras
+       (`font-display font-bold`). Sans ce préchargement, la fonte n'était
+       découverte qu'à la lecture de la feuille de style et n'arrivait qu'à
+       760 ms — après le premier rendu (501 ms) et après le LCP (744 ms). Les
+       titres basculaient alors du repli à Arvo d'un seul coup, et la ligne
+       d'Arvo est 8,4 % plus haute : toute la page se réajustait derrière.
+       C'était l'essentiel du 0,761 de décalage cumulé du 29 août 2026. -->
+  <link rel="preload" href="/fonts/arvo-700-latin.woff2" as="font" type="font/woff2" crossorigin>
 
   <!-- Les pochettes viennent toutes de là, et la plus grande d'entre elles est
        l'image qui décide du Largest Contentful Paint. L'URL suit celle du
