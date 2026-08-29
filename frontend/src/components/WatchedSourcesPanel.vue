@@ -9,6 +9,10 @@ const items = ref<VeilleItem[]>([])
 const sources = ref<VeilleSource[]>([])
 const loading = ref(true)
 
+function stripLastError(source: VeilleSource): VeilleSource {
+  return { id: source.id, label: source.label, url: source.url }
+}
+
 // Le profil est déjà rendu quand cet appel part : la veille peut mettre
 // plusieurs secondes à rafraîchir ses sources, et la page ne l'attend pas.
 onMounted(async () => {
@@ -16,7 +20,12 @@ onMounted(async () => {
     const { data } = await apiClient.get<VeilleFeed>(
       `/users/${props.username}/watched-sources`,
     )
-    sources.value = data.sources
+    // Le backend ne sert `lastError` qu'au titulaire, mais on ne s'y fie pas :
+    // une régression côté API ne doit pas suffire à montrer l'erreur d'un
+    // autre à un visiteur. On l'efface ici, avant que la donnée n'existe nulle
+    // part ailleurs dans le composant — un garde au rendu serait contournable
+    // par n'importe quel accès direct à `sources`.
+    sources.value = props.isOwnProfile ? data.sources : data.sources.map(stripLastError)
     // Le backend fusionne déjà les sources en tourniquet : retrier ici casserait
     // cet équilibrage et ferait remonter une seule source en haut du bloc.
     items.value = data.items.slice(0, 5)
@@ -31,7 +40,9 @@ onMounted(async () => {
   }
 })
 
-// Ne s'affiche que pour le titulaire : l'API ne renvoie déjà `lastError` qu'à lui.
+// `sources` ne porte déjà plus de `lastError` pour un visiteur (voir onMounted) :
+// ce filtre n'a donc rien à retenir pour lui, sans avoir besoin de re-vérifier
+// `isOwnProfile` ici.
 const erroredSources = computed(() => sources.value.filter((source) => source.lastError))
 
 function formatDate(iso?: string): string {
