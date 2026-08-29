@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import { formatTime } from '@/utils/time'
 import type { Comment, CommentReply, Mix } from '@/types'
 import { apiErrorMessage } from '@/utils/apiError'
@@ -101,6 +101,8 @@ async function deleteReply(reply: CommentReply) {
         <img
           v-if="comment.user.avatarUrl"
           :src="mediaUrl(comment.user.avatarUrl)"
+          :srcset="mediaSrcset(comment.user.avatarUrl)"
+          sizes="36px"
           loading="lazy"
           decoding="async"
           class="h-9 w-9 rounded-none object-cover"
@@ -167,6 +169,8 @@ async function deleteReply(reply: CommentReply) {
               <img
                 v-if="reply.user.avatarUrl"
                 :src="mediaUrl(reply.user.avatarUrl)"
+                :srcset="mediaSrcset(reply.user.avatarUrl)"
+                sizes="28px"
                 loading="lazy"
                 decoding="async"
                 class="h-7 w-7 rounded-none object-cover"

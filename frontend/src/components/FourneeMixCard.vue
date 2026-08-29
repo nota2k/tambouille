@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import { mixRoute } from '@/utils/routes'
 import CoverImage from '@/components/CoverImage.vue'
 import { formatDuration } from '@/utils/time'
@@ -62,6 +62,8 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
            luminance. Sans pochette il ne reste que l'aplat. -->
       <CoverImage
         :src="mediaUrl(mix.coverUrl)"
+        :srcset="mediaSrcset(mix.coverUrl)"
+        sizes="(min-width: 1280px) 20vw, (min-width: 800px) 34vw, (min-width: 450px) 67vw, 100vw"
         :priority="priority"
         img-class="mix-blend-luminosity"
       />

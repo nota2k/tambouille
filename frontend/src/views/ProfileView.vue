@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
-import { feedUrl, mediaUrl } from '@/utils/media'
+import { feedUrl, mediaSrcset, mediaUrl } from '@/utils/media'
 import { formatDuration } from '@/utils/time'
 import { toggleUserFollow } from '@/utils/follows'
 import MixListItem from '@/components/MixListItem.vue'
@@ -259,6 +259,8 @@ onMounted(loadProfile)
             <img
               v-if="profile.avatarUrl"
               :src="mediaUrl(profile.avatarUrl)"
+              :srcset="mediaSrcset(profile.avatarUrl)"
+              sizes="(min-width: 640px) 350px, 120px"
               decoding="async"
               class="h-[120px] w-[120px] border-4 border-white object-cover sm:h-[350px] sm:w-[350px]"
               alt=""

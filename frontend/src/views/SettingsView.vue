@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { apiClient } from '@/api/client'
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
 import type { UserProfile } from '@/types'
@@ -116,6 +116,8 @@ async function submitDelete() {
             <img
               v-if="authStore.user?.avatarUrl"
               :src="mediaUrl(authStore.user.avatarUrl)"
+              :srcset="mediaSrcset(authStore.user.avatarUrl)"
+              sizes="64px"
               loading="lazy"
               decoding="async"
               class="h-16 w-16 rounded-none object-cover"
