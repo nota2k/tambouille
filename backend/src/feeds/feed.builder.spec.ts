@@ -70,7 +70,9 @@ describe('buildRssFeed', () => {
   });
 
   it("omet l'image d'un item quand il n'y en a pas", () => {
-    expect(parse(buildRssFeed(channel())).item['itunes:image']).toBeUndefined();
+    const sans = parse(buildRssFeed(channel())).item;
+    expect(sans['itunes:image']).toBeUndefined();
+    expect(sans['media:thumbnail']).toBeUndefined();
 
     const avec = parse(
       buildRssFeed(
@@ -80,6 +82,21 @@ describe('buildRssFeed', () => {
     expect(avec.item['itunes:image']['@href']).toBe(
       'https://cdn.example/c.jpg',
     );
+  });
+
+  it('publie la pochette AUSSI en `media:thumbnail`, pour les lecteurs non-podcast', () => {
+    const flux = buildRssFeed(
+      channel({ items: [item({ imageUrl: 'https://cdn.example/c.jpg' })] }),
+    );
+
+    // `itunes:image` appartient à la namespace d'iTunes : les clients de
+    // podcast la lisent, les lecteurs RSS généralistes non. Sans cette
+    // seconde balise, la pochette était dans le flux sans jamais s'afficher.
+    expect(parse(flux).item['media:thumbnail']['@url']).toBe(
+      'https://cdn.example/c.jpg',
+    );
+    // La namespace doit être déclarée, sinon la balise n'est pas exploitable.
+    expect(flux).toContain('xmlns:media="http://search.yahoo.com/mrss/"');
   });
 
   it("omet l'enclosure quand l'audio n'est pas adressable, sans retirer l'item", () => {
