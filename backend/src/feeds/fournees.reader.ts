@@ -165,8 +165,15 @@ export function readFournees(dir = fourneesDir()): Fournee[] {
     return [];
   }
 
-  return names
-    .filter((name) => name.endsWith('.md') && name !== 'README.md')
-    .sort()
-    .map((name) => parseFournee(readFileSync(join(dir, name), 'utf8'), name));
+  return (
+    names
+      .filter((name) => name.endsWith('.md') && name !== 'README.md')
+      // Les gabarits d'exemple sont écartés comme le README : ce sont des
+      // documents, pas des fournées. Leur numéro ne désigne aucune édition et
+      // leurs mix sont factices — servir leur flux rendrait un canal vide, là où
+      // un 404 dit la vérité, à savoir qu'il n'y a pas de fournée à ce numéro.
+      .filter((name) => !name.startsWith('exemple'))
+      .sort()
+      .map((name) => parseFournee(readFileSync(join(dir, name), 'utf8'), name))
+  );
 }

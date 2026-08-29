@@ -103,9 +103,10 @@ function readFournees(dir = fourneesDir()) {
     catch {
         return [];
     }
-    return names
+    return (names
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
+        .filter((name) => !name.startsWith('exemple'))
         .sort()
-        .map((name) => parseFournee((0, fs_1.readFileSync)((0, path_1.join)(dir, name), 'utf8'), name));
+        .map((name) => parseFournee((0, fs_1.readFileSync)((0, path_1.join)(dir, name), 'utf8'), name)));
 }
 //# sourceMappingURL=fournees.reader.js.map
