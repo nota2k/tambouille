@@ -51,10 +51,14 @@ const erroredSources = computed(() => sources.value.filter((source) => source.la
 
 function formatDate(iso?: string): string {
   if (!iso) return ''
+  // Bandcamp donne une date de sortie CALENDAIRE ("10 Apr 2026 00:00:00 GMT"),
+  // pas un instant : sans `timeZone: 'UTC'`, un lecteur à l'ouest de Greenwich
+  // la lirait rendue dans son propre fuseau, donc parfois un jour plus tôt.
   return new Date(iso).toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: 'UTC',
   })
 }
 </script>
