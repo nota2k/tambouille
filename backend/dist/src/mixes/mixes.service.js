@@ -408,6 +408,26 @@ let MixesService = class MixesService {
                 .map(toMixResponse),
         };
     }
+    async listByArtist(id, limit, currentUserId) {
+        const mix = await this.prisma.mix.findUnique({
+            where: { id },
+            select: { id: true, artist: true, userId: true },
+        });
+        if (!mix) {
+            throw new common_1.NotFoundException('Mix not found');
+        }
+        const artiste = mix.artist?.trim();
+        const meme = artiste
+            ? { artist: { equals: artiste, mode: 'insensitive' } }
+            : { userId: mix.userId, artist: null };
+        const items = await this.prisma.mix.findMany({
+            where: { ...meme, id: { not: id } },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            ...buildMixInclude(currentUserId),
+        });
+        return { items: items.map(toMixResponse) };
+    }
     async registerPlay(id, userId) {
         const mix = await this.prisma.mix.findUnique({
             where: { id },

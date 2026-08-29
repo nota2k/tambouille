@@ -65,6 +65,9 @@ export declare class MixesController {
     listSuggestions(id: string, query: QuerySuggestionsDto, currentUserId?: string): Promise<{
         items: any[];
     }>;
+    listByArtist(id: string, query: QuerySuggestionsDto, currentUserId?: string): Promise<{
+        items: any[];
+    }>;
     registerPlay(id: string, currentUserId?: string): Promise<void>;
     addFavorite(id: string, userId: string): Promise<void>;
     removeFavorite(id: string, userId: string): Promise<void>;

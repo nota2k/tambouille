@@ -63,6 +63,9 @@ let MixesController = class MixesController {
     listSuggestions(id, query, currentUserId) {
         return this.mixesService.listSuggestions(id, query.limit ?? 3, currentUserId);
     }
+    listByArtist(id, query, currentUserId) {
+        return this.mixesService.listByArtist(id, query.limit ?? 3, currentUserId);
+    }
     registerPlay(id, currentUserId) {
         return this.mixesService.registerPlay(id, currentUserId);
     }
@@ -186,6 +189,16 @@ __decorate([
     __metadata("design:paramtypes", [String, query_suggestions_dto_1.QuerySuggestionsDto, String]),
     __metadata("design:returntype", void 0)
 ], MixesController.prototype, "listSuggestions", null);
+__decorate([
+    (0, common_1.Get)(':id/by-artist'),
+    (0, common_1.UseGuards)(optional_jwt_auth_guard_1.OptionalJwtAuthGuard),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Query)()),
+    __param(2, (0, current_user_decorator_1.OptionalUserId)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, query_suggestions_dto_1.QuerySuggestionsDto, String]),
+    __metadata("design:returntype", void 0)
+], MixesController.prototype, "listByArtist", null);
 __decorate([
     (0, common_1.Post)(':id/play'),
     (0, common_1.UseGuards)(optional_jwt_auth_guard_1.OptionalJwtAuthGuard),

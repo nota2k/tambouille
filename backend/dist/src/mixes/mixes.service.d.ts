@@ -75,6 +75,9 @@ export declare class MixesService {
     listSuggestions(id: string, limit: number, currentUserId?: string): Promise<{
         items: any[];
     }>;
+    listByArtist(id: string, limit: number, currentUserId?: string): Promise<{
+        items: any[];
+    }>;
     registerPlay(id: string, userId?: string): Promise<void>;
     listRecentlyPlayed(userId: string, query: QueryMixesDto): Promise<{
         items: any[];
