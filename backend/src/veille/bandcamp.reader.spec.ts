@@ -27,10 +27,16 @@
 // (curl, 2026-08-29) — une page d'album, cette fois, atteinte depuis le
 // premier `page_url` de la fixture `/music` ci-dessus. Écart avec le brief :
 // cette page réelle ne porte aucune balise `<meta itemprop="datePublished">`
-// (vérifié : zéro occurrence de `datePublished` en dehors du JSON). La seule
-// date de publication s'y trouve dans le JSON de `data-tralbum`, sous
-// `current.publish_date` (forme `"25 Feb 2026 14:59:53 GMT"`, que `Date`
-// parse nativement) — `extractAlbumPublishedAt` ne lit donc que ce champ.
+// (vérifié : zéro occurrence de `datePublished` en dehors du JSON). La date
+// s'y trouve dans le JSON de `data-tralbum`, qui porte deux champs très
+// différents : `current.publish_date` (« 25 Feb 2026 14:59:53 GMT ») est la
+// date de mise en ligne de la PAGE (l'annonce/précommande), et
+// `current.release_date` (« 10 Apr 2026 00:00:00 GMT », identique au
+// `album_release_date` de tête et au `datePublished` du JSON-LD de la même
+// page) est la date de SORTIE de l'album. Correction round 1 : le code lisait
+// `publish_date` — faux pour une fonctionnalité de veille des sorties.
+// `extractAlbumPublishedAt` lit maintenant `release_date`, avec repli sur
+// `publish_date` si une page ne donnait pas de date de sortie.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -118,8 +124,17 @@ describe('parseBandcampMusicPage', () => {
 });
 
 describe('extractAlbumPublishedAt', () => {
-  it('lit la date de publication dans le JSON de data-tralbum', () => {
-    expect(extractAlbumPublishedAt(ALBUM)).toBe('2026-02-25T14:59:53.000Z');
+  it('lit la date de SORTIE (release_date), pas la date de mise en ligne de la page (publish_date)', () => {
+    // La fixture porte les deux, à six semaines d'écart : release_date
+    // (10 Apr 2026) est la vraie sortie, publish_date (25 Feb 2026) n'est que
+    // l'annonce/précommande. C'est release_date qu'il faut afficher et
+    // comparer entre sources.
+    expect(extractAlbumPublishedAt(ALBUM)).toBe('2026-04-10T00:00:00.000Z');
+  });
+
+  it('replie sur publish_date quand release_date est absent', () => {
+    const html = `<div data-tralbum="${'{&quot;current&quot;:{&quot;publish_date&quot;:&quot;25 Feb 2026 14:59:53 GMT&quot;}}'}"></div>`;
+    expect(extractAlbumPublishedAt(html)).toBe('2026-02-25T14:59:53.000Z');
   });
 
   it('ne lève pas sur une page sans data-tralbum', () => {
@@ -128,7 +143,7 @@ describe('extractAlbumPublishedAt', () => {
     ).toBeUndefined();
   });
 
-  it('ne lève pas sur un data-tralbum sans date de publication', () => {
+  it('ne lève pas sur un data-tralbum sans aucune date', () => {
     const html = `<div data-tralbum="${'{&quot;current&quot;:{}}'}"></div>`;
     expect(extractAlbumPublishedAt(html)).toBeUndefined();
   });
@@ -156,7 +171,7 @@ describe('BandcampReader.read', () => {
       new URL('https://squarepusher.bandcamp.com/'),
     );
 
-    expect(resolved.items[0].publishedAt).toBe('2026-02-25T14:59:53.000Z');
+    expect(resolved.items[0].publishedAt).toBe('2026-04-10T00:00:00.000Z');
     expect(resolved.items.slice(1).every((item) => !item.publishedAt)).toBe(
       true,
     );

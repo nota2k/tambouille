@@ -76,22 +76,28 @@ function fromGridMarkup(html: string, origin: string): VeilleItem[] {
   return items;
 }
 
-/** La date de sortie d'un album, lue dans le JSON de `data-tralbum` de sa
- *  propre page (`current.publish_date`). La page réelle gelée en fixture ne
- *  porte pas la balise `<meta itemprop="datePublished">` que le brief
- *  envisageait comme repli — seul `data-tralbum` porte la date ici. */
+/** La date de SORTIE de l'album (`current.release_date`), pas la date à
+ *  laquelle sa page a été mise en ligne (`current.publish_date`) : sur la
+ *  fixture gelée les deux diffèrent de plusieurs semaines (l'annonce/
+ *  précommande précède la sortie), et c'est bien la date de sortie que le
+ *  JSON-LD de la même page expose sous `datePublished`. `publish_date` ne
+ *  sert qu'en repli, pour une page qui ne daterait pas sa sortie. La page
+ *  réelle gelée en fixture ne porte pas la balise
+ *  `<meta itemprop="datePublished">` que le brief envisageait comme repli —
+ *  seul `data-tralbum` porte une date ici. */
 export function extractAlbumPublishedAt(html: string): string | undefined {
   const match = /data-tralbum="([^"]*)"/.exec(html);
   if (!match) return undefined;
-  let data: { current?: { publish_date?: string } };
+  type Tralbum = { current?: { release_date?: string; publish_date?: string } };
+  let data: Tralbum;
   try {
     data = JSON.parse(
       match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
-    ) as { current?: { publish_date?: string } };
+    ) as Tralbum;
   } catch {
     return undefined;
   }
-  const raw = data.current?.publish_date;
+  const raw = data.current?.release_date ?? data.current?.publish_date;
   if (!raw) return undefined;
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
