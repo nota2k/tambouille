@@ -1,4 +1,30 @@
-import { largeurDe, parseArgs, USAGE } from './backfill-variantes';
+/**
+ * Le script tire `upload.utils`, qui exige les quatre variables R2 et construit
+ * un client S3 dès son import. Neutralisés ici comme dans `backfill-webp.spec`.
+ *
+ * Ce n'est pas une précaution de style. Sans ces huit lignes la suite passe en
+ * local, où `dotenv` trouve un `.env`, et échoue en intégration continue, où il
+ * n'y en a pas — la suite entière ne se charge même pas. C'est exactement ce
+ * qui est arrivé à la première poussée de cette branche.
+ */
+process.env.R2_ACCOUNT_ID = 'test-account';
+process.env.R2_ACCESS_KEY_ID = 'test-key';
+process.env.R2_SECRET_ACCESS_KEY = 'test-secret';
+process.env.R2_BUCKET_NAME = 'test-bucket';
+
+jest.mock('@aws-sdk/client-s3', () => ({
+  S3Client: jest.fn().mockImplementation(() => ({ send: jest.fn() })),
+  CopyObjectCommand: jest.fn(),
+  DeleteObjectsCommand: jest.fn(),
+  GetObjectCommand: jest.fn(),
+  HeadObjectCommand: jest.fn(),
+  ListObjectsV2Command: jest.fn(),
+  PutObjectCommand: jest.fn(),
+}));
+
+const { largeurDe, parseArgs, USAGE } =
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('./backfill-variantes') as typeof import('./backfill-variantes');
 
 describe('parseArgs', () => {
   it('est à blanc par défaut', () => {
