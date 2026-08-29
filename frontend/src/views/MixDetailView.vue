@@ -5,7 +5,7 @@ import { apiClient } from '@/api/client'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
 import { mixCredit } from '@/composables/useMixCredit'
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import CoverImage from '@/components/CoverImage.vue'
 import { formatTime, formatDuration, isoDuration } from '@/utils/time'
 import { formatDate } from '@/utils/date'
@@ -282,7 +282,15 @@ watch(
         <div
           class="aspect-square w-full max-w-[360px] shrink-0 overflow-hidden bg-tambouille-surface-hover"
         >
-          <CoverImage :src="mediaUrl(mix.coverUrl)" priority>
+          <!-- `sizes` : le conteneur plafonne à 360 px et n'occupe toute la
+               largeur qu'en dessous, où `100vw` surestime des 32 px de marge —
+               dans le bon sens, celui d'une image un cran trop grande. -->
+          <CoverImage
+            :src="mediaUrl(mix.coverUrl)"
+            :srcset="mediaSrcset(mix.coverUrl)"
+            sizes="(min-width: 640px) 360px, 100vw"
+            priority
+          >
             <template #vide>
               <div class="flex h-full w-full items-center justify-center text-tambouille-faint">
                 <svg viewBox="0 0 24 24" class="h-16 w-16 fill-current">
