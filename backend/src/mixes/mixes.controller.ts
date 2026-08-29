@@ -282,16 +282,13 @@ export class MixesController {
       dto.sourcePageUrl?.trim() || null,
     );
 
-    // An uploaded cover always wins over one imported from the source.
-    const coverFile = files.cover?.[0];
-    let coverUrl = coverFile?.key;
-    if (!coverUrl && dto.coverSourceUrl) {
-      // Best-effort: a source whose cover cannot be fetched still yields a
-      // mix, without one.
-      coverUrl =
-        (await this.coverImportService.importFromUrl(dto.coverSourceUrl)) ??
-        undefined;
-    }
+    // An uploaded cover always wins over one imported from the source. Best-
+    // effort: a source whose cover cannot be fetched still yields a mix,
+    // without one.
+    const coverUrl = await this.coverImportService.resolveCoverUrl(
+      files.cover?.[0]?.key,
+      dto.coverSourceUrl,
+    );
 
     return this.mixesService.create(userId, dto, {
       audioUrl: audioFile?.key,

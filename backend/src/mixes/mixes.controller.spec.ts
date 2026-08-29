@@ -56,8 +56,17 @@ function createServiceMock() {
   };
 }
 
+/**
+ * Le contrôleur appelle maintenant `resolveCoverUrl`, mais ces tests décrivent
+ * un comportement — « un fichier envoyé l'emporte », « la source distante est
+ * essayée » — qui vit dans le vrai `CoverImportService`. L'instance réelle est
+ * donc gardée ici, seule `importFromUrl` (le seul point qui touche le réseau)
+ * est simulée : `resolveCoverUrl` s'exécute pour de vrai par-dessus.
+ */
 function createCoverImportMock() {
-  return { importFromUrl: jest.fn().mockResolvedValue('covers/imported.jpg') };
+  const service = new CoverImportService();
+  jest.spyOn(service, 'importFromUrl').mockResolvedValue('covers/imported.jpg');
+  return service;
 }
 
 const USER_ID = 'user-id';

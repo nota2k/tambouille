@@ -11,6 +11,8 @@ import { slugUnique } from '../common/slug';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
+import { CoverImportService } from './cover-import.service';
+import type { MixImport } from '../imports/source-importer';
 
 function parseTags(tags?: string): string[] {
   if (!tags) return [];
@@ -164,7 +166,10 @@ export function toMixResponse(mix: any) {
 
 @Injectable()
 export class MixesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly coverImport: CoverImportService,
+  ) {}
 
   async findAllTags(): Promise<string[]> {
     const rows = await this.prisma.$queryRaw<{ tag: string }[]>`
@@ -212,6 +217,41 @@ export class MixesService {
       ...buildMixInclude(userId),
     });
     return toMixResponse(mix);
+  }
+
+  /**
+   * Crée un mix depuis un `MixImport`, sans passer par le formulaire.
+   *
+   * `CreateMixDto` n'est appliqué qu'aux requêtes HTTP : ce chemin appelle le
+   * service directement, donc aucun `ValidationPipe` ne le protège. Les
+   * contraintes du DTO sont donc reproduites ici, pas supposées.
+   */
+  async createFromImport(userId: string, imp: MixImport) {
+    const coverUrl = await this.coverImport.resolveCoverUrl(
+      undefined,
+      imp.coverSourceUrl,
+    );
+
+    return this.create(
+      userId,
+      {
+        // `@MaxLength(120)` côté DTO. Tronqué plutôt que refusé : un titre long
+        // est un mix qu'on veut, pas une erreur à remonter.
+        title: imp.title.slice(0, 120),
+        description: imp.description,
+        artist: imp.artist,
+        // Le DTO transporte les tags en chaîne séparée par des virgules et la
+        // tracklist en JSON : c'est `parseTags` et `parseTracklist` qui les
+        // relisent, et ils n'acceptent que cette forme.
+        tags: imp.tags.join(','),
+        tracklist: JSON.stringify(imp.tracklist),
+        sourceType: imp.sourceType,
+        sourceRef: imp.sourceRef,
+        sourcePageUrl: imp.sourcePageUrl,
+        durationSec: imp.durationSec,
+      },
+      { coverUrl },
+    );
   }
 
   /**
