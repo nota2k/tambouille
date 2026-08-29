@@ -1,3 +1,9 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { FlarumClient } from './flarum.client';
+import { MixcloudImporter } from './mixcloud.importer';
+import { SoundcloudImporter } from './soundcloud.importer';
+import type { MixImport, SourceImporter } from './source-importer';
+
 export type Embed =
   | { kind: 'mixcloud'; ref: string } // clé /compte/slug/ prête pour KEY_PATTERN
   | { kind: 'soundcloud'; ref: string }; // URL https://api.soundcloud.com/tracks/<id>
@@ -99,4 +105,67 @@ export function isDiscussionUrl(url: URL): boolean {
   const host = url.hostname.toLowerCase();
   if (host !== HOST && host !== `www.${HOST}`) return false;
   return /^\/d\/[^/]+/.test(url.pathname);
+}
+
+/** Les tags sont mis en minuscules à l'enregistrement : la comparaison
+ *  l'ignore aussi, sinon « Boogie » et « boogie » feraient deux tags que la
+ *  base fondrait ensuite en un seul, sans dire lequel a gagné. */
+function ajouterTermes(tags: string[], termes: string[]): string[] {
+  const connus = new Set(tags.map((t) => t.toLowerCase()));
+  const nouveaux = termes.filter((t) => !connus.has(t.toLowerCase()));
+  return [...tags, ...nouveaux];
+}
+
+@Injectable()
+export class MusiquesIncongruesImporter implements SourceImporter {
+  readonly name = 'musiques-incongrues';
+
+  constructor(
+    private readonly flarum: FlarumClient,
+    private readonly mixcloud: MixcloudImporter,
+    private readonly soundcloud: SoundcloudImporter,
+  ) {}
+
+  matches(url: URL): boolean {
+    return isDiscussionUrl(url);
+  }
+
+  /** Une discussion, c'est un mix — jamais une liste. Le forum n'expose pas de
+   *  page de collection qu'on saurait parcourir, et `/t/musique` appartient à
+   *  tout le monde, pas à un compte. */
+  async resolve(url: URL): Promise<MixImport> {
+    const [, , segment] = url.pathname.split('/');
+    // Le slug porte l'id en préfixe : « 15617-japanese-… ».
+    const id = (segment ?? '').split('-')[0];
+    if (!id) {
+      throw new BadRequestException('Adresse de discussion invalide');
+    }
+    return this.importItem(id);
+  }
+
+  async importItem(discussionId: string): Promise<MixImport> {
+    const discussion = await this.flarum.getDiscussion(discussionId);
+    const embed = extractEmbed(discussion.contentHtml);
+
+    if (!embed) {
+      throw new BadRequestException(
+        'Ce message ne contient pas de lecteur Mixcloud ou SoundCloud. ' +
+          'Les albums Bandcamp et les vidéos ne sont pas des mix.',
+      );
+    }
+
+    const importe =
+      embed.kind === 'mixcloud'
+        ? await this.mixcloud.importItem(embed.ref)
+        : await this.soundcloud.importItem(embed.ref);
+
+    return {
+      ...importe,
+      // La page qui publie ce mix est celle du forum, pas celle du délégué.
+      // C'est elle qui ne bougera pas si Mixcloud réhéberge son audio, et
+      // c'est le second critère de `MixesService.findBySource`.
+      sourcePageUrl: discussion.pageUrl,
+      tags: ajouterTermes(importe.tags, discussion.termNames),
+    };
+  }
 }
