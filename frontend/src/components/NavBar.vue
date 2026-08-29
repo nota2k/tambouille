@@ -3,7 +3,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { apiClient } from '@/api/client'
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import type { AuthorSummary } from '@/types'
 
 const authStore = useAuthStore()
@@ -221,6 +221,8 @@ onUnmounted(() => {
                 <img
                   v-if="user.avatarUrl"
                   :src="mediaUrl(user.avatarUrl)"
+                  :srcset="mediaSrcset(user.avatarUrl)"
+                  sizes="36px"
                   loading="lazy"
                   decoding="async"
                   class="h-9 w-9 rounded-none object-cover"
@@ -283,6 +285,8 @@ onUnmounted(() => {
                 <img
                   v-if="authStore.user?.avatarUrl"
                   :src="mediaUrl(authStore.user.avatarUrl)"
+                  :srcset="mediaSrcset(authStore.user.avatarUrl)"
+                  sizes="34px"
                   decoding="async"
                   class="h-full w-full rounded-none object-cover"
                   alt=""

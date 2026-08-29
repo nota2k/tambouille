@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { mediaUrl } from '@/utils/media'
+import { mediaSrcset, mediaUrl } from '@/utils/media'
 import { toggleUserFollow } from '@/utils/follows'
 import type { UserProfile } from '@/types'
 
@@ -30,6 +30,8 @@ function toggleFollow() {
         <img
           v-if="profile.avatarUrl"
           :src="mediaUrl(profile.avatarUrl)"
+          :srcset="mediaSrcset(profile.avatarUrl)"
+          sizes="64px"
           loading="lazy"
           decoding="async"
           class="h-16 w-16 object-cover"
