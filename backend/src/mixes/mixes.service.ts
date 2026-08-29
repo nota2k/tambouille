@@ -266,6 +266,17 @@ export class MixesService {
             ? { tags: { has: query.tag.toLowerCase() } }
             : {},
         query.username ? { user: { username: query.username } } : {},
+        // La fenêtre de fraîcheur. `Date.now()` est lu à chaque requête, donc
+        // la borne glisse avec le temps plutôt que d'être figée au démarrage.
+        query.sinceDays
+          ? {
+              createdAt: {
+                gte: new Date(
+                  Date.now() - query.sinceDays * 24 * 60 * 60 * 1000,
+                ),
+              },
+            }
+          : {},
       ],
     };
 
