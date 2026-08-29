@@ -17,9 +17,7 @@ function stripLastError(source: VeilleSource): VeilleSource {
 // plusieurs secondes à rafraîchir ses sources, et la page ne l'attend pas.
 onMounted(async () => {
   try {
-    const { data } = await apiClient.get<VeilleFeed>(
-      `/users/${props.username}/watched-sources`,
-    )
+    const { data } = await apiClient.get<VeilleFeed>(`/users/${props.username}/watched-sources`)
     // Le backend ne sert `lastError` qu'au titulaire, mais on ne s'y fie pas :
     // une régression côté API ne doit pas suffire à montrer l'erreur d'un
     // autre à un visiteur. On l'efface ici, avant que la donnée n'existe nulle
@@ -81,12 +79,7 @@ function formatDate(iso?: string): string {
     <p class="tb-eyebrow">Ses sorties suivies</p>
     <ul class="space-y-3 pt-4">
       <li v-for="item in items" :key="item.pageUrl">
-        <a
-          :href="item.pageUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="group flex gap-3"
-        >
+        <a :href="item.pageUrl" target="_blank" rel="noopener noreferrer" class="group flex gap-3">
           <img
             v-if="item.coverUrl"
             :src="item.coverUrl"
@@ -116,11 +109,7 @@ function formatDate(iso?: string): string {
   <div v-else-if="sources.length" class="pt-8">
     <p class="tb-eyebrow">Ses sorties suivies</p>
     <p class="mt-4 text-sm text-tambouille-muted">Rien à montrer pour l'instant.</p>
-    <p
-      v-for="source in erroredSources"
-      :key="source.id"
-      class="mt-2 text-xs text-tambouille-muted"
-    >
+    <p v-for="source in erroredSources" :key="source.id" class="mt-2 text-xs text-tambouille-muted">
       {{ source.label }} : {{ source.lastError }}
     </p>
   </div>

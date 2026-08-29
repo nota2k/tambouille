@@ -634,13 +634,13 @@ h6,
 /* Un tag dans un flux est un lien rose, pas une pastille grise de plus. */
 .tb-tag {
   background: var(--color-tambouille-faint);
-    color: white;
-    padding: 0px 6px;
-    font-weight: 300;
-    line-height: 1.3em;
-    border-radius: 1px;
-    font-size: var(--text-sm);
-    height: 20px;
+  color: white;
+  padding: 0px 6px;
+  font-weight: 300;
+  line-height: 1.3em;
+  border-radius: 1px;
+  font-size: var(--text-sm);
+  height: 20px;
 }
 
 .tb-tag:hover {
