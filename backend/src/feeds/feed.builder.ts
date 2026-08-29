@@ -18,6 +18,18 @@ const builder = new XMLBuilder({
 
 const ITUNES_NS = 'http://www.itunes.com/dtds/podcast-1.0.dtd';
 const ATOM_NS = 'http://www.w3.org/2005/Atom';
+/**
+ * Media RSS, pour que la pochette se voie AILLEURS que dans un client de
+ * podcast.
+ *
+ * `itunes:image` était déjà publiée sur chaque item, et elle y reste : c'est
+ * elle que lisent AntennaPod, Pocket Casts ou Overcast. Mais elle appartient à
+ * la namespace d'iTunes, et les lecteurs RSS généralistes — Feedly, Inoreader,
+ * NetNewsWire, Thunderbird — ne la regardent pas. Eux cherchent
+ * `media:thumbnail`. Sans elle, un flux qui portait bel et bien la pochette
+ * s'affichait sans image, et rien dans le XML ne disait pourquoi.
+ */
+const MEDIA_NS = 'http://search.yahoo.com/mrss/';
 
 /**
  * `length` vaut zéro parce qu'aucune taille d'octets n'est stockée : ni la
@@ -60,7 +72,12 @@ function buildItem(item: FeedItem): Record<string, unknown> {
     ...(item.durationSec !== undefined && {
       'itunes:duration': item.durationSec,
     }),
-    ...(item.imageUrl && { 'itunes:image': { '@href': item.imageUrl } }),
+    // Les deux, et non l'une ou l'autre : elles s'adressent à deux familles de
+    // clients qui ne lisent pas la même chose. Voir `MEDIA_NS`.
+    ...(item.imageUrl && {
+      'itunes:image': { '@href': item.imageUrl },
+      'media:thumbnail': { '@url': item.imageUrl },
+    }),
   };
 }
 
@@ -71,6 +88,7 @@ export function buildRssFeed(channel: FeedChannel): string {
       '@version': '2.0',
       '@xmlns:itunes': ITUNES_NS,
       '@xmlns:atom': ATOM_NS,
+      '@xmlns:media': MEDIA_NS,
       channel: {
         title: channel.title,
         link: channel.link,
