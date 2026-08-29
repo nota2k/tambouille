@@ -10,6 +10,7 @@
 .claude/skills/
 .claude/worktrees/
 .claude/settings.local.json
+.nanopm/
 .serena/
 
 # Sauvegardes locales : peuvent contenir des secrets
