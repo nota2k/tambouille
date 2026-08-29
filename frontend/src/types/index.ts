@@ -35,6 +35,8 @@ export interface Comment {
 export interface Mix {
   id: string
   title: string
+  /** Le titre rendu passable dans une URL. Figé à la création : un titre corrigé ne casse pas les liens. */
+  slug: string
   description: string | null
   /** Le nom de l'artiste. Null sur les mix déposés à la main et sur les anciens. */
   artist: string | null

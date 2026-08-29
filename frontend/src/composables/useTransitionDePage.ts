@@ -94,6 +94,29 @@ export const signalerImage = {
 }
 
 /**
+ * Une navigation qui ne change pas ce qui est affiché, et qui ne doit donc rien
+ * couvrir. Consommé par le premier `couvrirLaPage` qui suit.
+ */
+let navigationSilencieuse = false
+
+/**
+ * Tait le voile de la prochaine navigation.
+ *
+ * Il existe un cas où l'URL change sans que la page change : la page d'un mix
+ * ouverte depuis un ancien lien `/mixes/<id>` se réécrit en `/mixes/<username>/
+ * <id>` une fois le mix connu. Sans ce silence, le voile tomberait **après**
+ * que le contenu soit déjà à l'écran — l'inverse de ce à quoi il sert, et qui
+ * se lirait comme une panne.
+ *
+ * Un drapeau à usage unique plutôt qu'un paramètre de `couvrirLaPage` : c'est
+ * le routeur qui appelle `couvrirLaPage`, pas la vue, et la vue est la seule à
+ * savoir que sa navigation est cosmétique.
+ */
+export function taireLeProchainVoile() {
+  navigationSilencieuse = true
+}
+
+/**
  * Baisse le voile pour la vue qui arrive.
  *
  * Appelé à chaque navigation, avant que la nouvelle vue ne monte : le compte
@@ -101,6 +124,10 @@ export const signalerImage = {
  * personne.
  */
 export function couvrirLaPage() {
+  if (navigationSilencieuse) {
+    navigationSilencieuse = false
+    return
+  }
   nettoyer()
   enAttente.value = 0
   sortie.value = false
@@ -122,6 +149,7 @@ export function reinitialiserPourTest() {
   enAttente.value = 0
   sortie.value = false
   visible.value = false
+  navigationSilencieuse = false
 }
 
 export function useTransitionDePage() {

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
+import { mixRoute } from '@/utils/routes'
 import CoverImage from '@/components/CoverImage.vue'
 import { formatDuration } from '@/utils/time'
 import { mixCredit } from '@/composables/useMixCredit'
@@ -32,7 +33,7 @@ function onToggle(event: Event) {
 
 <template>
   <RouterLink
-    :to="{ name: 'mix-detail', params: { id: mix.id } }"
+    :to="mixRoute(mix)"
     class="group -mx-4 flex items-center gap-4 border-b border-black/12 px-4 py-4 transition sm:gap-5"
     :class="isCurrent ? 'bg-tambouille-accent-wash' : 'hover:bg-tambouille-surface-hover'"
   >

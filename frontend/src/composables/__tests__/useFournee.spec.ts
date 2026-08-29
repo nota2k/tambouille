@@ -10,6 +10,7 @@ function mix(id: string): Mix {
   return {
     id,
     title: `mix ${id}`,
+    slug: `mix-${id}`,
     description: null,
     artist: null,
     audioUrl: `${id}.mp3`,

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { formatDuration, formatTime } from '@/utils/time'
 import { buildTracklist, type TrackRow } from '@/utils/tracklist'
+import { mixRoute } from '@/utils/routes'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
 import type { Mix, MixImport, ResolveResponse, SourceItem } from '@/types'
@@ -213,7 +214,7 @@ async function onSubmit() {
         if (event.total) progress.value = Math.round((event.loaded / event.total) * 100)
       },
     })
-    router.push({ name: 'mix-detail', params: { id: data.id } })
+    router.push(mixRoute(data))
   } catch (err) {
     error.value = apiErrorMessage(err, "Échec de l'upload")
   } finally {
