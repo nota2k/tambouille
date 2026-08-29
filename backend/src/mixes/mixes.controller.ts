@@ -21,7 +21,11 @@ import {
   FileInterceptor,
 } from '@nestjs/platform-express';
 import type { Request } from 'express';
-import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
+import {
+  MixesService,
+  assertExactlyOneAudioSource,
+  assertSourcePageHasASource,
+} from './mixes.service';
 import { CoverImportService } from './cover-import.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
@@ -224,6 +228,10 @@ export class MixesController {
       audioFile?.key ?? null,
       dto.sourceType || null,
       dto.sourceRef || null,
+    );
+    assertSourcePageHasASource(
+      dto.sourceRef || null,
+      dto.sourcePageUrl?.trim() || null,
     );
 
     // An uploaded cover always wins over one imported from the source.

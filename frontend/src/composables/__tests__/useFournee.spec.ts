@@ -16,6 +16,7 @@ function mix(id: string): Mix {
     audioUrl: `${id}.mp3`,
     sourceType: null,
     sourceRef: null,
+    sourcePageUrl: null,
     coverUrl: null,
     durationSec: 600,
     playsCount: 0,

@@ -2,6 +2,7 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  IsUrl,
   MaxLength,
   MinLength,
   Validate,
@@ -72,4 +73,18 @@ export class UpdateMixDto {
   @MaxLength(2048)
   @Validate(SourceRefConstraint)
   sourceRef?: string;
+
+  /**
+   * La page où la source publie ce mix. Comme `artist`, le champ vide vaut
+   * effacement — `EditMixView` envoie ce qu'il affiche, y compris rien.
+   *
+   * Rendue telle quelle dans un `:href` par `MixDetailView`, d'où https exigé.
+   * La validation ne s'applique qu'à une valeur non vide, sans quoi effacer la
+   * page se ferait refuser par un contrôle d'adresse.
+   */
+  @ValidateIf((dto: { sourcePageUrl?: string }) => Boolean(dto.sourcePageUrl))
+  @IsString()
+  @MaxLength(2048)
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  sourcePageUrl?: string;
 }

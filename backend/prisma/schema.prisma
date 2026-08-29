@@ -2,9 +2,9 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider      = "prisma-client"
-  output        = "../generated/prisma"
-  moduleFormat  = "cjs"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
@@ -62,49 +62,56 @@ model User {
 /// 256 bits from `crypto.randomBytes`, so there is nothing to brute-force, and
 /// the lookup has to stay a single indexed read.
 model PasswordResetToken {
-  id        String   @id @default(uuid())
-  tokenHash String   @unique
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@map("password_reset_tokens")
 }
 
 model Mix {
-  id           String   @id @default(uuid())
-  title        String
+  id            String   @id @default(uuid())
+  title         String
   /// Le titre rendu passable dans une URL : `/mixes/<compte>/<slug>`. Figé à la
   /// création et jamais recalculé — un titre corrigé ne doit pas casser les liens
   /// déjà partagés. Unique par compte seulement : deux personnes ont le droit de
   /// publier « mix 57 ». Voir `src/common/slug.ts`.
-  slug         String
-  description  String?
+  slug          String
+  description   String?
   /// Le nom de l'artiste tel que la source l'écrit, casse comprise. Null sur
   /// les mix déposés à la main, où l'artiste est le compte lui-même — et sur
   /// tous les mix antérieurs à cette colonne, qui ne sont pas rétro-remplis :
   /// leur artiste vit dans les tags, en minuscules et sans marqueur.
-  artist       String?
+  artist        String?
   // Exactly one audio source: either `audioUrl` alone, or `sourceType` and
   // `sourceRef` together. Prisma cannot express that, so `MixesService`
   // enforces it on create and update.
   /// R2 object key. Null when the audio lives elsewhere.
-  audioUrl     String?
+  audioUrl      String?
   /// 'mixcloud' | 'remote'. Null when the audio is on R2. A plain string, not
   /// an enum: adding a source must not need a migration.
-  sourceType   String?
+  sourceType    String?
   /// Interpreted according to `sourceType`: a cloudcast key
   /// ("/Notamusic/antimythes/") or a directly playable audio URL.
-  sourceRef    String?
-  coverUrl     String?
-  durationSec  Int?
-  playsCount   Int      @default(0)
-  tags         String[] @default([])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  sourceRef     String?
+  /// La page où la source publie ce mix — l'émission chez Ouïedire, l'épisode
+  /// chez LYL. Distincte de `sourceRef`, qui ne désigne que le fichier ou la
+  /// clé à lire : d'un mp3 nu on ne remonte pas toujours à sa page. C'est elle
+  /// que l'encart infos donne en lien. Null sur un mix déposé à la main, qui
+  /// n'a pas de source, et sur ceux importés avant cette colonne que
+  /// `backfill-source-page-urls` n'a pas su retrouver.
+  sourcePageUrl String?
+  coverUrl      String?
+  durationSec   Int?
+  playsCount    Int      @default(0)
+  tags          String[] @default([])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

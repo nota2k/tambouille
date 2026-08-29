@@ -123,6 +123,23 @@ describe('MixesController', () => {
       expect(coverImport.importFromUrl).not.toHaveBeenCalled();
     });
 
+    it('rejects a source page attached to no source without importing its cover', async () => {
+      const create = controller.create(
+        USER_ID,
+        {
+          title: 'A mix',
+          sourcePageUrl: 'https://www.mixcloud.com/Notamusic/vorwerk-2/',
+          coverSourceUrl: COVER_SOURCE_URL,
+        },
+        { audio: [uploadedFile('audio/track.mp3')] },
+      );
+
+      await expect(create).rejects.toThrow(
+        'A source page needs a remote source',
+      );
+      expect(coverImport.importFromUrl).not.toHaveBeenCalled();
+    });
+
     it('still imports the cover for a Mixcloud-hosted mix, which has no audio file', async () => {
       await controller.create(
         USER_ID,
