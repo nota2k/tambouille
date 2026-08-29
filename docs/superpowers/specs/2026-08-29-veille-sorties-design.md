@@ -237,3 +237,42 @@ En TDD, sur le modèle des specs de `backend/src/imports/`.
 importeurs dans leur branche liste, `backend/src/app.module.ts`,
 `frontend/src/views/ProfileView.vue`, `frontend/src/views/SettingsView.vue`,
 `frontend/src/types/`, et la section Fonctionnalités du `README.md`.
+
+---
+
+## Amendement du 29/08/2026 — un seul item, daté
+
+Décision prise en cours d'implémentation, après les tâches 1 à 7. Elle remplace
+la section « Interface / Le bloc » et la fusion décrite dans « API ».
+
+**Le bloc n'affiche plus cinq items mais un seul** : la sortie la plus récente,
+toutes sources confondues, avec sa date. Le reste de la fonctionnalité — les
+sources enregistrées, la résolution, le cache, les réglages — ne bouge pas.
+
+### Ce que ça change
+
+**La fusion.** Le tourniquet par source, adopté pour empêcher une source datée
+de reléguer les sources sans date, n'a plus d'objet : il n'y a plus qu'une
+place. Le feed rend l'item le plus récent par date, tous items de toutes les
+sources confondus. Un item sans date ne peut pas gagner cette place contre un
+item daté — il n'est retenu que si aucune source ne date ses sorties.
+
+**La date Bandcamp devient obligatoire.** Bandcamp n'expose aucune date dans sa
+grille de sorties : constaté sur six pages réelles lors de la tâche 3. Tant que
+le bloc montrait cinq items, une sortie non datée restait affichable. Avec une
+seule place attribuée par la date, une source sans date ne peut plus jamais
+l'obtenir — Bandcamp serait exclu du bloc, c'est-à-dire précisément le cas
+« sortie d'artiste ou de label » que la fonctionnalité vise.
+
+Le lecteur Bandcamp va donc chercher la date sur la page de l'album, où elle
+existe. Le coût est d'**une requête supplémentaire par source Bandcamp**, et non
+d'une par sortie : la grille est servie de la plus récente à la plus ancienne,
+donc seule la première entrée a besoin d'être datée pour que la source puisse
+concourir. C'est ce qui rendait l'idée intenable à cinq items et la rend
+raisonnable à un seul, d'autant que le cache d'une heure l'absorbe.
+
+### Ce que ça ne change pas
+
+Les sources continuent de rendre et de stocker jusqu'à dix items : n'en garder
+qu'un ne ferait économiser ni requête ni parsing, et refermerait la porte à un
+bloc plus riche sans rien acheter aujourd'hui.
