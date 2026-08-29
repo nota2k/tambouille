@@ -24,7 +24,7 @@ const VALIDE = [
   'number: 1',
   'title: Nuit de quinze heures',
   'period: Tout l’hiver',
-  'mixes: [a, b, c]',
+  'mixes: [djnelly/a, djnelly/b, Lenta-po/c]',
 ].join('\n');
 
 describe('parseFournee', () => {
@@ -34,18 +34,61 @@ describe('parseFournee', () => {
       title: 'Nuit de quinze heures',
       period: 'Tout l’hiver',
       intro: 'Le texte.',
-      mixIds: ['a', 'b', 'c'],
+      mixRefs: [
+        { username: 'djnelly', slug: 'a' },
+        { username: 'djnelly', slug: 'b' },
+        { username: 'Lenta-po', slug: 'c' },
+      ],
     });
   });
 
-  it("garde l'ordre du fichier et dédoublonne les identifiants répétés", () => {
-    // `2026-hiver.md` cite deux fois le même mix. Deux items de même `guid`
+  it("garde l'ordre du fichier et dédoublonne les mix répétés", () => {
+    // Un fichier peut citer deux fois le même mix. Deux items de même `guid`
     // font qu'un client en garde un et qu'un autre affiche un doublon.
     const source = parseFournee(
-      fichier(VALIDE.replace('[a, b, c]', '[c, a, c, b]')),
+      fichier(
+        VALIDE.replace(
+          '[djnelly/a, djnelly/b, Lenta-po/c]',
+          '[Lenta-po/c, djnelly/a, Lenta-po/c, djnelly/b]',
+        ),
+      ),
       'x.md',
     );
-    expect(source.mixIds).toEqual(['c', 'a', 'b']);
+    expect(source.mixRefs).toEqual([
+      { username: 'Lenta-po', slug: 'c' },
+      { username: 'djnelly', slug: 'a' },
+      { username: 'djnelly', slug: 'b' },
+    ]);
+  });
+
+  it('dédoublonne sans égard à la casse du compte', () => {
+    // L'API compare l'username sans égard à la casse : `djnelly/a` et
+    // `DJNelly/a` désignent le même mix, donc le même `guid`.
+    const source = parseFournee(
+      fichier(
+        VALIDE.replace(
+          '[djnelly/a, djnelly/b, Lenta-po/c]',
+          '[djnelly/a, DJNelly/a, Lenta-po/c]',
+        ),
+      ),
+      'x.md',
+    );
+    expect(source.mixRefs).toEqual([
+      { username: 'djnelly', slug: 'a' },
+      { username: 'Lenta-po', slug: 'c' },
+    ]);
+  });
+
+  it('refuse un mix cité sans son compte, en le nommant', () => {
+    // Le format d'avant : un UUID nu, qui ne désigne plus rien.
+    expect(() =>
+      parseFournee(
+        fichier(
+          VALIDE.replace('djnelly/a', '7578d396-c389-48de-905e-c688c1040864'),
+        ),
+        'x.md',
+      ),
+    ).toThrow(/7578d396-c389-48de-905e-c688c1040864/);
   });
 
   it('refuse un fichier sans frontmatter, en le nommant', () => {
@@ -72,7 +115,12 @@ describe('parseFournee', () => {
     ).toThrow(/`number`/);
     expect(() =>
       parseFournee(
-        fichier(VALIDE.replace('mixes: [a, b, c]', 'mixes: a, b')),
+        fichier(
+          VALIDE.replace(
+            'mixes: [djnelly/a, djnelly/b, Lenta-po/c]',
+            'mixes: djnelly/a, djnelly/b',
+          ),
+        ),
         'x.md',
       ),
     ).toThrow(/liste en ligne/);
@@ -93,7 +141,7 @@ describe('les fichiers de fournée du dépôt', () => {
     for (const fournee of fournees) {
       expect(fournee.number).toBeGreaterThan(0);
       expect(fournee.title).not.toHaveLength(0);
-      expect(fournee.mixIds.length).toBeGreaterThan(0);
+      expect(fournee.mixRefs.length).toBeGreaterThan(0);
     }
   });
 

@@ -329,12 +329,22 @@ describe('FeedsController', () => {
   });
 
   describe('flux de fournée', () => {
+    /** Un mix cité comme dans son adresse, `compte/titre`. */
+    function ref(slug: string, username = 'djnelly') {
+      return { username, slug };
+    }
+
+    /** Ce que la base rend pour un tel mix : son titre d'URL et son compte. */
+    function fourneeMix(slug: string, username = 'djnelly') {
+      return { ...hosted(`${username}-${slug}`), slug, user: { username } };
+    }
+
     const FOURNEE = {
       number: 1,
       title: 'Nuit de quinze heures',
       period: 'Tout l’hiver',
       intro: 'Il fait noir à 16 h et ça nous va.',
-      mixIds: ['c', 'a'],
+      mixRefs: [ref('c'), ref('a')],
     };
 
     function fourneesDisponibles(...liste: (typeof FOURNEE)[]) {
@@ -344,13 +354,13 @@ describe('FeedsController', () => {
     it("suit l'ordre du fichier, et titre le flux avec son numéro", async () => {
       fourneesDisponibles(FOURNEE);
       // La base rend l'ordre qu'elle veut ; le fichier décide.
-      prisma.mix.findMany.mockResolvedValue([hosted('a'), hosted('c')]);
+      prisma.mix.findMany.mockResolvedValue([fourneeMix('a'), fourneeMix('c')]);
 
       const body = (await request(server()).get('/api/fournees/1/rss')).text;
 
       expect(itemsOf(body).map((item: any) => item.guid['#text'])).toEqual([
-        'c',
-        'a',
+        'djnelly-c',
+        'djnelly-a',
       ]);
       expect(channelOf(body).title).toContain('n°1');
       expect(channelOf(body).description).toContain('Il fait noir');
@@ -360,14 +370,47 @@ describe('FeedsController', () => {
       // Le bandeau disparaît à ses dates ; le flux, non. Des abonnés le
       // détiennent.
       fourneesDisponibles(FOURNEE);
-      prisma.mix.findMany.mockResolvedValue([hosted('c')]);
+      prisma.mix.findMany.mockResolvedValue([fourneeMix('c')]);
 
       await request(server()).get('/api/fournees/1/rss').expect(200);
     });
 
-    it('laisse tomber un identifiant qui ne résout plus', async () => {
+    it('laisse tomber un mix qui ne résout plus', async () => {
       fourneesDisponibles(FOURNEE);
-      prisma.mix.findMany.mockResolvedValue([hosted('c')]);
+      prisma.mix.findMany.mockResolvedValue([fourneeMix('c')]);
+
+      const items = itemsOf(
+        (await request(server()).get('/api/fournees/1/rss')).text,
+      );
+      expect(items).toHaveLength(1);
+    });
+
+    it('distingue deux mix de même titre déposés par deux comptes', async () => {
+      // Un titre d'URL n'est unique que par compte : sans le compte, ces
+      // deux-là se confondraient et le flux perdrait un item.
+      fourneesDisponibles({
+        ...FOURNEE,
+        mixRefs: [ref('mix-57', 'Lenta-po'), ref('mix-57')],
+      });
+      prisma.mix.findMany.mockResolvedValue([
+        fourneeMix('mix-57'),
+        fourneeMix('mix-57', 'Lenta-po'),
+      ]);
+
+      const items = itemsOf(
+        (await request(server()).get('/api/fournees/1/rss')).text,
+      );
+      expect(items.map((item: any) => item.guid['#text'])).toEqual([
+        'Lenta-po-mix-57',
+        'djnelly-mix-57',
+      ]);
+    });
+
+    it('retrouve un mix dont le fichier écrit le compte autrement', async () => {
+      // L'API compare l'username sans égard à la casse ; le rapprochement du
+      // fichier avec la réponse de la base doit en faire autant.
+      fourneesDisponibles({ ...FOURNEE, mixRefs: [ref('c', 'DJNelly')] });
+      prisma.mix.findMany.mockResolvedValue([fourneeMix('c')]);
 
       const items = itemsOf(
         (await request(server()).get('/api/fournees/1/rss')).text,

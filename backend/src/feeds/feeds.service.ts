@@ -22,6 +22,18 @@ import { readFournees, type Fournee } from './fournees.reader';
  */
 export const FEED_MAX_ITEMS = 50;
 
+/**
+ * De quoi rapprocher une ligne de fichier d'une ligne de base. La casse du
+ * compte n'entre pas dans la clé : l'API la compare sans y prendre garde, un
+ * fichier qui écrit `DJNelly` doit désigner le mix de `djnelly`.
+ */
+function cleDeRef(username: string | null, slug: string): string {
+  // Un compte sans username n'a pas d'adresse publique, donc pas de mix
+  // citable : sa clé est volontairement une que nulle référence ne produit,
+  // l'analyseur refusant une moitié vide.
+  return `${(username ?? '').toLowerCase()}/${slug}`;
+}
+
 @Injectable()
 export class FeedsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -105,17 +117,31 @@ export class FeedsService {
   async fournee(numero: number, context: FeedContext): Promise<FeedChannel> {
     const fournee = this.findFournee(numero);
 
+    // Une fournée cite ses mix par compte et titre, comme leur adresse : un
+    // identifiant est propre à la base qui l'a émis, pas ce couple-là.
+    const refs = fournee.mixRefs.slice(0, FEED_MAX_ITEMS);
     const mixes = await this.prisma.mix.findMany({
-      where: { id: { in: fournee.mixIds.slice(0, FEED_MAX_ITEMS) } },
-      select: FEED_MIX_SELECT,
+      where: {
+        OR: refs.map((ref) => ({
+          slug: ref.slug,
+          user: { username: { equals: ref.username, mode: 'insensitive' } },
+        })),
+      },
+      select: {
+        ...FEED_MIX_SELECT,
+        slug: true,
+        user: { select: { username: true } },
+      },
     });
 
     // `findMany` rend l'ordre de la base ; une fournée cite ses mix dans un
-    // ordre voulu. Un identifiant qui ne résout plus — mix supprimé depuis —
+    // ordre voulu. Un mix qui ne résout plus — supprimé, renommé de compte —
     // disparaît simplement de la liste.
-    const parId = new Map(mixes.map((mix) => [mix.id, mix]));
-    const ordonnes = fournee.mixIds
-      .map((id) => parId.get(id))
+    const parRef = new Map(
+      mixes.map((mix) => [cleDeRef(mix.user.username, mix.slug), mix]),
+    );
+    const ordonnes = refs
+      .map((ref) => parRef.get(cleDeRef(ref.username, ref.slug)))
       .filter((mix): mix is (typeof mixes)[number] => mix !== undefined);
 
     return this.channel(context, ordonnes, {

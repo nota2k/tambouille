@@ -8,6 +8,20 @@
 
 export type FourneeLayout = 'large' | 'tall'
 
+/**
+ * Un mix désigné comme il l'est dans son adresse : `compte/titre`.
+ *
+ * Et non par son identifiant, qui est une clé primaire — donc propre à la base
+ * qui l'a émise. Une fournée écrite avec des UUID de production ne résout rien
+ * sur une base de développement, alors que le couple (compte, titre) y désigne
+ * le même mix : le titre d'URL est figé à la création et jamais recalculé, il
+ * survit donc aussi bien qu'un identifiant à un titre corrigé.
+ */
+export interface MixRef {
+  username: string
+  slug: string
+}
+
 /** Une fournée telle qu'elle est écrite, avant que ses mix soient résolus. */
 export interface FourneeSource {
   layout: FourneeLayout
@@ -18,9 +32,19 @@ export interface FourneeSource {
   inverted: boolean
   curator: string
   intro: string
+  /**
+   * L'interrupteur, par-dessus la fenêtre : `display: false` retire le bandeau
+   * sans qu'il faille toucher aux dates ni sortir le fichier du dossier.
+   *
+   * Absent, il vaut `true` — les fichiers écrits avant lui s'affichent comme
+   * avant. Il sert à parquer une fournée prête d'avance, à en éteindre une qui
+   * a dérapé, et à départager deux fenêtres qui se recouvrent sans avoir à
+   * mentir sur les dates de l'une des deux.
+   */
+  display: boolean
   from: Date
   to: Date
-  mixIds: string[]
+  mixRefs: MixRef[]
 }
 
 /**
@@ -87,6 +111,18 @@ function unquote(value: string): string {
   return quoted && value.length >= 2 ? value.slice(1, -1) : value
 }
 
+/**
+ * `compte/titre`, tel qu'on le lit dans l'adresse d'un mix. Rend `null` sur
+ * tout le reste — un UUID nu, l'ancien format, en fait partie.
+ */
+function parseMixRef(item: string): MixRef | null {
+  const parts = item.split('/')
+  if (parts.length !== 2) return null
+  const [username, slug] = parts
+  if (!username || !slug) return null
+  return { username, slug }
+}
+
 /** Une liste en ligne, `[a, b, c]`. Rend `null` si la valeur n'en est pas une. */
 function parseInlineList(value: string): string[] | null {
   if (!value.startsWith('[') || !value.endsWith(']')) return null
@@ -134,6 +170,18 @@ export function parseFournee(raw: string, path: string): FourneeSource {
     throw new FourneeParseError(path, '`number` doit être un entier positif')
   }
 
+  // Absent vaut « oui » : un fichier d'avant cet interrupteur s'affiche comme
+  // il l'a toujours fait. Présent, il est lu strictement — une valeur mal
+  // orthographiée passerait pour un `true` et afficherait ce qu'on voulait
+  // cacher.
+  const rawDisplay = entries.get('display') ?? 'true'
+  if (rawDisplay !== 'true' && rawDisplay !== 'false') {
+    throw new FourneeParseError(
+      path,
+      `\`display\` vaut « ${rawDisplay} », attendu \`true\` ou \`false\``,
+    )
+  }
+
   const color = require('color')
   if (!COULEUR.test(color)) {
     throw new FourneeParseError(path, `\`color\` vaut « ${color} », attendu un hexadécimal #RRGGBB`)
@@ -145,16 +193,28 @@ export function parseFournee(raw: string, path: string): FourneeSource {
   if (!to) throw new FourneeParseError(path, '`to` n’est pas une date AAAA-MM-JJ valide')
   if (to < from) throw new FourneeParseError(path, '`to` tombe avant `from`')
 
-  const mixIds = parseInlineList(require('mixes'))
-  if (!mixIds) {
+  const items = parseInlineList(require('mixes'))
+  if (!items) {
     throw new FourneeParseError(path, '`mixes` doit être une liste en ligne, par exemple `[a, b]`')
   }
   const { attendu, mot } = NOMBRE_DE_MIX[layout]
-  if (mixIds.length !== attendu) {
+  if (items.length !== attendu) {
     throw new FourneeParseError(
       path,
-      `le gabarit \`${layout}\` demande ${mot} mix, le fichier en déclare ${mixIds.length}`,
+      `le gabarit \`${layout}\` demande ${mot} mix, le fichier en déclare ${items.length}`,
     )
+  }
+  const mixRefs: MixRef[] = []
+  for (const item of items) {
+    const ref = parseMixRef(item)
+    if (!ref) {
+      throw new FourneeParseError(
+        path,
+        `« ${item} » n’est pas de la forme \`compte/titre\` — c'est l'adresse du mix qui le dit, ` +
+          'par exemple `djnelly/tabouiedire` pour `/mixes/djnelly/tabouiedire`',
+      )
+    }
+    mixRefs.push(ref)
   }
 
   if (!intro) throw new FourneeParseError(path, 'le texte d’intention est vide')
@@ -166,11 +226,12 @@ export function parseFournee(raw: string, path: string): FourneeSource {
     period: require('period'),
     color,
     inverted: entries.get('inverted') === 'true',
+    display: rawDisplay === 'true',
     curator: require('curator'),
     intro,
     from,
     to,
-    mixIds,
+    mixRefs,
   }
 }
 
@@ -181,6 +242,9 @@ export function parseFournee(raw: string, path: string): FourneeSource {
  * se termine le 28 février tient tout le 28. La comparaison se fait donc contre
  * le lendemain à minuit, plutôt qu'en tripatouillant les heures de `now`.
  *
+ * Une fournée en veille (`display: false`) n'est pas candidate : elle laisse la
+ * main à celle d'avant, plutôt que d'éteindre le bandeau en le tenant.
+ *
  * Un recouvrement de fenêtres est une erreur de saisie, mais elle arrivera :
  * celle dont le `from` est le plus récent l'emporte. N'importe quelle règle
  * ferait l'affaire pourvu qu'elle soit stable — ce qu'il faut éviter, c'est de
@@ -190,6 +254,7 @@ export function parseFournee(raw: string, path: string): FourneeSource {
 export function selectFournee(sources: FourneeSource[], now: Date): FourneeSource | null {
   let elue: FourneeSource | null = null
   for (const source of sources) {
+    if (!source.display) continue
     const lendemainDeCloture = new Date(source.to)
     lendemainDeCloture.setDate(lendemainDeCloture.getDate() + 1)
     if (now < source.from || now >= lendemainDeCloture) continue
