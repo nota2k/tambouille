@@ -42,7 +42,10 @@ function harnais(over: { discussions?: FlarumDiscussion[] } = {}) {
       .mockResolvedValue(over.discussions ?? [discussion('1')]),
     getDiscussion: jest.fn(),
   };
-  const importeur = { importItem: jest.fn().mockResolvedValue(MIX) };
+  const importeur = {
+    importItem: jest.fn(),
+    importDiscussion: jest.fn().mockResolvedValue(MIX),
+  };
   const mixes = {
     findBySource: jest.fn().mockResolvedValue(null),
     createFromImport: jest.fn().mockResolvedValue({ id: 'mix-1' }),
@@ -75,11 +78,33 @@ describe('IncongruesSyncService.syncUser', () => {
     expect(mixes.createFromImport).not.toHaveBeenCalled();
   });
 
-  it('interroge findBySource sur les DEUX critères', async () => {
+  // Le régime établi, c'est 14 mix déjà en base sur 24 discussions. Sans ce
+  // court-circuit, chacun repayait son oEmbed pour que le résultat soit jeté.
+  it('ne sort pas du site pour une discussion déjà importée', async () => {
+    const { sujet, flarum, importeur, mixes } = harnais();
+    mixes.findBySource.mockResolvedValue({ id: 'deja-la' });
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(0);
+    expect(importeur.importDiscussion).not.toHaveBeenCalled();
+    expect(importeur.importItem).not.toHaveBeenCalled();
+    expect(flarum.getDiscussion).not.toHaveBeenCalled();
+    expect(flarum.listByAuthor).toHaveBeenCalledTimes(1);
+  });
+
+  // La `pageUrl` seule reconnaît ce que la synchronisation a créé, sans un
+  // appel sortant. La paire complète rattrape en plus les mix saisis à la
+  // main, qui n'ont pas la page du forum : les deux sont nécessaires.
+  it('interroge findBySource sur la pageUrl seule, puis sur les DEUX critères', async () => {
     const { sujet, mixes } = harnais();
     await sujet.syncUser('u1', 'nota');
 
-    expect(mixes.findBySource).toHaveBeenCalledWith(
+    expect(mixes.findBySource).toHaveBeenNthCalledWith(
+      1,
+      undefined,
+      discussion('1').pageUrl,
+    );
+    expect(mixes.findBySource).toHaveBeenNthCalledWith(
+      2,
       MIX.sourceRef,
       MIX.sourcePageUrl,
     );
@@ -89,7 +114,7 @@ describe('IncongruesSyncService.syncUser', () => {
     const { sujet, importeur, mixes } = harnais({
       discussions: [discussion('1'), discussion('2'), discussion('3')],
     });
-    importeur.importItem
+    importeur.importDiscussion
       .mockResolvedValueOnce(MIX)
       .mockRejectedValueOnce(new Error('Mixcloud injoignable'))
       .mockResolvedValueOnce(MIX);
@@ -103,7 +128,7 @@ describe('IncongruesSyncService.syncUser', () => {
   // passage et personne n'y lirait plus rien.
   it('journalise un rejet attendu en debug, jamais en warn', async () => {
     const { sujet, importeur } = harnais();
-    importeur.importItem.mockRejectedValue(
+    importeur.importDiscussion.mockRejectedValue(
       new BadRequestException('Ce message ne contient pas de lecteur'),
     );
     const debug = jest
@@ -120,7 +145,7 @@ describe('IncongruesSyncService.syncUser', () => {
 
   it('journalise un vrai incident en warn', async () => {
     const { sujet, importeur } = harnais();
-    importeur.importItem.mockRejectedValue(new Error('socket hang up'));
+    importeur.importDiscussion.mockRejectedValue(new Error('socket hang up'));
     const warn = jest
       .spyOn(sujet['logger'], 'warn')
       .mockImplementation(() => undefined);
@@ -147,6 +172,84 @@ describe('IncongruesSyncService.syncUser', () => {
     resoudre([discussion('1')]);
     await Promise.all([a, b]);
     expect(flarum.listByAuthor).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('IncongruesSyncService.syncAll', () => {
+  // `listByAuthor` est HORS du `try` de `faire` : sans garde par compte, un
+  // forum injoignable sur le premier pseudo sortirait de la boucle et le
+  // webhook rendrait 502 au lieu de son compte de mix créés.
+  it('poursuit les comptes suivants quand le premier lève', async () => {
+    const { sujet, flarum, mixes, prisma } = harnais();
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'u1', incongruesUsername: 'inconnu' },
+      { id: 'u2', incongruesUsername: 'nota' },
+    ]);
+    flarum.listByAuthor
+      .mockRejectedValueOnce(new Error('forum injoignable'))
+      .mockResolvedValueOnce([discussion('1')]);
+    const warn = jest
+      .spyOn(sujet['logger'], 'warn')
+      .mockImplementation(() => undefined);
+
+    await expect(sujet.syncAll()).resolves.toBe(1);
+    expect(mixes.createFromImport).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalled();
+  });
+});
+
+describe('IncongruesSyncService.syncAllRattrapageHoraire', () => {
+  // Le rattrapage pend à `findAll`, la route la plus visitée du site : au
+  // seuil du webhook, chaque minute de trafic vaudrait un passage sur le forum.
+  it('ne relance rien moins d’une heure après le passage précédent', async () => {
+    jest.useFakeTimers();
+    try {
+      const { sujet, prisma } = harnais();
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'u1', incongruesUsername: 'nota' },
+      ]);
+
+      await sujet.syncAllRattrapageHoraire();
+      jest.advanceTimersByTime(59 * 60 * 1000);
+      await sujet.syncAllRattrapageHoraire();
+
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('relance passé l’heure', async () => {
+    jest.useFakeTimers();
+    try {
+      const { sujet, prisma } = harnais();
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'u1', incongruesUsername: 'nota' },
+      ]);
+
+      await sujet.syncAllRattrapageHoraire();
+      jest.advanceTimersByTime(60 * 60 * 1000 + 1);
+      await sujet.syncAllRattrapageHoraire();
+
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // Horodatages séparés : partagés, le rattrapage horaire fermerait la porte
+  // au webhook pour cinquante-neuf minutes, alors que c'est lui qui doit
+  // passer devant.
+  it('ne bloque pas la sonnerie du webhook', async () => {
+    const { sujet, prisma } = harnais();
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'u1', incongruesUsername: 'nota' },
+    ]);
+
+    await sujet.syncAllRattrapageHoraire();
+    await sujet.syncAllDebounced();
+
+    expect(prisma.user.findMany).toHaveBeenCalledTimes(2);
   });
 });
 

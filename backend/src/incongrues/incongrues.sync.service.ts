@@ -3,10 +3,18 @@ import { FlarumClient } from '../imports/flarum.client';
 import { MusiquesIncongruesImporter } from '../imports/musiques-incongrues.importer';
 import { MixesService } from '../mixes/mixes.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CACHE_TTL_MS } from '../veille/veille.types';
 
 /** La route est publique et déclenche des appels sortants. Une sonnerie de
  *  plus dans la minute ne peut rien apporter que la précédente n'ait déjà vu. */
 export const DEBOUNCE_MS = 60_000;
+
+/** Le filet de rattrapage ne répare qu'un webhook perdu : il se mesure à
+ *  l'heure, pas à la minute. Il pend à `findAll`, la route la plus visitée du
+ *  site — à la cadence de l'anti-rebond, chaque minute de trafic vaudrait un
+ *  passage complet sur le forum. On reprend le seuil de la veille plutôt que
+ *  d'en écrire un second : c'est le même compromis, sur la même fraîcheur. */
+export const RATTRAPAGE_MS = CACHE_TTL_MS;
 
 @Injectable()
 export class IncongruesSyncService {
@@ -20,7 +28,10 @@ export class IncongruesSyncService {
    *  `findBySource` reste la vraie garantie. */
   private readonly enCours = new Map<string, Promise<number>>();
 
+  // Deux horodatages distincts : partagés, le rattrapage horaire absorberait
+  // la sonnerie du webhook, qui est justement ce qui doit passer devant.
   private dernierPassage = 0;
+  private dernierRattrapage = 0;
 
   constructor(
     private readonly flarum: FlarumClient,
@@ -51,7 +62,16 @@ export class IncongruesSyncService {
 
     let crees = 0;
     for (const user of lies) {
-      crees += await this.syncUser(user.id, user.incongruesUsername!);
+      // Chaque compte dans son propre `try` : `listByAuthor` est HORS du `try`
+      // de `faire`, donc un forum injoignable ou un pseudo inexistant sortirait
+      // de la boucle, et le webhook rendrait 502 au lieu de son compte de mix.
+      try {
+        crees += await this.syncUser(user.id, user.incongruesUsername!);
+      } catch (erreur) {
+        this.logger.warn(
+          `Compte ${user.incongruesUsername!} en échec : ${(erreur as Error).message}`,
+        );
+      }
     }
     return crees;
   }
@@ -60,6 +80,16 @@ export class IncongruesSyncService {
     const maintenant = Date.now();
     if (maintenant - this.dernierPassage < DEBOUNCE_MS) return 0;
     this.dernierPassage = maintenant;
+    return this.syncAll();
+  }
+
+  /** Le filet de rattrapage, à l'heure : ce que le webhook a pu perdre pendant
+   *  une indisponibilité de Mixcloud, ou parce que FoF Webhooks a raté
+   *  l'événement. */
+  async syncAllRattrapageHoraire(): Promise<number> {
+    const maintenant = Date.now();
+    if (maintenant - this.dernierRattrapage < RATTRAPAGE_MS) return 0;
+    this.dernierRattrapage = maintenant;
     return this.syncAll();
   }
 
@@ -74,11 +104,24 @@ export class IncongruesSyncService {
       // Chaque discussion dans son propre `try` : un cloudcast supprimé chez
       // Mixcloud ne doit pas empêcher les treize autres de paraître.
       try {
-        const mix = await this.importeur.importItem(discussion.id);
+        // Premier contrôle, AVANT tout appel sortant. `listByAuthor` a déjà
+        // rapporté la `pageUrl`, et tout ce que la synchronisation a créé la
+        // porte : en régime établi, les mix déjà là sont écartés sans qu'un
+        // seul oEmbed soit payé pour être jeté.
+        if (await this.mixes.findBySource(undefined, discussion.pageUrl)) {
+          continue;
+        }
+
+        // Le premier message voyage déjà dans la réponse de `listByAuthor` :
+        // le recharger par `getDiscussion` serait une requête HTTP par
+        // discussion pour un `contentHtml` qu'on tient en main.
+        const mix = await this.importeur.importDiscussion(discussion);
 
         // L'idempotence vient d'ici, pas d'un curseur : la base est la seule
         // source de vérité sur ce qui a déjà été importé, et elle n'a pas
-        // besoin d'être réparée quand elle dérive.
+        // besoin d'être réparée quand elle dérive. Ce second contrôle porte
+        // sur `sourceRef`, que le premier ne connaissait pas : c'est lui qui
+        // rattrape les mix saisis à la main, sans `pageUrl` du forum.
         const deja = await this.mixes.findBySource(
           mix.sourceRef,
           mix.sourcePageUrl,

@@ -6,8 +6,7 @@ import { IncongruesWebhookController } from './incongrues.webhook.controller';
 
 @Module({
   // L'autre moitié du `forwardRef` posé côté `MixesModule` : sans elle, Nest
-  // ne résout pas le cycle introduit par le filet de rattrapage du
-  // contrôleur (Task 8).
+  // ne résout pas le cycle introduit par le filet de rattrapage du contrôleur.
   imports: [ImportsModule, forwardRef(() => MixesModule)],
   controllers: [IncongruesWebhookController],
   providers: [IncongruesSyncService],

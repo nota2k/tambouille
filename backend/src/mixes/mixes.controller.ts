@@ -74,9 +74,9 @@ export class MixesController {
   ) {
     // Filet de rattrapage. Détaché volontairement : la page ne doit pas
     // attendre le forum, et une synchronisation en échec n'est pas une raison
-    // de ne rien afficher. L'anti-rebond garde ceci à un passage par minute au
-    // plus, quel que soit le trafic.
-    void this.incongruesSync.syncAllDebounced().catch(() => undefined);
+    // de ne rien afficher. Le seuil horaire — et non celui du webhook — garde
+    // ceci à un passage par heure au plus, quel que soit le trafic.
+    void this.incongruesSync.syncAllRattrapageHoraire().catch(() => undefined);
 
     return this.mixesService.findAll(query, currentUserId);
   }

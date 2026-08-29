@@ -67,6 +67,7 @@ function createServiceMock() {
 function createIncongruesMock() {
   return {
     syncAllDebounced: jest.fn().mockResolvedValue(0),
+    syncAllRattrapageHoraire: jest.fn().mockResolvedValue(0),
   };
 }
 
@@ -265,13 +266,21 @@ describe('MixesController', () => {
     it('déclenche une synchronisation sans attendre son résultat', async () => {
       await controller.findAll(QUERY_PAR_DEFAUT, undefined);
 
-      expect(incongrues.syncAllDebounced).toHaveBeenCalledTimes(1);
+      expect(incongrues.syncAllRattrapageHoraire).toHaveBeenCalledTimes(1);
+    });
+
+    // La route publique la plus visitée du site : elle prend le seuil horaire,
+    // pas l'anti-rebond à la minute du webhook.
+    it('prend le seuil horaire, jamais celui du webhook', async () => {
+      await controller.findAll(QUERY_PAR_DEFAUT, undefined);
+
+      expect(incongrues.syncAllDebounced).not.toHaveBeenCalled();
     });
 
     // Le fil doit s'afficher même si le forum est injoignable : c'est tout
     // l'intérêt de détacher l'appel.
     it('rend le fil même quand la synchronisation échoue', async () => {
-      incongrues.syncAllDebounced.mockRejectedValue(
+      incongrues.syncAllRattrapageHoraire.mockRejectedValue(
         new Error('forum injoignable'),
       );
 

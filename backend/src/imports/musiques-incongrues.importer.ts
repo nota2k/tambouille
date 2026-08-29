@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { FlarumClient } from './flarum.client';
+import { FlarumClient, type FlarumDiscussion } from './flarum.client';
 import { MixcloudImporter } from './mixcloud.importer';
 import { SoundcloudImporter } from './soundcloud.importer';
 import type { MixImport, SourceImporter } from './source-importer';
@@ -106,13 +106,18 @@ export function isDiscussionUrl(url: URL): boolean {
   return /^\/d\/[^/]+/.test(url.pathname);
 }
 
-/** Les tags sont mis en minuscules à l'enregistrement : la comparaison
- *  l'ignore aussi, sinon « Boogie » et « boogie » feraient deux tags que la
- *  base fondrait ensuite en un seul, sans dire lequel a gagné. */
+/** Les termes du forum passent **en tête**, comme `withArtistTag` place le nom
+ *  de l'artiste : `MixesService.parseTags` tronque à 10 tags, donc ajoutés en
+ *  queue ils seraient les premiers perdus sur un mix qui en porte déjà 10 — et
+ *  « Radio » est précisément ce que la synchronisation apporte de neuf.
+ *
+ *  Les tags sont mis en minuscules à l'enregistrement : la comparaison l'ignore
+ *  aussi, sinon « Boogie » et « boogie » feraient deux tags que la base
+ *  fondrait ensuite en un seul, sans dire lequel a gagné. */
 function ajouterTermes(tags: string[], termes: string[]): string[] {
-  const connus = new Set(tags.map((t) => t.toLowerCase()));
-  const nouveaux = termes.filter((t) => !connus.has(t.toLowerCase()));
-  return [...tags, ...nouveaux];
+  const vus = new Set(termes.map((t) => t.toLowerCase()));
+  const restants = tags.filter((t) => !vus.has(t.toLowerCase()));
+  return [...termes, ...restants];
 }
 
 @Injectable()
@@ -143,7 +148,15 @@ export class MusiquesIncongruesImporter implements SourceImporter {
   }
 
   async importItem(discussionId: string): Promise<MixImport> {
-    const discussion = await this.flarum.getDiscussion(discussionId);
+    return this.importDiscussion(await this.flarum.getDiscussion(discussionId));
+  }
+
+  /** Le même import, à partir d'une discussion déjà en main.
+   *
+   *  `listByAuthor` rapporte le premier message de chaque discussion : la
+   *  synchronisation entre par ici pour ne pas repayer un `getDiscussion` par
+   *  discussion afin de relire un `contentHtml` qu'elle tient déjà. */
+  async importDiscussion(discussion: FlarumDiscussion): Promise<MixImport> {
     const embed = extractEmbed(discussion.contentHtml);
 
     if (!embed) {

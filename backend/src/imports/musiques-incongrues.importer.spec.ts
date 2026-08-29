@@ -192,13 +192,28 @@ describe('MusiquesIncongruesImporter', () => {
     );
   });
 
-  it('verse les termes de taxonomie dans les tags, sans écraser ceux du délégué', async () => {
+  it('verse les termes de taxonomie EN TÊTE des tags, sans écraser ceux du délégué', async () => {
     const { sujet } = importeur({
       discussion: discussion({ termNames: ['SEER Radio'] }),
     });
     const mix = await sujet.importItem('15617');
 
-    expect(mix.tags).toEqual(['japanese', 'boogie', 'SEER Radio']);
+    expect(mix.tags).toEqual(['SEER Radio', 'japanese', 'boogie']);
+  });
+
+  // `MixesService.parseTags` tronque à 10. En queue, « Radio » — l'une des
+  // trois assertions qui portent la conception — serait le premier perdu, et
+  // précisément sur les mix les mieux renseignés.
+  it('garde le terme du forum quand le délégué apporte déjà 10 tags', async () => {
+    const dix = Array.from({ length: 10 }, (_, i) => `tag${i}`);
+    const { sujet } = importeur({
+      discussion: discussion({ termNames: ['Radio'] }),
+      mixcloud: jest.fn().mockResolvedValue({ ...DEPUIS_MIXCLOUD, tags: dix }),
+    });
+    const mix = await sujet.importItem('15617');
+
+    expect(mix.tags[0]).toBe('Radio');
+    expect(mix.tags.slice(0, 10)).toContain('Radio');
   });
 
   it("ne change rien aux tags quand aucun terme n'est posé", async () => {
@@ -214,7 +229,19 @@ describe('MusiquesIncongruesImporter', () => {
     });
     const mix = await sujet.importItem('15617');
 
-    expect(mix.tags).toEqual(['japanese', 'boogie']);
+    // Un seul « boogie » : les tags sont mis en minuscules à l'enregistrement,
+    // donc la casse retenue ici n'a pas de conséquence en base.
+    expect(mix.tags).toEqual(['Boogie', 'japanese']);
+  });
+
+  // La synchronisation entre par ici avec la discussion que `listByAuthor` lui
+  // a déjà rendue : ce chemin ne doit RIEN redemander au forum.
+  it('importDiscussion n’appelle pas getDiscussion', async () => {
+    const { sujet, flarum } = importeur();
+    const mix = await sujet.importDiscussion(discussion());
+
+    expect(flarum.getDiscussion).not.toHaveBeenCalled();
+    expect(mix.sourcePageUrl).toBe(discussion().pageUrl);
   });
 
   it('refuse un post Bandcamp en nommant ce qui a été trouvé', async () => {
