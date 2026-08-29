@@ -110,6 +110,91 @@
     U+A720-A7FF;
 }
 
+/* ── Replis calés sur les métriques réelles ─────────────────────────────────
+ *
+ * `font-display: swap` promet que le texte est lisible tout de suite. Il ne
+ * promet pas qu'il ne bougera pas : quand la vraie fonte arrive, la ligne change
+ * de hauteur et tout ce qui suit descend. Mesuré ici, Arvo occupe une ligne
+ * 8,4 % plus haute que Georgia — assez pour valoir, à elle seule, l'essentiel
+ * des 0,761 de décalage cumulé relevés le 29 août 2026.
+ *
+ * Le préchargement d'Arvo 700 (voir `index.html`) supprime la cause dans le cas
+ * courant. Ces familles couvrent le reste : réseau lent, cache froid, fonte qui
+ * arrive quand même après le premier rendu.
+ *
+ * Les valeurs ne sont pas estimées : elles sont lues dans les fichiers eux-mêmes
+ * (table `hhea`, rapportée à `unitsPerEm`), donc la ligne de repli fait
+ * exactement la hauteur de la ligne définitive.
+ *
+ *     Gulax   asc 75,00 %  desc 25,00 %  gap 0,00 %  → ligne 1,0000
+ *     Arvo    asc 96,09 %  desc 24,71 %  gap 2,69 %  → ligne 1,2349
+ *     Rambla  asc 92,90 %  desc 29,50 %  gap 0,00 %  → ligne 1,2240
+ *
+ * ── Pourquoi une face par graisse ──────────────────────────────────────────
+ *
+ * Une seule face sans `font-weight` vaut 400, et demander du gras fait alors
+ * SYNTHÉTISER un faux gras au lieu d'utiliser Georgia Bold. Mesuré : le repli
+ * du gras passait de 1 % d'écart de largeur avec Arvo à 17 %. La variante 700
+ * n'est donc pas un raffinement, c'est ce qui empêche cette correction d'être
+ * pire que le défaut.
+ *
+ * ── Pourquoi pas de `size-adjust` ──────────────────────────────────────────
+ *
+ * Il faudrait connaître la largeur de la police locale réellement retenue, qui
+ * dépend du système : Georgia n'existe pas partout. Une valeur juste ici serait
+ * fausse ailleurs, et déformerait le repli au lieu de le caler. On corrige donc
+ * la hauteur — qui déplaçait la page, et que l'écrasement de métriques règle
+ * exactement — et on laisse la largeur telle qu'elle était déjà.
+ *
+ * Un `local()` qui ne résout pas fait simplement échouer la famille, et la pile
+ * passe à la suivante : sur un système sans ces polices, on retrouve le
+ * comportement d'avant, jamais pire.
+ */
+@font-face {
+  font-family: 'Gulax repli';
+  src: local('Helvetica Neue'), local('Arial');
+  font-weight: 400;
+  ascent-override: 75%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Arvo repli';
+  src: local('Georgia'), local('Times New Roman');
+  font-weight: 400;
+  ascent-override: 96.09%;
+  descent-override: 24.71%;
+  line-gap-override: 2.69%;
+}
+
+@font-face {
+  font-family: 'Arvo repli';
+  src: local('Georgia Bold'), local('Times New Roman Bold');
+  font-weight: 700;
+  ascent-override: 96.09%;
+  descent-override: 24.71%;
+  line-gap-override: 2.69%;
+}
+
+@font-face {
+  font-family: 'Rambla repli';
+  src: local('Helvetica Neue'), local('Arial');
+  font-weight: 400;
+  ascent-override: 92.9%;
+  descent-override: 29.5%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Rambla repli';
+  src: local('Helvetica Neue Bold'), local('Arial Bold');
+  font-weight: 700;
+  ascent-override: 92.9%;
+  descent-override: 29.5%;
+  line-gap-override: 0%;
+}
+
 @theme {
   /* --- Couleurs -----------------------------------------------------------
      Le rose n'est plus la couleur du texte : c'est un accent, tenu, sur du
@@ -158,8 +243,8 @@
   --color-tambouille-accent-wash: #fff5f8;
 
   /* --- Typographie ------------------------------------------------------- */
-  --font-sans: Rambla, system-ui, sans-serif;
-  --font-display: Arvo, Georgia, serif;
+  --font-sans: Rambla, 'Rambla repli', system-ui, sans-serif;
+  --font-display: Arvo, 'Arvo repli', Georgia, serif;
 
   --text-tambouille-title-big: clamp(2rem, 4.8vw, 4.75rem);
   --text-tambouille-clamp-big: clamp(1.9rem, 3.8vw, 2.5rem);
@@ -214,7 +299,7 @@ html:not(.lenis) {
 body {
   background-color: #ffffff;
   color: #000000;
-  font-family: Rambla, system-ui, sans-serif;
+  font-family: Rambla, 'Rambla repli', system-ui, sans-serif;
 }
 
 /*
@@ -230,7 +315,7 @@ h4,
 h5,
 h6,
 .font-wordmark {
-  font-family: 'Gulax', sans-serif;
+  font-family: 'Gulax', 'Gulax repli', sans-serif;
   letter-spacing: -0.01em;
 }
 
