@@ -103,11 +103,37 @@ export class UsersService {
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     const username = await this.requireUsername(userId);
+    const data: Record<string, unknown> = { ...dto };
+    if (dto.incongruesUsername !== undefined) {
+      // `trim() || null` et non `trim()` : une chaîne vide entrerait en base,
+      // où la contrainte d'unicité interdirait ensuite à un second compte de
+      // se délier.
+      data.incongruesUsername = dto.incongruesUsername.trim() || null;
+    }
     await this.prisma.user.update({
       where: { id: userId },
-      data: dto,
+      data,
     });
     return this.getPublicProfile(username);
+  }
+
+  // Lecture privée du compte lié : contrairement à `getPublicProfile`,
+  // `incongruesUsername` n'a de sens que pour le titulaire du lien lui-même
+  // (voir le commentaire du champ dans schema.prisma), donc cette lecture se
+  // fait par id de compte plutôt que par pseudo public.
+  async getProfile(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        bio: true,
+        avatarUrl: true,
+        coverUrl: true,
+        incongruesUsername: true,
+      },
+    });
   }
 
   async updateAvatar(userId: string, avatarUrl: string) {
