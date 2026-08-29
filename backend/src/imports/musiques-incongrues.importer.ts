@@ -1,5 +1,3 @@
-import { FORUM_ORIGIN } from './flarum.client';
-
 export type Embed =
   | { kind: 'mixcloud'; ref: string } // clé /compte/slug/ prête pour KEY_PATTERN
   | { kind: 'soundcloud'; ref: string }; // URL https://api.soundcloud.com/tracks/<id>
@@ -8,11 +6,7 @@ export type Embed =
  *  l'oEmbed SoundCloud n'en donne aucun. */
 const PRIORITE: Embed['kind'][] = ['mixcloud', 'soundcloud'];
 
-// Réutilise l'hôte de Task 1 plutôt que de le dupliquer : les deux fichiers
-// doivent pointer le même forum si l'origine change un jour. `FORUM_ORIGIN`
-// porte le `www.` ; on l'enlève ici pour retrouver l'hôte nu, les deux formes
-// étant acceptées ci-dessous.
-const HOST = new URL(FORUM_ORIGIN).hostname.replace(/^www\./, '');
+const HOST = 'musiques-incongrues.net';
 
 /** Le forum rend `&` échappé en `&amp;` dans les attributs `src`. Seules ces
  *  quatre entités apparaissent dans une URL rendue par s9e ; on ne déroule pas
