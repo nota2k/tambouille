@@ -14,6 +14,9 @@ describe('canonicalUrl', () => {
     ['https://ouiedire.net./feed', 'https://ouiedire.net/feed'],
     ['https://x.test//feed', 'https://x.test/feed'],
     ['https://x.test/feed//', 'https://x.test/feed'],
+    ['https://x.test:8443/feed', 'https://x.test:8443/feed'],
+    ['https://X.test.:8443/feed', 'https://x.test:8443/feed'],
+    ['https://x.test:443/feed', 'https://x.test/feed'],
   ])('%s → %s', (raw, expected) => {
     expect(canonicalUrl(raw)).toBe(expected);
   });
@@ -30,6 +33,7 @@ describe('canonicalUrl', () => {
     'https://ouiedire.net./feed',
     'https://x.test//feed',
     'https://x.test/feed//',
+    'https://x.test:8443/feed',
   ])('est idempotente sur %s', (raw) => {
     const once = canonicalUrl(raw);
     expect(canonicalUrl(once)).toBe(once);

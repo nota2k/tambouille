@@ -34,12 +34,19 @@ export function canonicalUrl(raw: string): string {
   }
   // Le point final d'un nom d'hôte ("ouiedire.net.") est ignoré par le DNS et
   // par tout navigateur : deux adresses qui ne diffèrent que par lui désignent
-  // le même serveur et doivent tomber sur la même ligne.
+  // le même serveur et doivent tomber sur la même ligne. `url.hostname` ne
+  // porte jamais le port (contrairement à `url.host`, qui porterait aussi ce
+  // point final) : le port est donc traité à part puis recollé, plutôt que de
+  // recomposer l'hôte depuis `url.host`.
   const host = url.hostname.toLowerCase().replace(/\.+$/, '');
+  // `url.port` est déjà vide quand le port est celui par défaut du protocole
+  // (`URL` le normalise à la construction) : le rendu ne le fait donc jamais
+  // réapparaître pour `:443`.
+  const port = url.port ? `:${url.port}` : '';
   // Idem pour les barres obliques répétées ou finales dans le chemin : le
   // serveur les traite comme une seule, ou comme absentes.
   const path = url.pathname.replace(/\/{2,}/g, '/').replace(/\/+$/, '');
-  return `https://${host}${path}`;
+  return `https://${host}${port}${path}`;
 }
 
 function toVeilleItems(items: SourceItem[]): VeilleItem[] {
