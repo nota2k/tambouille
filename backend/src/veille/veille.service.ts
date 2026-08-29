@@ -129,23 +129,37 @@ export class VeilleService {
     try {
       const resolved = await this.resolver.resolve(source.url);
       const items = resolved.items.slice(0, MAX_ITEMS_PER_SOURCE);
-      await this.prisma.watchedSource.update({
-        where: { id: source.id },
-        data: {
-          items: items as unknown as Prisma.InputJsonValue,
-          fetchedAt: new Date(),
-          lastError: null,
-        },
+      // L'écriture en base n'est qu'une optimisation de cache : elle évite de
+      // re-résoudre la source à la prochaine lecture. Si elle échoue (incident
+      // base transitoire), on a déjà en main les items fraîchement résolus —
+      // les rendre ne doit pas dépendre du succès de leur enregistrement.
+      await this.persistRefresh(source.id, {
+        items: items as unknown as Prisma.InputJsonValue,
+        fetchedAt: new Date(),
+        lastError: null,
       });
       return { items, lastError: null };
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Source injoignable';
-      await this.prisma.watchedSource.update({
-        where: { id: source.id },
-        data: { fetchedAt: new Date(), lastError: message },
+      // Même logique : ne pas réussir à consigner l'erreur ne doit pas priver
+      // le feed de l'instantané périmé qu'on a déjà en main.
+      await this.persistRefresh(source.id, {
+        fetchedAt: new Date(),
+        lastError: message,
       });
       return { items: cached, lastError: message };
+    }
+  }
+
+  private async persistRefresh(
+    id: string,
+    data: Prisma.WatchedSourceUpdateInput,
+  ): Promise<void> {
+    try {
+      await this.prisma.watchedSource.update({ where: { id }, data });
+    } catch {
+      // Volontairement avalé : voir les appelants de `persistRefresh`.
     }
   }
 

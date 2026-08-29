@@ -107,6 +107,84 @@ describe('VeilleService', () => {
     expect(feed.sources.find((s) => s.id === 'src-1')?.lastError).toBeTruthy();
   });
 
+  it('rend quand même le feed si l’écriture du cache échoue après un échec réseau', async () => {
+    const vieux = new Date(Date.now() - CACHE_TTL_MS - 1000);
+    prisma.watchedSource.findMany.mockResolvedValue([
+      source({ id: 'src-1', fetchedAt: vieux }),
+      source({
+        id: 'src-2',
+        url: 'https://b.test/feed',
+        label: 'B',
+        items: [{ title: 'Item B', pageUrl: 'https://b.test/1' }],
+        fetchedAt: vieux,
+      }),
+    ]);
+    resolver.resolve.mockImplementation((url: string) =>
+      url.includes('a.test')
+        ? Promise.reject(new Error('502'))
+        : Promise.resolve({
+            resolver: 'b.test',
+            label: 'B',
+            url,
+            items: [{ title: 'B neuf', pageUrl: 'https://b.test/2' }],
+          }),
+    );
+    // Même la tentative d'enregistrer le message d'erreur échoue (incident
+    // base transitoire). La lecture du feed ne doit pas en dépendre.
+    prisma.watchedSource.update.mockRejectedValue(new Error('DB down'));
+
+    const feed = await service.getFeed('nota', 'u-1');
+
+    expect(feed.items.map((i) => i.title).sort()).toEqual(['B neuf', 'Item A']);
+    expect(feed.sources.find((s) => s.id === 'src-1')?.lastError).toBeTruthy();
+  });
+
+  it('rend les items fraîchement résolus même si l’écriture du cache échoue', async () => {
+    prisma.watchedSource.findMany.mockResolvedValue([
+      source({ fetchedAt: new Date(Date.now() - CACHE_TTL_MS - 1000) }),
+    ]);
+    resolver.resolve.mockResolvedValue({
+      resolver: 'a.test',
+      label: 'A',
+      url: 'https://a.test/feed',
+      items: [{ title: 'Neuf', pageUrl: 'https://a.test/2' }],
+    });
+    prisma.watchedSource.update.mockRejectedValue(new Error('DB down'));
+
+    const feed = await service.getFeed('nota');
+
+    expect(feed.items.map((i) => i.title)).toEqual(['Neuf']);
+  });
+
+  it('rafraîchit la source saine même quand une autre est en panne', async () => {
+    const vieux = new Date(Date.now() - CACHE_TTL_MS - 1000);
+    prisma.watchedSource.findMany.mockResolvedValue([
+      source({ id: 'src-1', fetchedAt: vieux }),
+      source({
+        id: 'src-2',
+        url: 'https://b.test/feed',
+        label: 'B',
+        items: [{ title: 'Item B', pageUrl: 'https://b.test/1' }],
+        fetchedAt: vieux,
+      }),
+    ]);
+    resolver.resolve.mockImplementation((url: string) =>
+      url.includes('a.test')
+        ? Promise.reject(new Error('502'))
+        : Promise.resolve({
+            resolver: 'b.test',
+            label: 'B',
+            url,
+            items: [{ title: 'B neuf', pageUrl: 'https://b.test/2' }],
+          }),
+    );
+
+    const feed = await service.getFeed('nota');
+
+    expect(resolver.resolve).toHaveBeenCalledWith('https://b.test/feed');
+    expect(feed.items.map((i) => i.title)).toContain('B neuf');
+  });
+
   it('masque lastError à qui n’est pas le titulaire', async () => {
     prisma.watchedSource.findMany.mockResolvedValue([
       source({ lastError: 'boum' }),
