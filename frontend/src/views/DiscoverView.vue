@@ -14,6 +14,9 @@ import FourneeBanner from '@/components/FourneeBanner.vue'
 import FeedLink from '@/components/FeedLink.vue'
 import { useFournee } from '@/composables/useFournee'
 import { mixCredit } from '@/composables/useMixCredit'
+import { useSeo } from '@/composables/useSeo'
+import { shareUrl } from '@/utils/share'
+import { DEFAULT_DESCRIPTION, SITE_NAME } from '@/utils/seo'
 import type { Mix, MixListResponse, AuthorSummary } from '@/types'
 
 const authStore = useAuthStore()
@@ -29,6 +32,38 @@ const isSearching = computed(
   () =>
     search.value.trim().length > 0 || selectedTags.value.length > 0 || sortBy.value !== 'recent',
 )
+
+/**
+ * L'accueil porte l'identité du site et le seul balisage qui vaille à l'échelle
+ * du domaine : le `WebSite` et sa recherche, que Google peut reprendre pour
+ * proposer un champ de recherche dans ses résultats.
+ *
+ * Une recherche en cours ne change ni le titre ni la canonique : `useSeo`
+ * ignore la chaîne de requête, si bien que « /?q=techno » se déclare comme
+ * l'accueil et n'ajoute pas à l'index une page de résultats maigre par terme
+ * cherché.
+ */
+useSeo(() => ({
+  title: SITE_NAME,
+  description: DEFAULT_DESCRIPTION,
+  canonical: shareUrl({ name: 'discover' }),
+  jsonLd: {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    url: shareUrl({ name: 'discover' }),
+    description: DEFAULT_DESCRIPTION,
+    inLanguage: 'fr-FR',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${shareUrl({ name: 'discover' })}?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  },
+}))
 
 function toggleTag(tag: string) {
   const idx = selectedTags.value.indexOf(tag)

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { resetSeo } from '@/composables/useSeo'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -143,6 +144,19 @@ router.beforeEach((to) => {
   ) {
     return { name: 'choose-username' }
   }
+})
+
+/**
+ * Le `<head>` repart des valeurs du site à chaque navigation.
+ *
+ * `afterEach` court avant que la vue suivante ne soit montée, donc avant son
+ * propre `useSeo` : l'ordre est celui qu'on veut, remise à zéro puis titre de
+ * la page. Sans cette remise, une vue qui n'appelle pas `useSeo` garderait le
+ * titre, la pochette et les données structurées de la précédente — un mix
+ * annoncé sous une URL qui n'est plus la sienne.
+ */
+router.afterEach(() => {
+  resetSeo()
 })
 
 export default router

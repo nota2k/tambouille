@@ -6,7 +6,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
 import { mixCredit } from '@/composables/useMixCredit'
 import { mediaUrl } from '@/utils/media'
-import { formatTime, formatDuration } from '@/utils/time'
+import { formatTime, formatDuration, isoDuration } from '@/utils/time'
 import { formatDate } from '@/utils/date'
 import { toggleMixFavorite } from '@/utils/favorites'
 import UploaderCard from '@/components/UploaderCard.vue'
@@ -16,6 +16,7 @@ import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import { mixShareUrl } from '@/utils/share'
+import { useSeo } from '@/composables/useSeo'
 import type { Mix, TracklistEntry, UserProfile } from '@/types'
 
 const route = useRoute()
@@ -152,6 +153,52 @@ function togglePlay() {
   if (isCurrent.value) playerStore.toggle()
   else playerStore.play(mix.value)
 }
+
+/**
+ * La page d'un mix est la seule du site qui décrive une œuvre précise : c'est
+ * elle qui a une chance d'être trouvée sur le nom d'un artiste ou d'un mix, et
+ * elle porte donc les données structurées les plus riches.
+ *
+ * Le descripteur est une fonction parce que le mix arrive après le montage :
+ * `useSeo` réécrit le `<head>` quand la réponse est là, ce que Googlebot voit,
+ * exécutant le JavaScript avant de lire la page.
+ */
+useSeo(() => {
+  const current = mix.value
+  // Pendant le chargement, les valeurs par défaut du site : mieux vaut ça
+  // qu'un titre inventé qui resterait affiché si la requête échoue.
+  if (!current) return {}
+
+  const auteur = credit.value?.primary ?? current.user.displayName
+  const duree = formatDuration(current.durationSec)
+  const cover = mediaUrl(current.coverUrl)
+
+  return {
+    // « par » plutôt qu'un tiret : le suffixe du site en pose déjà un, et
+    // « Mix — Artiste — Tambouille » se lit comme trois choses sans lien.
+    title: `${current.title} par ${auteur}`,
+    description:
+      current.description ||
+      [`${current.title}, un mix de ${auteur} à écouter sur Tambouille`, duree]
+        .filter(Boolean)
+        .join(' · '),
+    image: cover,
+    type: 'music.song',
+    canonical: mixShareUrl(current.id),
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'MusicRecording',
+      name: current.title,
+      url: mixShareUrl(current.id),
+      byArtist: { '@type': 'MusicGroup', name: auteur },
+      datePublished: current.createdAt,
+      ...(current.description ? { description: current.description } : {}),
+      ...(cover ? { image: cover } : {}),
+      ...(isoDuration(current.durationSec) ? { duration: isoDuration(current.durationSec) } : {}),
+      ...(current.tags.length ? { genre: current.tags } : {}),
+    },
+  }
+})
 
 // Une carte de suggestion mène d'un mix à un autre : même route, même composant, que Vue
 // Router réutilise sans le remonter. `onMounted` seul laissait alors l'ancien mix affiché

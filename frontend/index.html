@@ -1,18 +1,54 @@
 <!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#FE2370">
-    <link rel="icon" href="/favicon.ico">
-    <title>Tambouille</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#FE2370">
+  <link rel="icon" href="/favicon.ico">
+  <!-- Google Tag Manager -->
+  <script>(function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-5ZHHD6QT');</script>
+  <!-- End Google Tag Manager -->
+
+  <!--
+      Les valeurs par défaut du site. Les vues les remplacent au montage via
+      `useSeo`, mais elles restent ce que voit tout lecteur qui n'exécute pas
+      le JavaScript — au premier rang desquels les robots d'aperçu de partage
+      (Facebook, Discord, WhatsApp, Slack).
+    -->
+  <meta name="description"
+    content="Tambouille, le site de partage et d’écoute de mixs : découvrez les mix des membres, écoutez en streaming et suivez vos artistes.">
+  <meta property="og:site_name" content="Tambouille">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Tambouille">
+  <meta property="og:description"
+    content="Tambouille, le site de partage et d’écoute de mixs : découvrez les mix des membres, écoutez en streaming et suivez vos artistes.">
+  <meta property="og:locale" content="fr_FR">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Tambouille">
+  <meta name="twitter:description"
+    content="Tambouille, le site de partage et d’écoute de mixs : découvrez les mix des membres, écoutez en streaming et suivez vos artistes.">
+  <title>Tambouille</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body>
+  <!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5ZHHD6QT"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
 </html>

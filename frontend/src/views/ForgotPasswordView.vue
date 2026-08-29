@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSeo } from '@/composables/useSeo'
+
+// Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
+// de toute façon la même page vide à un robot, faute de session.
+useSeo({
+  title: 'Mot de passe oublié',
+  description: 'Recevez un lien pour réinitialiser votre mot de passe Tambouille.',
+  noindex: true,
+})
 
 const authStore = useAuthStore()
 
