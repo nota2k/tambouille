@@ -73,7 +73,7 @@ let PreviewService = class PreviewService {
             ? (0, audio_source_1.publicMediaUrl)(mix.coverUrl, context.bases)
             : null;
         const titre = secondaire
-            ? `${mix.title} par ${principal}, mijoté par ${secondaire}`
+            ? `${mix.title} par ${principal}, dégoté par ${secondaire}`
             : `${mix.title} par ${principal}`;
         return {
             title: titre,

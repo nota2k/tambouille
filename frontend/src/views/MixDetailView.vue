@@ -11,7 +11,7 @@ import { formatTime, formatDuration, isoDuration } from '@/utils/time'
 import { formatDate } from '@/utils/date'
 import UploaderCard from '@/components/UploaderCard.vue'
 import CommentsSection from '@/components/CommentsSection.vue'
-import MixCard from '@/components/MixCard.vue'
+import MixGrid from '@/components/MixGrid.vue'
 import MixMiniCard from '@/components/MixMiniCard.vue'
 import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import ShareButton from '@/components/ShareButton.vue'
@@ -34,7 +34,7 @@ const mix = ref<Mix | null>(null)
 const uploaderProfile = ref<UserProfile | null>(null)
 // La règle « artiste sinon compte » vit dans le composable, pas ici : sans
 // lui, un mix importé par son propre artiste lirait « par Nelly Babillon »
-// puis « Mijoté par Nelly Babillon », juste en dessous.
+// puis « Dégoté par Nelly Babillon », juste en dessous.
 const credit = computed(() => (mix.value ? mixCredit(mix.value) : null))
 const suggestions = ref<Mix[]>([])
 const duMemeArtiste = ref<Mix[]>([])
@@ -116,7 +116,11 @@ async function loadSuggestions(id: string) {
   // entière et la section disparaît, plutôt que de faire tomber le tout.
   try {
     const { data } = await apiClient.get<{ items: Mix[] }>(`/mixes/${id}/suggestions`, {
-      params: { limit: 3 },
+      // Douze, et non trois : trois cartes remplissaient la grille d'avant, mais
+      // la bande en montre jusqu'à six par vue — un carrousel qui ne défile
+      // jamais n'est qu'une rangée trop courte. Douze est le plafond que
+      // `QuerySuggestionsDto` fixe côté serveur, en prévoyant ce cas.
+      params: { limit: 12 },
     })
     suggestions.value = data.items
   } catch {
@@ -240,7 +244,7 @@ useSeo(() => {
     // déposé, alors que c'est précisément le lien qu'un partage fait
     // connaître. Les deux surfaces doivent se lire pareil.
     title: credit.value?.secondary
-      ? `${current.title} par ${credit.value.primary}, mijoté par ${credit.value.secondary}`
+      ? `${current.title} par ${credit.value.primary}, dégoté par ${credit.value.secondary}`
       : `${current.title} par ${auteur}`,
     description:
       current.description ||
@@ -327,14 +331,14 @@ watch(
           <!-- N'apparaît que lorsqu'il y a deux noms distincts à montrer : pas
                d'artiste, ou artiste identique au compte qui a mis en ligne
                (import de son propre mix), et la ligne se tait — sinon on
-               lirait « par Nelly Babillon » puis « Mijoté par Nelly Babillon »
+               lirait « par Nelly Babillon » puis « Dégoté par Nelly Babillon »
                juste en dessous. -->
           <p v-if="credit?.secondary" class="pt-1 text-lg text-tambouille-muted">
             par {{ credit.primary }}
           </p>
 
           <p class="pb-2.5 pt-3.5 text-base text-tambouille-muted">
-            Mijoté par
+            Dégoté par
             <RouterLink
               :to="{ name: 'profile', params: { username: mix.user.username } }"
               class="font-bold text-tambouille-text hover:underline"
@@ -482,8 +486,8 @@ watch(
           <!-- Sous la carte du compte, et en colonne étroite : d'où les
                mini-cartes. « Aussi de … » prolonge ce que la carte au-dessus
                vient de dire — qui est derrière ce mix — là où « Dans la même
-               casserole », en pleine largeur tout en bas, propose d'aller
-               ailleurs. Les deux sections ne se ressemblent donc pas. -->
+               veine », en bande tout en bas, propose d'aller ailleurs. Les deux
+               sections ne se ressemblent donc pas. -->
           <section v-if="duMemeArtiste.length" class="pt-9">
             <p class="tb-eyebrow">Aussi de {{ credit?.primary }}</p>
             <div class="divide-y divide-tambouille-rule pt-2">
@@ -493,16 +497,19 @@ watch(
         </div>
       </div>
 
+      <!-- Une bande qui défile, et non plus une grille : la section est en pied
+           de page, après les commentaires et la carte du compte. Ce qu'elle
+           propose se parcourt du coin de l'œil — l'empiler en pleine largeur
+           lui donnait le poids d'une destination.
+
+           `MixGrid` plutôt qu'un Swiper monté ici : c'est déjà la bande de
+           « Repris là où tu t'es arrêté⋅e », mêmes cartes sans leurs trois
+           commandes, mêmes paliers, mêmes flèches. Deux bandes de mix qui se
+           ressemblent doivent être le même composant, sans quoi elles finissent
+           par diverger sur un palier que personne ne pense à reporter. -->
       <section v-if="suggestions.length" class="mt-14">
-        <p class="tb-eyebrow">Dans la même casserole</p>
-        <div class="grid grid-cols-2 gap-5 pt-5 sm:grid-cols-3">
-          <MixCard
-            v-for="suggestion in suggestions"
-            :key="suggestion.id"
-            :mix="suggestion"
-            landscape
-          />
-        </div>
+        <p class="tb-eyebrow">Dans la même veine</p>
+        <MixGrid :mixes="suggestions" class="mt-4" />
       </section>
     </template>
   </div>
