@@ -730,6 +730,69 @@ describe('MixesService', () => {
     });
   });
 
+  /**
+   * Ce que la section « Aussi de … » promet : les mixs de cet artiste-là, et
+   * personne d'autre. Les deux définitions de « cet artiste » — la colonne
+   * quand elle est remplie, le compte sinon — sont testées séparément parce
+   * que confondre les deux attribue une œuvre à quelqu'un qui ne l'a pas
+   * faite, ce qui est pire qu'une section vide.
+   */
+  describe('listByArtist', () => {
+    const SOURCE = 'source-mix';
+
+    beforeEach(() => {
+      prisma.mix.findMany.mockResolvedValue([mixRow({ id: 'autre' })]);
+    });
+
+    it('cherche sur le nom de l’artiste, sans regarder la casse', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: SOURCE,
+        artist: '  Vorwerk  ',
+        userId: USER_ID,
+      });
+
+      const result = await service.listByArtist(SOURCE, 3);
+
+      const [args] = prisma.mix.findMany.mock.calls[0];
+      expect(args.where.artist).toEqual({
+        equals: 'Vorwerk',
+        mode: 'insensitive',
+      });
+      expect(args.where.id).toEqual({ not: SOURCE });
+      expect(args.take).toBe(3);
+      expect(result.items.map((item) => item.id)).toEqual(['autre']);
+    });
+
+    /**
+     * Sans `artist: null` dans ce filtre, un compte qui importe le mix de
+     * quelqu'un d'autre le verrait remonter ici comme s'il en était l'auteur.
+     */
+    it('se rabat sur les mixs signés du compte quand l’artiste n’est pas renseigné', async () => {
+      prisma.mix.findUnique.mockResolvedValue({
+        id: SOURCE,
+        artist: '   ',
+        userId: USER_ID,
+      });
+
+      await service.listByArtist(SOURCE, 3);
+
+      const [args] = prisma.mix.findMany.mock.calls[0];
+      expect(args.where).toEqual({
+        userId: USER_ID,
+        artist: null,
+        id: { not: SOURCE },
+      });
+    });
+
+    it('signale un mix inexistant plutôt que de chercher à partir de rien', async () => {
+      prisma.mix.findUnique.mockResolvedValue(null);
+
+      await expect(service.listByArtist('nope', 3)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
+
   // Chaque test ici passe `{ audioUrl: AUDIO_KEY }` en troisième argument
   // uniquement pour satisfaire assertExactlyOneAudioSource, une règle
   // préexistante et sans rapport avec l'artiste : sans source, service.create

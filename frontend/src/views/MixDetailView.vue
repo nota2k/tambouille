@@ -12,6 +12,7 @@ import { formatDate } from '@/utils/date'
 import UploaderCard from '@/components/UploaderCard.vue'
 import CommentsSection from '@/components/CommentsSection.vue'
 import MixCard from '@/components/MixCard.vue'
+import MixMiniCard from '@/components/MixMiniCard.vue'
 import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
@@ -36,6 +37,7 @@ const uploaderProfile = ref<UserProfile | null>(null)
 // puis « Mijoté par Nelly Babillon », juste en dessous.
 const credit = computed(() => (mix.value ? mixCredit(mix.value) : null))
 const suggestions = ref<Mix[]>([])
+const duMemeArtiste = ref<Mix[]>([])
 const loading = ref(true)
 const deleting = ref(false)
 
@@ -90,6 +92,25 @@ async function loadMix() {
   }
 }
 
+/**
+ * Les autres mixs du même artiste, que le backend définit exactement comme
+ * `mixCredit` définit le nom affiché — artiste quand la source le donne, compte
+ * sinon. Le même complément que les suggestions : un échec efface la section
+ * plutôt que la page.
+ */
+async function loadDuMemeArtiste(id: string) {
+  try {
+    const { data } = await apiClient.get<{ items: Mix[] }>(`/mixes/${id}/by-artist`, {
+      // Quatre et non trois : une ligne compacte tient dans la hauteur qu'une
+      // carte de la grille occupait toute seule.
+      params: { limit: 4 },
+    })
+    duMemeArtiste.value = data.items
+  } catch {
+    duMemeArtiste.value = []
+  }
+}
+
 async function loadSuggestions(id: string) {
   // Les suggestions sont un complément : si l'appel échoue, la page du mix reste
   // entière et la section disparaît, plutôt que de faire tomber le tout.
@@ -113,8 +134,14 @@ async function loadSuggestions(id: string) {
  */
 async function loadAll() {
   suggestions.value = []
+  duMemeArtiste.value = []
   await loadMix()
-  if (mix.value) await loadSuggestions(mix.value.id)
+  // Les deux sections de bas de page tiennent l'une à côté de l'autre : elles
+  // ne dépendent que du mix, et les enchaîner retarderait la seconde pour rien.
+  if (mix.value) {
+    const id = mix.value.id
+    await Promise.all([loadSuggestions(id), loadDuMemeArtiste(id)])
+  }
 }
 
 function playFromTrack(entry: TracklistEntry) {
@@ -451,6 +478,18 @@ watch(
           <div v-if="uploaderProfile" class="pt-9">
             <UploaderCard :profile="uploaderProfile" />
           </div>
+
+          <!-- Sous la carte du compte, et en colonne étroite : d'où les
+               mini-cartes. « Aussi de … » prolonge ce que la carte au-dessus
+               vient de dire — qui est derrière ce mix — là où « Dans la même
+               casserole », en pleine largeur tout en bas, propose d'aller
+               ailleurs. Les deux sections ne se ressemblent donc pas. -->
+          <section v-if="duMemeArtiste.length" class="pt-9">
+            <p class="tb-eyebrow">Aussi de {{ credit?.primary }}</p>
+            <div class="divide-y divide-tambouille-rule pt-2">
+              <MixMiniCard v-for="autre in duMemeArtiste" :key="autre.id" :mix="autre" />
+            </div>
+          </section>
         </div>
       </div>
 
