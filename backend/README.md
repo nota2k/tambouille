@@ -121,6 +121,25 @@ peut pas l'écraser, et ne peut pas non plus le renseigner. Une variable nouvell
 demande un geste manuel, et son absence ne se voit qu'en empruntant le chemin
 qui la lit.
 
+`INCONGRUES_WEBHOOK_SECRET` est de cette famille, avec une contrainte en plus :
+c'est un secret qui vit dans une URL plutôt que dans un en-tête, parce que FoF
+Webhooks — l'extension du forum Musiques Incongrues qui prévient Tambouille
+quand un mix y est posté — ne laisse configurer qu'une adresse. Le générer :
+
+```
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+puis le poser dans `backend/.env` en production, sous ce nom. Côté forum,
+administration Flarum → FoF Webhooks → nouvelle entrée, URL
+`https://<api-tambouille>/webhooks/musiques-incongrues/<secret>`, événement
+« Discussion Started ». Tant que ces deux gestes n'ont pas été faits, la route
+répond 404 : le dispositif est inactif, ce n'est pas une panne. Et comme le
+secret voyage dans l'URL, il faut aussi s'assurer que les journaux d'accès
+o2switch ne conservent pas les chemins complets des requêtes `POST` — sinon il
+y est lisible par quiconque y accède, et doit être tourné après toute
+consultation partagée.
+
 ## Les fournées, côté backend
 
 Le flux `/api/fournees/:numero/rss` lit les fichiers markdown de fournée. Ils
@@ -210,3 +229,5 @@ binaire de la plateforme au déploiement, comme pour toute autre dépendance.
 - Appliquer une migration, pour la raison ci-dessus.
 - Ajouter une variable d'environnement en production.
 - Tout ce qui touche à cPanel : l'enregistrement du dépôt, le jeton, le pare-feu.
+- Générer `INCONGRUES_WEBHOOK_SECRET` et déclarer le webhook côté Flarum, voir
+  la section Secrets.
