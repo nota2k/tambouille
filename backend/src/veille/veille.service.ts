@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client';
@@ -98,6 +99,8 @@ function itemLePlusRecent(parSource: VeilleFeedItem[][]): VeilleFeedItem[] {
 
 @Injectable()
 export class VeilleService {
+  private readonly logger = new Logger(VeilleService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly resolver: VeilleResolver,
@@ -159,8 +162,20 @@ export class VeilleService {
       return { items: cached, lastError: source.lastError };
     }
 
+    // La route publique déclenche ce rafraîchissement sur des URL choisies par
+    // l'utilisateur : `fetchedAt` avance AVANT de tenter la résolution, pas
+    // après. Si l'écriture du résultat échoue plus bas, le cache doit quand
+    // même se refermer — sinon un incident base durable ferait revenir cette
+    // source à chaque appel public, indéfiniment et invisiblement : huit
+    // requêtes sortantes à chaque visite d'un profil, un amplificateur réseau.
+    await this.persistRefresh(source.id, { fetchedAt: new Date() });
+
     try {
-      const resolved = await this.resolver.resolve(source.url);
+      // L'URL stockée n'est pas une adresse saisie : elle a déjà été
+      // canonicalisée à l'ajout, et peut porter une query qui sélectionne le
+      // flux (autodétection). `refresh` la relit telle quelle plutôt que de la
+      // repasser par `resolve`, qui la re-canonicaliserait et la changerait.
+      const resolved = await this.resolver.refresh(source.url);
       const items = resolved.items.slice(0, MAX_ITEMS_PER_SOURCE);
       // L'écriture en base n'est qu'une optimisation de cache : elle évite de
       // re-résoudre la source à la prochaine lecture. Si elle échoue (incident
@@ -168,7 +183,6 @@ export class VeilleService {
       // les rendre ne doit pas dépendre du succès de leur enregistrement.
       await this.persistRefresh(source.id, {
         items: items as unknown as Prisma.InputJsonValue,
-        fetchedAt: new Date(),
         lastError: null,
       });
       return { items, lastError: null };
@@ -177,10 +191,7 @@ export class VeilleService {
         error instanceof Error ? error.message : 'Source injoignable';
       // Même logique : ne pas réussir à consigner l'erreur ne doit pas priver
       // le feed de l'instantané périmé qu'on a déjà en main.
-      await this.persistRefresh(source.id, {
-        fetchedAt: new Date(),
-        lastError: message,
-      });
+      await this.persistRefresh(source.id, { lastError: message });
       return { items: cached, lastError: message };
     }
   }
@@ -191,8 +202,14 @@ export class VeilleService {
   ): Promise<void> {
     try {
       await this.prisma.watchedSource.update({ where: { id }, data });
-    } catch {
-      // Volontairement avalé : voir les appelants de `persistRefresh`.
+    } catch (error) {
+      // Avalé pour l'appelant (voir ses commentaires), mais jamais sans
+      // trace : un échec d'écriture silencieux et invisible est précisément
+      // ce qui a permis à `fetchedAt` de ne plus jamais avancer.
+      this.logger.error(
+        `Échec d'écriture du cache de veille pour la source ${id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
