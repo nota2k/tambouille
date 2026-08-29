@@ -27,8 +27,26 @@ const props = withDefaults(
     priority?: boolean
     /** Ce qui s'ajoute à l'image elle-même : `mix-blend-luminosity` sur les fournées. */
     imgClass?: string
+    /**
+     * Les largeurs disponibles, construites par `mediaSrcset`.
+     *
+     * Facultatif, et c'est délibéré : un appelant qui ne le passe pas garde
+     * exactement le comportement d'avant — une seule image, en pleine taille.
+     * Rien ne casse tant que tous les appels ne sont pas repris.
+     */
+    srcset?: string
+    /**
+     * La place que la pochette occupe réellement, pour que le navigateur
+     * choisisse. Sans `sizes`, il suppose 100vw et prend systématiquement la
+     * plus grande — ce qui annulerait tout le gain.
+     *
+     * En cas de doute, surestimer : le navigateur prend alors une image trop
+     * grande, c'est-à-dire le comportement actuel. Sous-estimer donne une
+     * pochette floue, qui est un vrai défaut.
+     */
+    sizes?: string
   }>(),
-  { alt: '', priority: false, imgClass: '' },
+  { alt: '', priority: false, imgClass: '', srcset: undefined, sizes: undefined },
 )
 
 const image = useTemplateRef<HTMLImageElement>('image')
@@ -104,6 +122,8 @@ function surEchec() {
       v-if="src"
       ref="image"
       :src="src"
+      :srcset="srcset"
+      :sizes="sizes"
       :alt="alt"
       :loading="priority ? 'eager' : 'lazy'"
       :fetchpriority="priority ? 'high' : 'auto'"

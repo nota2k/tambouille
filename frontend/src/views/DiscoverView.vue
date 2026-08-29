@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
-import { feedUrl, mediaUrl } from '@/utils/media'
+import { feedUrl, mediaSrcset, mediaUrl } from '@/utils/media'
 import { mixRoute } from '@/utils/routes'
 import { formatDate } from '@/utils/date'
 import { formatDuration } from '@/utils/time'
@@ -447,7 +447,12 @@ onMounted(loadSections)
                 aria-hidden="true"
                 tabindex="-1"
               >
-                <CoverImage :src="mediaUrl(featuredMix.coverUrl)" priority />
+                <CoverImage
+                  :src="mediaUrl(featuredMix.coverUrl)"
+                  :srcset="mediaSrcset(featuredMix.coverUrl)"
+                  sizes="(min-width: 640px) 380px, 100vw"
+                  priority
+                />
               </RouterLink>
 
               <div class="flex min-w-0 flex-1 flex-col">
