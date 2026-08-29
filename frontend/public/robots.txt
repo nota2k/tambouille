@@ -1,0 +1,25 @@
+# Ce fichier vit dans public/ et non dans dist/, comme le .htaccess voisin :
+# Vite vide dist/ à chaque build et n'y recopie que le contenu de public/.
+
+User-agent: *
+
+# Les écrans privés ou sans contenu public : ils n'apportent rien à l'index et
+# répondent la même coquille vide à un robot, faute de session.
+Disallow: /login
+Disallow: /register
+Disallow: /mot-de-passe-oublie
+Disallow: /reinitialiser-mot-de-passe
+Disallow: /auth/callback
+Disallow: /bienvenue
+Disallow: /upload
+Disallow: /settings
+Disallow: /collection
+Disallow: /*/edit$
+
+Allow: /
+
+# Le plan de site est construit à partir de la base, donc servi par l'API et
+# non par ce domaine-ci. Un sitemap hébergé ailleurs est accepté dès lors qu'il
+# est déclaré ici — et il reste à déclarer aussi dans la Search Console, où la
+# propriété vérifiée est le domaine du site.
+Sitemap: https://api.tambouille.pantagruweb.club/api/sitemap.xml

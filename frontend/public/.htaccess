@@ -10,6 +10,44 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # ── Aperçus de partage ────────────────────────────────────────────────────
+  #
+  # Ce site est une application monopage : le HTML servi ici est une coquille
+  # vide que seul un navigateur remplit. Les robots qui fabriquent l'aperçu
+  # d'un lien collé dans une conversation — Facebook, Discord, WhatsApp, Slack,
+  # Twitter/X, LinkedIn, Telegram, Signal, Mastodon, Bluesky — n'exécutent pas
+  # le JavaScript. Sans ces règles, tout lien vers un mix s'affiche avec le
+  # titre générique du site et sans pochette.
+  #
+  # Ils sont donc renvoyés vers l'API, qui écrit un vrai document pour eux
+  # (`backend/src/seo/preview.controller.ts`). L'URL de l'API est en dur : ce
+  # fichier est statique et n'a accès à aucune variable d'environnement. Elle
+  # doit rester alignée sur `VITE_API_BASE_URL` de `.env.production`.
+  #
+  # Une redirection 302 et non un proxy : `[P]` exige mod_proxy, qui n'est pas
+  # garanti sur cet hébergement mutualisé, et ces robots suivent tous les
+  # redirections. L'aperçu produit reste attribué à ce domaine-ci, `og:url`
+  # dans le document renvoyé désignant la page réelle.
+  #
+  # GOOGLEBOT N'EST PAS DANS CETTE LISTE, et ne doit pas y entrer : il exécute
+  # le JavaScript et voit donc le vrai site, où les mêmes balises sont écrites
+  # par `useSeo`. Lui servir un document différent de celui d'un visiteur est
+  # du cloaking, que Google sanctionne.
+  # La liste n'est écrite qu'une fois : marquée ici, relue par les trois règles
+  # qui suivent. Trois copies d'une même expression finissent par diverger.
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Facebot|Twitterbot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|TelegramBot|LinkedInBot|SkypeUriPreview|redditbot|Pinterest|Mastodon|Bluesky|Iframely|Embedly|vkShare|SignalBot) [NC]
+  RewriteRule ^ - [E=ROBOT_APERCU:1]
+
+  RewriteCond %{ENV:ROBOT_APERCU} =1
+  RewriteRule ^mixes/([^/]+)/?$ https://api.tambouille.pantagruweb.club/api/preview/mixes/$1 [R=302,L]
+
+  RewriteCond %{ENV:ROBOT_APERCU} =1
+  RewriteRule ^users/([^/]+)/?$ https://api.tambouille.pantagruweb.club/api/preview/users/$1 [R=302,L]
+
+  RewriteCond %{ENV:ROBOT_APERCU} =1
+  RewriteRule ^playlists/([^/]+)/?$ https://api.tambouille.pantagruweb.club/api/preview/playlists/$1 [R=302,L]
+
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   # Un fichier manquant sous /assets/ doit rester un 404. Lui servir index.html

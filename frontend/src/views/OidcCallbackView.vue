@@ -3,6 +3,15 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { exchangeKeycloakCode, markPendingLink } from '@/api/keycloak'
+import { useSeo } from '@/composables/useSeo'
+
+// Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
+// de toute façon la même page vide à un robot, faute de session.
+useSeo({
+  title: 'Connexion en cours',
+  description: 'Connexion en cours…',
+  noindex: true,
+})
 
 /**
  * Le retour du realm. Aucun rendu utile en régime normal — on échange, on ouvre

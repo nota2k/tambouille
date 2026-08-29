@@ -2,6 +2,15 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSeo } from '@/composables/useSeo'
+
+// Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
+// de toute façon la même page vide à un robot, faute de session.
+useSeo({
+  title: 'Nouveau mot de passe',
+  description: 'Choisissez un nouveau mot de passe pour votre compte Tambouille.',
+  noindex: true,
+})
 
 const authStore = useAuthStore()
 const route = useRoute()

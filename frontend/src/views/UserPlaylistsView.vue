@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { fetchUserPlaylists } from '@/utils/playlists'
 import PlaylistCard from '@/components/PlaylistCard.vue'
 import type { PlaylistSummary } from '@/types'
+import { useSeo } from '@/composables/useSeo'
 
 const route = useRoute()
 
@@ -23,6 +24,11 @@ async function load() {
     loading.value = false
   }
 }
+
+useSeo(() => ({
+  title: `Playlists de ${username.value}`,
+  description: `Les playlists de ${username.value} sur Tambouille.`,
+}))
 
 onMounted(load)
 watch(() => route.params.username, load)

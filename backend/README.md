@@ -144,6 +144,67 @@ servir.
 d'objet, et c'est elle qui les rend absolues dans les `enclosure`. Sa valeur est
 celle de `VITE_R2_PUBLIC_URL` côté frontend.
 
+## Images : tout entre, du WebP sort
+
+Toute image stockée par l'API est convertie en WebP et réduite au plafond de
+son usage — 1400 px pour une pochette, 512 pour un avatar, 2000 pour une
+bannière (`src/common/image.ts`). Une seule taille est conservée par image : le
+site n'a pas de variantes, donc chaque plafond est celui du plus grand
+affichage.
+
+Les deux chemins d'entrée y passent, pour que ce qui est stocké ne dépende pas
+du chemin emprunté :
+
+- le formulaire d'upload, via le moteur de stockage de `src/common/upload.utils.ts` ;
+- les pochettes que le serveur va chercher lui-même à la source, via `CoverImportService`.
+
+**L'audio n'est pas concerné et ne doit pas l'être** : le moteur n'intercepte
+que les types `image/*` et laisse le reste à `multer-s3`, qui streame le fichier
+vers R2. Un mix pèse jusqu'à 250 Mo ; le charger en mémoire pour l'inspecter
+mettrait le serveur à genoux à deux dépôts simultanés. Les images, elles, sont
+plafonnées à 5 Mo à l'entrée du moteur — plus strict que la limite de la requête
+sur le dépôt d'un mix, qui n'a de sens que pour l'audio.
+
+L'orientation EXIF est appliquée aux pixels avant l'encodage : le WebP produit
+ne porte plus la consigne, et une photo prise de travers resterait couchée pour
+toujours.
+
+### Reprendre les images déjà stockées
+
+`src/scripts/backfill-webp.ts` convertit l'existant : les pochettes de mix, les
+avatars et les bannières, aussi bien les objets R2 que les fichiers d'avant la
+migration (`/uploads/...`). **Il ne fait rien sans `--apply`.**
+
+```
+npm run backfill:webp -- --limit 5              # à blanc, cinq lignes par cible
+npm run backfill:webp -- --apply --keep-original
+npm run backfill:webp -- --apply
+```
+
+En production, `ts-node` n'est pas installé (`npm install --omit=dev`) : depuis
+`~/tambouille/backend`, nodevenv activé, lancer le code déjà déployé —
+
+```
+node dist/src/scripts/backfill-webp.js --apply
+```
+
+Pour chaque image : écrire la nouvelle, PUIS mettre à jour la colonne, PUIS
+effacer l'ancienne. Interrompu entre deux étapes, ce qui reste est au pire un
+objet que plus rien ne référence ; l'ordre inverse laisserait une colonne
+pointant vers un objet effacé, c'est-à-dire une pochette disparue du site. Le
+script est donc reprenable : relancé, il saute ce qui est déjà en WebP.
+
+`--keep-original` n'efface pas les anciens objets — une première passe prudente,
+au prix d'objets orphelins à nettoyer ensuite. `--only=covers,avatars,banners`
+restreint le périmètre, `--limit N` le nombre de lignes par cible. Un échec sur
+une image est signalé et compté sans arrêter les autres ; le code de sortie vaut
+1 s'il y en a eu.
+
+Mesuré sur les données de développement : 9,2 Mo d'images ramenés à 485 ko.
+
+`sharp` est une dépendance native : `npm install --omit=dev` télécharge le
+binaire de la plateforme au déploiement, comme pour toute autre dépendance.
+
 ## Ce qui reste manuel
 
 - Appliquer une migration, pour la raison ci-dessus.

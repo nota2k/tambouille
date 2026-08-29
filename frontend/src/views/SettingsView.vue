@@ -7,6 +7,15 @@ import { mediaUrl } from '@/utils/media'
 import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
 import type { UserProfile } from '@/types'
+import { useSeo } from '@/composables/useSeo'
+
+// Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
+// de toute façon la même page vide à un robot, faute de session.
+useSeo({
+  title: 'Réglages',
+  description: 'Les réglages de votre compte Tambouille.',
+  noindex: true,
+})
 
 const router = useRouter()
 const authStore = useAuthStore()

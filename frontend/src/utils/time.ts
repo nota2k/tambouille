@@ -45,3 +45,20 @@ export function formatDuration(seconds: number | null | undefined): string | nul
   const minutes = totalMinutes % 60
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes.toString().padStart(2, '0')}`
 }
+
+/**
+ * Une durée au format ISO 8601 (« PT1H12M30S »), le seul que schema.org lise.
+ *
+ * Distinct de `formatDuration`, qui écrit pour un lecteur humain : les deux
+ * décrivent la même valeur, à deux destinataires qui ne l'acceptent pas sous
+ * la même forme. Renvoie null quand la durée est inconnue, pour que la donnée
+ * structurée omette la propriété plutôt que d'annoncer « PT0S ».
+ */
+export function isoDuration(seconds: number | null | undefined): string | null {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return null
+  const total = Math.round(seconds)
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const secs = total % 60
+  return `PT${hours ? `${hours}H` : ''}${minutes ? `${minutes}M` : ''}${secs ? `${secs}S` : ''}`
+}

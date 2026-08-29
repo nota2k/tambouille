@@ -9,6 +9,7 @@ import { CommentsModule } from './comments/comments.module';
 import { MixcloudModule } from './mixcloud/mixcloud.module';
 import { ImportsModule } from './imports/imports.module';
 import { FeedsModule } from './feeds/feeds.module';
+import { SeoModule } from './seo/seo.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { FeedsModule } from './feeds/feeds.module';
     MixcloudModule,
     ImportsModule,
     FeedsModule,
+    SeoModule,
   ],
 })
 export class AppModule {}

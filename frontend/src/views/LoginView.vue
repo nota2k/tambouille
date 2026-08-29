@@ -5,6 +5,15 @@ import { useAuthStore } from '@/stores/auth'
 import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
 import { clearPendingLink, startKeycloakFlow, takePendingLink } from '@/api/keycloak'
+import { useSeo } from '@/composables/useSeo'
+
+// Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
+// de toute façon la même page vide à un robot, faute de session.
+useSeo({
+  title: 'Connexion',
+  description: 'Connectez-vous à votre compte Tambouille.',
+  noindex: true,
+})
 
 const authStore = useAuthStore()
 const router = useRouter()
