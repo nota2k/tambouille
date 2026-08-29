@@ -30,6 +30,8 @@ function toggleFollow() {
         <img
           v-if="profile.avatarUrl"
           :src="mediaUrl(profile.avatarUrl)"
+          loading="lazy"
+          decoding="async"
           class="h-16 w-16 object-cover"
           alt=""
         />

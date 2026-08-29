@@ -47,6 +47,8 @@ const visible = computed(() => props.users.slice(0, props.max))
         <img
           v-if="user.avatarUrl"
           :src="mediaUrl(user.avatarUrl)"
+          loading="lazy"
+          decoding="async"
           class="h-14 w-14 rounded-none object-cover ring-2 ring-white"
           :alt="user.displayName"
         />

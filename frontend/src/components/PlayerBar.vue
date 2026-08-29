@@ -608,6 +608,8 @@ function onEnded() {
       <img
         v-if="playerStore.currentMix.coverUrl"
         :src="mediaUrl(playerStore.currentMix.coverUrl)"
+        loading="lazy"
+        decoding="async"
         class="h-12 w-12 shrink-0 rounded-none object-cover"
         alt=""
       />

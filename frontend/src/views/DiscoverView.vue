@@ -8,6 +8,7 @@ import { feedUrl, mediaUrl } from '@/utils/media'
 import { formatDate } from '@/utils/date'
 import { formatDuration } from '@/utils/time'
 import MixListItem from '@/components/MixListItem.vue'
+import MixListItemSkeleton from '@/components/MixListItemSkeleton.vue'
 import MixGrid from '@/components/MixGrid.vue'
 import TagsOverlay from '@/components/TagsOverlay.vue'
 import FourneeBanner from '@/components/FourneeBanner.vue'
@@ -25,7 +26,13 @@ const route = useRoute()
 
 const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const sortBy = ref<'recent' | 'plays'>('recent')
-const loading = ref(false)
+/**
+ * Vrai dès le départ, et non passé à vrai dans `loadSections` : la vue monte en
+ * chargeant. À faux, le tout premier rendu montrerait une page vide avant que
+ * `onMounted` ne déclenche le squelette — soit le saut qu'on cherche à supprimer,
+ * repoussé d'une image.
+ */
+const loading = ref(true)
 const showTagsOverlay = ref(false)
 const selectedTags = ref<string[]>([])
 const isSearching = computed(
@@ -98,6 +105,12 @@ let searchTimeout: ReturnType<typeof setTimeout> | undefined
 const featuredMix = computed(() => latestMixes.value[0] ?? null)
 const restOfLatest = computed(() => latestMixes.value.slice(1))
 const featuredDuration = computed(() => formatDuration(featuredMix.value?.durationSec))
+
+/**
+ * Le premier chargement de l'accueil : l'API n'a encore rien rendu. Distinct
+ * d'un catalogue vide, qui lui se dit avec des mots et non avec un squelette.
+ */
+const chargementDuFlux = computed(() => loading.value && !latestMixes.value.length)
 // La règle artiste/compte vient du composable, comme sur les cinq autres
 // surfaces : ce bloc écrivait le compte en dur et était le seul à la contourner.
 const featuredCredit = computed(() => (featuredMix.value ? mixCredit(featuredMix.value) : null))
@@ -306,14 +319,14 @@ onMounted(loadSections)
       @close="showTagsOverlay = false"
     />
 
-    <div
-      v-if="loading && !latestMixes.length && !searchResults.length"
-      class="py-16 text-center text-tambouille-muted"
-    >
-      Chargement...
-    </div>
+    <template v-if="isSearching">
+      <!-- Le flux avant ses données : six lignes plutôt qu'un « Chargement… »
+           centré, qui ne réservait rien et laissait les résultats pousser le bas
+           de page d'un coup. -->
+      <div v-if="loading && !searchResults.length" class="mt-9">
+        <MixListItemSkeleton v-for="n in 6" :key="n" />
+      </div>
 
-    <template v-else-if="isSearching">
       <section v-if="userResults.length > 0" class="mt-9">
         <p class="tb-eyebrow">Cuisinier⋅ère⋅s</p>
         <div class="flex flex-wrap gap-6 pt-4">
@@ -326,6 +339,8 @@ onMounted(loadSections)
             <img
               v-if="user.avatarUrl"
               :src="mediaUrl(user.avatarUrl)"
+              loading="lazy"
+              decoding="async"
               class="h-11 w-11 object-cover"
               alt=""
             />
@@ -375,6 +390,42 @@ onMounted(loadSections)
            cuisinier⋅ère⋅s remplacent le bloc coloré et le faux classement. -->
       <div class="mt-8 grid gap-12 lg:grid-cols-[1fr_320px]">
         <div class="min-w-0">
+          <!-- La colonne avant ses données. Sans elle, l'accueil s'affichait
+               presque vide : la bande « Écoutez ailleurs » se retrouvait dans la
+               fenêtre, puis les mix arrivaient et la chassaient trois mille
+               pixels plus bas. Ce saut-là valait à lui seul 1,47 de décalage
+               cumulé, sur un seuil de 0,1.
+
+               Un mis en avant et neuf lignes : c'est ce que `limit: 10` ramène,
+               le premier mix passant à la une et les neuf autres à la suite. -->
+          <template v-if="chargementDuFlux">
+            <p class="tb-eyebrow">À la une</p>
+            <div
+              class="flex flex-col gap-6 border-b border-black/15 py-7 sm:flex-row"
+              aria-hidden="true"
+            >
+              <div
+                class="aspect-square w-full max-w-[var(--width-max-large)] shrink-0 bg-tambouille-surface-hover"
+              />
+              <div class="flex min-w-0 flex-1 flex-col">
+                <!-- Le titre : `text-5xl leading-tight`, deux lignes. Réserver
+                     au plus court rendrait le saut qu'on cherche à supprimer. -->
+                <div class="h-[60px] w-11/12 bg-tambouille-surface-hover" />
+                <div class="mt-2 h-[60px] w-2/3 bg-tambouille-surface-hover" />
+                <!-- Le compte et la date, puis la ligne durée · morceaux. -->
+                <div class="mt-4 h-[26px] w-1/2 bg-tambouille-surface-hover" />
+                <div class="mt-2.5 h-5 w-2/5 bg-tambouille-surface-hover" />
+                <!-- Le bouton « Écouter », `tb-btn`. -->
+                <div class="mt-auto h-[43px] w-40 bg-tambouille-surface-hover" />
+              </div>
+            </div>
+
+            <section class="pt-8">
+              <p class="tb-eyebrow">Derniers mix</p>
+              <MixListItemSkeleton v-for="n in 9" :key="n" />
+            </section>
+          </template>
+
           <template v-if="featuredMix">
             <p class="tb-eyebrow">À la une</p>
             <div class="flex flex-col gap-6 border-b border-black/15 py-7 sm:flex-row">
@@ -390,6 +441,8 @@ onMounted(loadSections)
                 <img
                   v-if="featuredMix.coverUrl"
                   :src="mediaUrl(featuredMix.coverUrl)"
+                  fetchpriority="high"
+                  decoding="async"
                   class="h-full w-full object-cover"
                   alt=""
                 />
@@ -441,7 +494,7 @@ onMounted(loadSections)
             <MixListItem v-for="mix in restOfLatest" :key="mix.id" :mix="mix" />
           </section>
 
-          <p v-if="!latestMixes.length" class="py-10 text-center text-tambouille-muted">
+          <p v-if="!loading && !latestMixes.length" class="py-10 text-center text-tambouille-muted">
             Aucun mix pour l'instant. Sois le premier à en mettre un à la casserole&nbsp;!
           </p>
 
@@ -501,6 +554,8 @@ onMounted(loadSections)
                   <img
                     v-if="cook.avatarUrl"
                     :src="mediaUrl(cook.avatarUrl)"
+                    loading="lazy"
+                    decoding="async"
                     class="h-11 w-11 shrink-0 object-cover"
                     alt=""
                   />

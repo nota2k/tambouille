@@ -115,6 +115,8 @@ async function submitDelete() {
             <img
               v-if="authStore.user?.avatarUrl"
               :src="mediaUrl(authStore.user.avatarUrl)"
+              loading="lazy"
+              decoding="async"
               class="h-16 w-16 rounded-none object-cover"
               alt=""
             />

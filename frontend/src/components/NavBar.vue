@@ -221,6 +221,8 @@ onUnmounted(() => {
                 <img
                   v-if="user.avatarUrl"
                   :src="mediaUrl(user.avatarUrl)"
+                  loading="lazy"
+                  decoding="async"
                   class="h-9 w-9 rounded-none object-cover"
                   alt=""
                 />
@@ -281,6 +283,7 @@ onUnmounted(() => {
                 <img
                   v-if="authStore.user?.avatarUrl"
                   :src="mediaUrl(authStore.user.avatarUrl)"
+                  decoding="async"
                   class="h-full w-full rounded-none object-cover"
                   alt=""
                 />
