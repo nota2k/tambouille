@@ -13,12 +13,25 @@
 // changement de code. Les apostrophes des titres arrivent en `&#39;` au sein
 // du JSON (ex. "Burningn&#39;n Tree") : `JSON.parse` les avale telles quelles
 // et c'est `stripHtml`, déjà appelé sur le titre, qui les décode.
+//
+// Deuxième fixture gelée depuis https://actress.bandcamp.com/music (curl,
+// 2026-08-29, correctif du round 1 : `fromGridMarkup` n'était exercé par
+// aucun HTML réel). Cette page ne porte aucun `data-client-items` — Bandcamp
+// sert encore, pour certains artistes, la grille statique documentée en
+// forme 2 du brief : des `<li class="music-grid-item">`, chacune avec un
+// `<a href="/album/…">`, une `<img src>` déjà absolue et un `<p class="title">`.
+// Le regex de `fromGridMarkup` matche ses 19 entrées telles quelles (vérifié
+// à la main avec un script Node avant d'écrire le test ci-dessous).
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isBandcampUrl, parseBandcampMusicPage } from './bandcamp.reader';
 
 const MUSIC = readFileSync(
   join(__dirname, '__fixtures__', 'bandcamp-music.html'),
+  'utf8',
+);
+const MUSIC_GRID = readFileSync(
+  join(__dirname, '__fixtures__', 'bandcamp-music-grid.html'),
   'utf8',
 );
 
@@ -55,6 +68,21 @@ describe('parseBandcampMusicPage', () => {
       'https://squarepusher.bandcamp.com',
     );
     expect(items.length).toBeLessThanOrEqual(10);
+  });
+
+  it('lit la grille statique quand la page ne sert pas de data-client-items', () => {
+    const { label, items } = parseBandcampMusicPage(
+      MUSIC_GRID,
+      'https://actress.bandcamp.com',
+    );
+
+    expect(label).toBeTruthy();
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(item.title).toBeTruthy();
+      expect(item.pageUrl).toMatch(/^https:\/\/actress\.bandcamp\.com\//);
+      expect(item.coverUrl).toBeTruthy();
+    }
   });
 
   it('rend une liste vide sur une page sans grille', () => {
