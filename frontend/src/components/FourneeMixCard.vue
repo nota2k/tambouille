@@ -29,15 +29,21 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
        permet au bouton de se coller en bas par `mt-auto` quand la carte est
        étirée à la hauteur de la plus haute de la bande. Sans lui, les enfants
        s'empilent en blocs et une marge verticale `auto` vaut zéro. -->
-  <li
+  <div
     class="flex flex-col border-r border-b px-3 py-6 sm:px-5"
     :style="{ backgroundColor: surface, color: ink, borderColor: rule }"
   >
+    <!-- Retiré de l'arborescence d'accessibilité et de l'ordre de tabulation :
+         le titre juste en dessous mène au même endroit. Sans cela le lien
+         n'annonce rien — il ne contient qu'une image décorative — et un
+         lecteur d'écran énonce deux fois le même mix. -->
     <RouterLink
       :to="{ name: 'mix-detail', params: { id: mix.id } }"
       class="isolate block w-full overflow-hidden"
       :class="layout === 'large' ? 'aspect-2/3' : 'aspect-3/2'"
       :style="{ backgroundColor: zone.wash }"
+      aria-hidden="true"
+      tabindex="-1"
     >
       <!-- Duotone : l'aplat clair donne la teinte, la pochette n'apporte que sa
            luminance. Sans pochette il ne reste que l'aplat. -->
@@ -82,5 +88,5 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
     >
       {{ isPlaying ? 'En lecture' : 'Lire' }}
     </button>
-  </li>
+  </div>
 </template>

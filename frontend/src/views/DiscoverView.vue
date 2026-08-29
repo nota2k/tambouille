@@ -378,9 +378,14 @@ onMounted(loadSections)
           <template v-if="featuredMix">
             <p class="tb-eyebrow">À la une</p>
             <div class="flex flex-col gap-6 border-b border-black/15 py-7 sm:flex-row">
+              <!-- Hors de l'arborescence d'accessibilité et de l'ordre de
+                   tabulation : le titre à droite mène au même mix. Le lien ne
+                   contenant qu'une image décorative, il n'annoncerait rien. -->
               <RouterLink
                 :to="{ name: 'mix-detail', params: { id: featuredMix.id } }"
                 class="aspect-square w-full max-w-[var(--width-max-large)] shrink-0 overflow-hidden bg-tambouille-surface-hover"
+                aria-hidden="true"
+                tabindex="-1"
               >
                 <img
                   v-if="featuredMix.coverUrl"

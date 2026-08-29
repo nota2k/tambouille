@@ -35,8 +35,8 @@ onUnmounted(() => clearTimeout(resetTimer))
         ? 'flex items-center justify-center rounded-none border border-tambouille-muted text-sm hover:bg-tambouille-surface-hover px-2 bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
         : 'flex items-center justify-center rounded-none border border-tambouille-muted text-sm hover:bg-tambouille-surface-hover px-2'
     "
-    :title="copied ? 'Lien copié' : ''"
-    :aria-label="copied ? 'Lien copié' : ''"
+    :title="copied ? 'Lien copié' : 'Copier le lien'"
+    :aria-label="copied ? 'Lien copié' : 'Copier le lien'"
     @click="share"
   >
     <svg v-if="copied" viewBox="0 0 24 24" class="h-4 w-4 fill-current">

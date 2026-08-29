@@ -1,7 +1,7 @@
-/* Avant `@import "tailwindcss"`, et pas après : Tailwind inline tout son contenu
-   à sa place, donc un @import placé sous lui se retrouve précédé de règles et le
-   minifieur le jette — les polices ne partaient pas en production. */
-@import url('https://fonts.googleapis.com/css2?family=Arvo:wght@400;700&family=Rambla:wght@400;700&display=swap');
+/* Arvo et Rambla ne sont plus importées ici mais déclarées dans `index.html`.
+   Un `@import` depuis cette feuille met la requête au bout d'une chaîne — le
+   navigateur ne la découvre qu'après avoir téléchargé et analysé ce fichier —
+   et retardait le premier affichage d'environ une seconde. */
 /* Avant Tailwind, pour la raison dite juste au-dessus : la feuille de Lenis
    neutralise `scroll-behavior` tant que le défilement inertiel est actif, et
    gère les conteneurs marqués `data-lenis-prevent`. */

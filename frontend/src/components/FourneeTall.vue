@@ -115,7 +115,11 @@ function playAll() {
         class="overflow-hidden border-t"
         :style="{ borderColor: `color-mix(in srgb, ${ink} 30%, transparent)` }"
       >
+        <!-- `ul`/`li` plutôt que les `div` par défaut de Swiper : la bande est
+             une liste de mix, et un `li` sans parent de liste n'est pas énoncé
+             comme tel. -->
         <Swiper
+          wrapper-tag="ul"
           class="fournee-swiper w-full"
           :slides-per-view="1"
           :space-between="0"
@@ -125,7 +129,7 @@ function playAll() {
             1280: { slidesPerView: 5 },
           }"
         >
-          <SwiperSlide v-for="mix in fournee.mixes" :key="mix.id">
+          <SwiperSlide v-for="mix in fournee.mixes" :key="mix.id" tag="li">
             <FourneeMixCard :mix="mix" :zone="zone" class="h-full" />
           </SwiperSlide>
         </Swiper>

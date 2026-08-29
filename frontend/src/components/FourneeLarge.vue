@@ -91,7 +91,11 @@ function playAll() {
            Le conteneur, plus étroit d'un pixel que la grille, coupe le filet de
            la carte de bout de rangée. -->
       <div class="overflow-hidden" :style="{ backgroundColor: season, color: inkOnSeason }">
+        <!-- `ul`/`li` plutôt que les `div` par défaut de Swiper : la bande est
+             une liste de mix, et un `li` sans parent de liste n'est pas énoncé
+             comme tel. -->
         <Swiper
+          wrapper-tag="ul"
           class="fournee-swiper h-full w-full"
           :slides-per-view="1"
           :space-between="0"
@@ -101,7 +105,7 @@ function playAll() {
             1024: { slidesPerView: 4 },
           }"
         >
-          <SwiperSlide v-for="mix in fournee.mixes" :key="mix.id">
+          <SwiperSlide v-for="mix in fournee.mixes" :key="mix.id" tag="li">
             <FourneeMixCard :mix="mix" :zone="zone" layout="large" class="h-full" />
           </SwiperSlide>
         </Swiper>
