@@ -24,7 +24,9 @@ jest.mock('../common/upload.utils', () => ({
 import { MixesController } from './mixes.controller';
 import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
 import { CoverImportService } from './cover-import.service';
+import { QueryMixesDto } from './dto/query-mixes.dto';
 import type { UploadedFile as R2File } from '../common/upload.utils';
+import type { IncongruesSyncService } from '../incongrues/incongrues.sync.service';
 
 /**
  * These cover the create route's *ordering*, not its rules: importing a cover
@@ -53,11 +55,33 @@ function createServiceMock() {
       },
     ),
     findBySource: jest.fn().mockResolvedValue(null),
+    findAll: jest.fn().mockResolvedValue({ items: [], total: 0 }),
   };
 }
 
+/**
+ * Simule `IncongruesSyncService` sans en tirer les dépendances réelles
+ * (Flarum, Prisma…) : ces tests ne vérifient que le déclenchement depuis le
+ * contrôleur, pas la synchronisation elle-même.
+ */
+function createIncongruesMock() {
+  return {
+    syncAllDebounced: jest.fn().mockResolvedValue(0),
+    syncAllRattrapageHoraire: jest.fn().mockResolvedValue(0),
+  };
+}
+
+/**
+ * Le contrôleur appelle maintenant `resolveCoverUrl`, mais ces tests décrivent
+ * un comportement — « un fichier envoyé l'emporte », « la source distante est
+ * essayée » — qui vit dans le vrai `CoverImportService`. L'instance réelle est
+ * donc gardée ici, seule `importFromUrl` (le seul point qui touche le réseau)
+ * est simulée : `resolveCoverUrl` s'exécute pour de vrai par-dessus.
+ */
 function createCoverImportMock() {
-  return { importFromUrl: jest.fn().mockResolvedValue('covers/imported.jpg') };
+  const service = new CoverImportService();
+  jest.spyOn(service, 'importFromUrl').mockResolvedValue('covers/imported.jpg');
+  return service;
 }
 
 const USER_ID = 'user-id';
@@ -71,17 +95,22 @@ function uploadedFile(key: string): R2File {
   return { key } as R2File;
 }
 
+const QUERY_PAR_DEFAUT: QueryMixesDto = {};
+
 describe('MixesController', () => {
   let mixesService: ReturnType<typeof createServiceMock>;
   let coverImport: ReturnType<typeof createCoverImportMock>;
+  let incongrues: ReturnType<typeof createIncongruesMock>;
   let controller: MixesController;
 
   beforeEach(() => {
     mixesService = createServiceMock();
     coverImport = createCoverImportMock();
+    incongrues = createIncongruesMock();
     controller = new MixesController(
       mixesService as unknown as MixesService,
       coverImport as unknown as CoverImportService,
+      incongrues as unknown as IncongruesSyncService,
     );
   });
 
@@ -230,6 +259,34 @@ describe('MixesController', () => {
         expect.anything(),
         expect.objectContaining({ coverUrl: 'covers/uploaded.jpg' }),
       );
+    });
+  });
+
+  describe('rattrapage Musiques Incongrues', () => {
+    it('déclenche une synchronisation sans attendre son résultat', async () => {
+      await controller.findAll(QUERY_PAR_DEFAUT, undefined);
+
+      expect(incongrues.syncAllRattrapageHoraire).toHaveBeenCalledTimes(1);
+    });
+
+    // La route publique la plus visitée du site : elle prend le seuil horaire,
+    // pas l'anti-rebond à la minute du webhook.
+    it('prend le seuil horaire, jamais celui du webhook', async () => {
+      await controller.findAll(QUERY_PAR_DEFAUT, undefined);
+
+      expect(incongrues.syncAllDebounced).not.toHaveBeenCalled();
+    });
+
+    // Le fil doit s'afficher même si le forum est injoignable : c'est tout
+    // l'intérêt de détacher l'appel.
+    it('rend le fil même quand la synchronisation échoue', async () => {
+      incongrues.syncAllRattrapageHoraire.mockRejectedValue(
+        new Error('forum injoignable'),
+      );
+
+      await expect(
+        controller.findAll(QUERY_PAR_DEFAUT, undefined),
+      ).resolves.toBeDefined();
     });
   });
 });

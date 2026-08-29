@@ -16,6 +16,14 @@ import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { deleteFromR2 } from '../common/upload.utils';
 import { QueryMixesDto } from './dto/query-mixes.dto';
+import { CoverImportService } from './cover-import.service';
+import type { MixImport } from '../imports/source-importer';
+
+/** `createFromImport` ne touche jamais R2 lui-même : la résolution de
+ *  pochette est déléguée, donc simulée ici sans vrai fetch. */
+function createCoverImportMock() {
+  return { resolveCoverUrl: jest.fn().mockResolvedValue(undefined) };
+}
 
 /**
  * Prisma is mocked: these cover the service's own rule — that a mix carries
@@ -78,11 +86,16 @@ function mixRow(overrides: Record<string, unknown> = {}) {
 
 describe('MixesService', () => {
   let prisma: ReturnType<typeof createPrismaMock>;
+  let coverImport: ReturnType<typeof createCoverImportMock>;
   let service: MixesService;
 
   beforeEach(() => {
     prisma = createPrismaMock();
-    service = new MixesService(prisma as unknown as PrismaService);
+    coverImport = createCoverImportMock();
+    service = new MixesService(
+      prisma as unknown as PrismaService,
+      coverImport as unknown as CoverImportService,
+    );
     prisma.mix.create.mockImplementation(({ data }: any) =>
       Promise.resolve(mixRow(data)),
     );
@@ -182,6 +195,115 @@ describe('MixesService', () => {
         ),
       ).rejects.toThrow('A remote source needs both sourceType and sourceRef');
       expect(prisma.mix.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createFromImport', () => {
+    const IMPORT: MixImport = {
+      title: 'Un titre',
+      description: 'Une description',
+      tags: ['house', 'live'],
+      artist: 'Richard Foe',
+      coverSourceUrl: 'https://thumbnailer.mixcloud.com/x.jpg',
+      durationSec: 3600,
+      tracklist: [{ artist: 'A', title: 'B', timecodeSec: 12 }],
+      sourceType: 'mixcloud',
+      sourceRef: '/richardfoe/x/',
+      sourceLabel: 'Mixcloud',
+      sourcePageUrl: 'https://www.musiques-incongrues.net/d/15617-x',
+    };
+
+    let creer: jest.SpyInstance;
+
+    beforeEach(() => {
+      creer = jest.spyOn(service, 'create').mockResolvedValue(mixRow());
+    });
+
+    it('encode les tags en chaîne et la tracklist en JSON, comme le formulaire', async () => {
+      await service.createFromImport(USER_ID, IMPORT);
+
+      expect(creer).toHaveBeenCalledWith(
+        USER_ID,
+        expect.objectContaining({
+          tags: 'house,live',
+          tracklist: JSON.stringify(IMPORT.tracklist),
+        }),
+        expect.anything(),
+      );
+    });
+
+    // `CreateMixDto` plafonne le titre à 120 caractères, mais ce chemin appelle
+    // le service directement et ne passe donc par aucun ValidationPipe. Sans
+    // troncature ici, un titre long entrerait en base là où le formulaire
+    // l'aurait refusé.
+    it('tronque un titre de plus de 120 caractères', async () => {
+      await service.createFromImport(USER_ID, {
+        ...IMPORT,
+        title: 'a'.repeat(200),
+      });
+
+      const [, dto] = creer.mock.calls[0];
+      expect(dto.title).toHaveLength(120);
+    });
+
+    // Le scénario qui fait mal : le mix entre en base avec une description plus
+    // longue que `@MaxLength(2000)`, puis la personne ouvre l'édition, corrige
+    // une virgule et enregistre — le `PATCH` refuse sur un champ qu'elle n'a
+    // pas touché, et le mix devient inéditable.
+    it('tronque une description de plus de 2000 caractères', async () => {
+      await service.createFromImport(USER_ID, {
+        ...IMPORT,
+        description: 'a'.repeat(3000),
+      });
+
+      const [, dto] = creer.mock.calls[0];
+      expect(dto.description).toHaveLength(2000);
+    });
+
+    it('tronque un artiste de plus de 120 caractères', async () => {
+      await service.createFromImport(USER_ID, {
+        ...IMPORT,
+        artist: 'a'.repeat(200),
+      });
+
+      const [, dto] = creer.mock.calls[0];
+      expect(dto.artist).toHaveLength(120);
+    });
+
+    // La chaîne de tags a sa propre borne, `@MaxLength(300)`, indépendante des
+    // 10 tags de `parseTags`. La coupe tombe entre deux tags : une moitié de
+    // mot n'est pas un tag qu'on veut garder.
+    it('borne la chaîne de tags à 300 caractères, sans couper un tag', async () => {
+      await service.createFromImport(USER_ID, {
+        ...IMPORT,
+        tags: Array.from({ length: 10 }, (_, i) => `${i}`.repeat(60)),
+      });
+
+      const [, dto] = creer.mock.calls[0];
+      expect(dto.tags.length).toBeLessThanOrEqual(300);
+      expect(
+        dto.tags.split(',').every((tag: string) => tag.length === 60),
+      ).toBe(true);
+    });
+
+    it('importe la pochette distante et la passe en clé R2', async () => {
+      coverImport.resolveCoverUrl.mockResolvedValue('covers/importee.webp');
+      await service.createFromImport(USER_ID, IMPORT);
+
+      expect(coverImport.resolveCoverUrl).toHaveBeenCalledWith(
+        undefined,
+        IMPORT.coverSourceUrl,
+      );
+      expect(creer).toHaveBeenCalledWith(USER_ID, expect.anything(), {
+        coverUrl: 'covers/importee.webp',
+      });
+    });
+
+    it('crée le mix même quand la pochette ne peut pas être récupérée', async () => {
+      coverImport.resolveCoverUrl.mockResolvedValue(undefined);
+      await expect(
+        service.createFromImport(USER_ID, IMPORT),
+      ).resolves.toBeDefined();
     });
   });
 
@@ -1123,7 +1245,10 @@ describe('remove', () => {
     prisma.mix.delete.mockResolvedValue(mix);
     return {
       prisma,
-      service: new MixesService(prisma as unknown as PrismaService),
+      service: new MixesService(
+        prisma as unknown as PrismaService,
+        { resolveCoverUrl: jest.fn() } as unknown as CoverImportService,
+      ),
     };
   }
 
@@ -1203,7 +1328,10 @@ describe('remove', () => {
   it('deletes nothing when the mix does not exist', async () => {
     const prisma = createPrismaMock();
     prisma.mix.findUnique.mockResolvedValue(null);
-    const service = new MixesService(prisma as unknown as PrismaService);
+    const service = new MixesService(
+      prisma as unknown as PrismaService,
+      { resolveCoverUrl: jest.fn() } as unknown as CoverImportService,
+    );
 
     await expect(service.remove(MIX_ID, USER_ID)).rejects.toBeInstanceOf(
       NotFoundException,
@@ -1225,7 +1353,10 @@ describe('update — the cover it replaces', () => {
     );
     return {
       prisma,
-      service: new MixesService(prisma as unknown as PrismaService),
+      service: new MixesService(
+        prisma as unknown as PrismaService,
+        { resolveCoverUrl: jest.fn() } as unknown as CoverImportService,
+      ),
     };
   }
 
@@ -1282,7 +1413,10 @@ describe('update — the cover it replaces', () => {
       coverUrl: OLD_COVER,
     });
     prisma.mix.update.mockRejectedValue(new Error('write failed'));
-    const service = new MixesService(prisma as unknown as PrismaService);
+    const service = new MixesService(
+      prisma as unknown as PrismaService,
+      { resolveCoverUrl: jest.fn() } as unknown as CoverImportService,
+    );
 
     await expect(
       service.update(MIX_ID, USER_ID, {}, NEW_COVER),
@@ -1311,7 +1445,10 @@ describe('MixesService.resolveAudio', () => {
   function serviceFor(mix: Record<string, unknown> | null) {
     const prisma = createPrismaMock();
     prisma.mix.findUnique.mockResolvedValue(mix);
-    return new MixesService(prisma as unknown as PrismaService);
+    return new MixesService(
+      prisma as unknown as PrismaService,
+      { resolveCoverUrl: jest.fn() } as unknown as CoverImportService,
+    );
   }
 
   it('redirige temporairement un mix hébergé vers le bucket public', async () => {

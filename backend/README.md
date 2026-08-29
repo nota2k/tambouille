@@ -10,7 +10,7 @@ les migrations Prisma.
 ## Comment une version arrive en production
 
 Rien n'est manuel, et rien ne se déclenche tout seul non plus — le déploiement
-part sur commande, depuis *Actions › CI › Run workflow*.
+part sur commande, depuis _Actions › CI › Run workflow_.
 
 ```
 push / PR ──▶ backend · frontend · e2e          les trois vérifications
@@ -51,9 +51,9 @@ directement dans la production.
 
 ## Entrées du déclenchement manuel
 
-| Entrée | Effet |
-|---|---|
-| `ref` | Déploie une référence précise. **C'est le retour arrière** : redéployer un commit connu-bon, sans rien révoquer ni réécrire |
+| Entrée | Effet                                                                                                                       |
+| ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `ref`  | Déploie une référence précise. **C'est le retour arrière** : redéployer un commit connu-bon, sans rien révoquer ni réécrire |
 
 ## Pourquoi ni SSH ni FTP
 
@@ -120,6 +120,42 @@ n'en lisent aucun — elles restent donc exécutables depuis un fork.
 peut pas l'écraser, et ne peut pas non plus le renseigner. Une variable nouvelle
 demande un geste manuel, et son absence ne se voit qu'en empruntant le chemin
 qui la lit.
+
+`INCONGRUES_WEBHOOK_SECRET` est de cette famille, avec une contrainte en plus :
+c'est un secret qui vit dans une URL plutôt que dans un en-tête, parce que FoF
+Webhooks — l'extension du forum Musiques Incongrues qui prévient Tambouille
+quand un mix y est posté — ne laisse configurer qu'une adresse. Le générer :
+
+```
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+puis le poser dans `backend/.env` en production, sous ce nom. Côté forum,
+administration Flarum → FoF Webhooks → nouvelle entrée, URL
+`https://<api-tambouille>/api/webhooks/musiques-incongrues/<secret>`, événement
+« Discussion Started ». Tant que ces deux gestes n'ont pas été faits, la route
+répond 404 : le dispositif est inactif, ce n'est pas une panne. Et comme le
+secret voyage dans l'URL, il faut aussi s'assurer que les journaux d'accès
+o2switch ne conservent pas les chemins complets des requêtes `POST` — sinon il
+y est lisible par quiconque y accède, et doit être tourné après toute
+consultation partagée.
+
+`INCONGRUES_ALLOWED_USERNAMES` est de la même famille, et de la même prudence :
+c'est la liste des pseudos du forum qu'un compte Tambouille a le droit de
+revendiquer, séparés par des virgules, comparés sans tenir compte de la casse ni
+des espaces autour. L'inscription est ouverte : sans cette liste, quelqu'un
+saisirait le pseudo d'un membre prolifique du forum et ferait paraître ses mix
+sous son propre compte. Absente ou vide, elle n'autorise aucun pseudo — la
+liaison est fermée sur cette instance, ce n'est pas une panne. Se délier, en
+vidant le champ, reste possible en toutes circonstances.
+
+Elle est consultée à deux endroits, et c'est ce qui lui permet de **reprendre**
+un droit et pas seulement d'en accorder : à la saisie du pseudo, qui refuse une
+revendication, et à chaque passage de synchronisation, qui cesse de publier
+pour un pseudo que la liste ne couvre plus. Retirer un pseudo suffit donc à
+arrêter sa synchronisation, sans avoir à toucher la base — le compte garde son
+lien, il n'est simplement plus servi, et le journal le dit en `warn` à chaque
+passage.
 
 ## Les fournées, côté backend
 
@@ -210,3 +246,7 @@ binaire de la plateforme au déploiement, comme pour toute autre dépendance.
 - Appliquer une migration, pour la raison ci-dessus.
 - Ajouter une variable d'environnement en production.
 - Tout ce qui touche à cPanel : l'enregistrement du dépôt, le jeton, le pare-feu.
+- Générer `INCONGRUES_WEBHOOK_SECRET` et déclarer le webhook côté Flarum, voir
+  la section Secrets.
+- Renseigner `INCONGRUES_ALLOWED_USERNAMES` pour chaque pseudo du forum autorisé
+  à être lié, voir la section Secrets.

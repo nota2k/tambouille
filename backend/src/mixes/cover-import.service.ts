@@ -44,4 +44,25 @@ export class CoverImportService {
       return null;
     }
   }
+
+  /**
+   * La pochette à enregistrer : un fichier envoyé l'emporte toujours sur une
+   * pochette distante.
+   *
+   * Extraite du contrôleur pour que le chemin automatique n'en tienne pas une
+   * seconde copie — un mix importé à la main aurait sa pochette et un mix
+   * automatique non, dès le premier changement ici.
+   *
+   * `undefined` et non `null` : c'est ce qu'attend `files.coverUrl` de
+   * `MixesService.create`.
+   */
+  async resolveCoverUrl(
+    uploadedKey: string | undefined,
+    coverSourceUrl: string | undefined,
+  ): Promise<string | undefined> {
+    if (uploadedKey) return uploadedKey;
+    if (!coverSourceUrl) return undefined;
+    // Au mieux : une source dont la pochette échoue rend quand même un mix.
+    return (await this.importFromUrl(coverSourceUrl)) ?? undefined;
+  }
 }

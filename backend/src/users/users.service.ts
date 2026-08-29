@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PaginationDto } from './dto/pagination.dto';
 import { SearchUsersDto } from './dto/search-users.dto';
+import { pseudosAutorises } from '../incongrues/allowed-usernames';
 
 const userSummarySelect = {
   id: true,
@@ -15,6 +17,19 @@ const userSummarySelect = {
   displayName: true,
   avatarUrl: true,
 } as const;
+
+// Prisma's unique-constraint violation. Not importing Prisma's own error
+// class here to keep this check working against the plain mock objects the
+// test suite throws, as well as the real `PrismaClientKnownRequestError` —
+// same helper as `auth.service.ts`'s `isUniqueConstraintError`, duplicated
+// rather than shared across modules for this one small check.
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'P2002'
+  );
+}
 
 @Injectable()
 export class UsersService {
@@ -103,10 +118,47 @@ export class UsersService {
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     const username = await this.requireUsername(userId);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: dto,
-    });
+    const data: Record<string, unknown> = { ...dto };
+    if (dto.incongruesUsername !== undefined) {
+      // `trim() || null` et non `trim()` : une chaîne vide entrerait en base,
+      // où la contrainte d'unicité interdirait ensuite à un second compte de
+      // se délier.
+      const pseudo = dto.incongruesUsername.trim() || null;
+
+      // Le champ vidé passe toujours : se délier n'est pas revendiquer, et une
+      // liste réduite ne doit pas enfermer un compte dans un lien qu'il ne peut
+      // plus défaire.
+      if (pseudo !== null) {
+        const autorises = pseudosAutorises();
+        if (!autorises.includes(pseudo.toLowerCase())) {
+          throw new ForbiddenException(
+            autorises.length
+              ? 'Ce pseudo Musiques Incongrues ne fait pas partie des comptes autorisés'
+              : 'La liaison avec Musiques Incongrues n’est pas ouverte sur cette instance',
+          );
+        }
+      }
+
+      data.incongruesUsername = pseudo;
+    }
+    try {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data,
+      });
+    } catch (error) {
+      // Pas de vérification préalable ici : l'index unique est ce qui tient
+      // sous concurrence (voir le commentaire du champ dans schema.prisma),
+      // donc ce catch est la seule ligne de défense — et il doit rester
+      // spécifique à ce doublon-là, sous peine de transformer toute panne
+      // Prisma en un 409 trompeur.
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'Ce pseudo Musiques Incongrues est déjà lié à un autre compte',
+        );
+      }
+      throw error;
+    }
     return this.getPublicProfile(username);
   }
 

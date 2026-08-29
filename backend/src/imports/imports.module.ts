@@ -9,6 +9,8 @@ import { OuiedireImporter } from './ouiedire.importer';
 import { LylImporter } from './lyl.importer';
 import { BrainImporter } from './brain.importer';
 import { PodcastImporter } from './podcast.importer';
+import { FlarumClient } from './flarum.client';
+import { MusiquesIncongruesImporter } from './musiques-incongrues.importer';
 
 @Module({
   imports: [MixcloudModule],
@@ -20,6 +22,8 @@ import { PodcastImporter } from './podcast.importer';
     OuiedireImporter,
     LylImporter,
     BrainImporter,
+    FlarumClient,
+    MusiquesIncongruesImporter,
     PodcastImporter,
     ImportsService,
     {
@@ -32,6 +36,9 @@ import { PodcastImporter } from './podcast.importer';
       // properly. `LylImporter` narrows the same way, to `/episode/...` and
       // `/show/...`, et `BrainImporter` à `listen.php?episode=NNN` — sa page de
       // liste reste donc au message « lien non reconnu », qui dit la vérité.
+      // `MusiquesIncongruesImporter` ne réclame que `/d/...` : `/t/musique`,
+      // qui n'appartient à personne en particulier, reste au message « lien
+      // non reconnu », qui dit la vérité.
       inject: [
         MixcloudImporter,
         SoundcloudImporter,
@@ -39,6 +46,7 @@ import { PodcastImporter } from './podcast.importer';
         OuiedireImporter,
         LylImporter,
         BrainImporter,
+        MusiquesIncongruesImporter,
         PodcastImporter,
       ],
       useFactory: (
@@ -48,10 +56,20 @@ import { PodcastImporter } from './podcast.importer';
         ouiedire: OuiedireImporter,
         lyl: LylImporter,
         brain: BrainImporter,
+        musiquesIncongrues: MusiquesIncongruesImporter,
         podcast: PodcastImporter,
-      ) => [mixcloud, soundcloud, archive, ouiedire, lyl, brain, podcast],
+      ) => [
+        mixcloud,
+        soundcloud,
+        archive,
+        ouiedire,
+        lyl,
+        brain,
+        musiquesIncongrues,
+        podcast,
+      ],
     },
   ],
-  exports: [ImportsService],
+  exports: [ImportsService, MusiquesIncongruesImporter, FlarumClient],
 })
 export class ImportsModule {}
