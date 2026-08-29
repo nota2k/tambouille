@@ -56,3 +56,32 @@
   RewriteCond %{REQUEST_URI} !^/assets/
   RewriteRule . /index.html [L]
 </IfModule>
+
+# ── Durée de vie du cache ───────────────────────────────────────────────────
+#
+# Rien n'était mis en cache : chaque visite retéléchargeait le JavaScript, le
+# CSS et les polices, soit quelques centaines de kilo-octets par page vue.
+#
+# Tout ce qui vit sous /assets/ porte une empreinte dans son nom, posée par Vite
+# à la construction (`index-B_gv1XBO.js`). Le contenu d'une de ces URL ne change
+# donc JAMAIS : une modification produit un nom neuf. C'est ce qui autorise
+# `immutable` et un an de cache — sans l'empreinte, ce serait un piège, le
+# navigateur gardant un fichier périmé sans jamais revenir demander.
+#
+# `index.html`, lui, garde le même nom d'une version à l'autre : c'est lui qui
+# nomme les fichiers empreintés. Il doit donc être revalidé à chaque visite,
+# faute de quoi un navigateur continuerait de réclamer les assets de la version
+# précédente, effacés par le déploiement.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|woff2?|eot|ttf|otf)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  <FilesMatch "\.(ico|png|jpe?g|webp|svg)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+
+  <FilesMatch "^(index\.html|robots\.txt)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+</IfModule>

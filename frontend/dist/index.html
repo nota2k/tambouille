@@ -3,12 +3,42 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!--
+      Ni `maximum-scale` ni `user-scalable=no` : ils empêchent le zoom, dont
+      dépendent les personnes malvoyantes pour lire la page. Ce qu'ils
+      évitaient — le zoom involontaire de Safari sur un champ de moins de 16px —
+      se règle du côté de la taille du texte, pas en confisquant le geste.
+    -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#FE2370">
   <link rel="icon" href="/favicon.ico">
+
+  <!--
+      Les polices sont demandées ici et non plus par un `@import` dans le CSS.
+      Depuis la feuille, le navigateur ne découvrait la requête qu'après l'avoir
+      téléchargée et analysée : trois allers-retours en file indienne — HTML,
+      CSS du site, CSS de Google, fichiers de police — soit près d'une seconde
+      avant que le premier caractère ne s'affiche dans la bonne fonte. Déclarées
+      dans le document, elles partent avec lui.
+
+      `preconnect` ouvre la connexion à `fonts.gstatic.com` avant même de savoir
+      quel fichier demander : la feuille de Google ne le dira qu'une fois lue,
+      et la poignée de main TLS aurait alors lieu en pure perte de temps.
+      `crossorigin` n'est pas décoratif — les polices sont chargées en mode CORS,
+      et sans lui la connexion préchauffée ne serait pas celle réutilisée.
+    -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Arvo:wght@400;700&family=Rambla:wght@400;700&display=swap">
+
+  <!-- Les pochettes viennent toutes de là, et la plus grande d'entre elles est
+       l'image qui décide du Largest Contentful Paint. L'URL suit celle du
+       bucket, Vite substituant la variable au build. -->
+  <link rel="preconnect" href="https://pub-1e54e8d69f104891a750491d30902070.r2.dev">
   <!-- Google Tag Manager -->
   <script>(function (w, d, s, l, i) {
       w[l] = w[l] || []; w[l].push({
@@ -40,9 +70,9 @@
     content="Tambouille, le site de partage et d’écoute de mixs : découvrez les mix des membres, écoutez en streaming et suivez vos artistes.">
   <title>Tambouille</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" crossorigin src="/assets/index-B_gv1XBO.js"></script>
+  <script type="module" crossorigin src="/assets/index-DGI02rI-.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/useSeo-IVX9NRXD.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-C0UGDRml.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-Ddl2u5rx.css">
 </head>
 
 <body>

@@ -269,8 +269,13 @@ onUnmounted(() => {
             </RouterLink>
 
             <div class="relative">
+              <!-- L'avatar porte un `alt` vide, à raison : il double le nom
+                   du compte. Reste que le bouton n'a alors plus rien à
+                   annoncer, d'où l'étiquette. -->
               <button
                 class="flex h-[34px] w-[34px] items-center justify-center overflow-hidden rounded-none bg-white"
+                aria-label="Mon compte"
+                :aria-expanded="menuOpen"
                 @click="menuOpen = !menuOpen"
               >
                 <img

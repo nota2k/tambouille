@@ -23,8 +23,15 @@ export interface FourneeSource {
   mixIds: string[]
 }
 
-/** Le gabarit fixe le nombre de mix : 3d dit « exactement quatre », cinq pour les hautes. */
-const NOMBRE_DE_MIX: Record<FourneeLayout, { attendu: number; mot: string }> = {
+/**
+ * Le gabarit fixe le nombre de mix : 3d dit « exactement quatre », cinq pour les
+ * hautes.
+ *
+ * Exporté parce que le bandeau s'affiche désormais avant que ses mix ne soient
+ * revenus de l'API : il lui faut savoir combien de cartes réserver, et ce nombre
+ * est le même que celui que le parseur exige du fichier.
+ */
+export const NOMBRE_DE_MIX: Record<FourneeLayout, { attendu: number; mot: string }> = {
   large: { attendu: 4, mot: 'quatre' },
   tall: { attendu: 5, mot: 'cinq' },
 }

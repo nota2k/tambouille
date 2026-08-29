@@ -56,16 +56,40 @@ export async function resolveMixes(ids: string[]): Promise<Mix[]> {
  */
 const MIX_MINIMUM = 3
 
+/** L'éditorial seul : ce que le fichier dit, sans ses dates ni ses identifiants. */
+function sansMixes(source: FourneeSource): Fournee {
+  const { from: _from, to: _to, mixIds: _mixIds, ...editorial } = source
+  return { ...editorial, mixes: [] }
+}
+
+/**
+ * Le bandeau du moment, **rendu avant ses mix**.
+ *
+ * Tout ce qui fait sa hauteur — le gabarit, le titre, l'intro, la couleur — est
+ * lu dans un fichier embarqué au build, donc connu sans attendre personne. Les
+ * mix, eux, demandent cinq appels à l'API. Les avoir attendus pour monter le
+ * bandeau insérait 835 pixels en tête de page vers 900 ms et poussait tout le
+ * reste vers le bas : à lui seul, ce saut valait 0,77 de décalage cumulé, sur
+ * un seuil de 0,1.
+ *
+ * `mixes` vide se lit donc « pas encore arrivés » et non « aucun » : quand la
+ * fournée n'a pas ses trois mix, c'est `fournee` elle-même qui repasse à null.
+ */
 export function useFournee(): { fournee: Ref<Fournee | null> } {
-  const fournee = ref<Fournee | null>(null)
+  const source = selectFournee(loadFourneeSources(), new Date())
+  const fournee = ref<Fournee | null>(source ? sansMixes(source) : null)
 
   onMounted(async () => {
-    const source = selectFournee(loadFourneeSources(), new Date())
     if (!source) return
     const mixes = await resolveMixes(source.mixIds)
-    if (mixes.length < MIX_MINIMUM) return
-    const { from: _from, to: _to, mixIds: _mixIds, ...editorial } = source
-    fournee.value = { ...editorial, mixes }
+    // Un bandeau amputé de sa bande n'a plus de tenue : il disparaît, au prix
+    // d'un décalage que seule une erreur éditoriale peut provoquer — un fichier
+    // qui cite des mix supprimés depuis.
+    if (mixes.length < MIX_MINIMUM) {
+      fournee.value = null
+      return
+    }
+    fournee.value = { ...sansMixes(source), mixes }
   })
 
   return { fournee }
