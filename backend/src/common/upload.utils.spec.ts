@@ -79,8 +79,29 @@ describe('deleteFromR2', () => {
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0].input).toMatchObject({
       Bucket: 'test-bucket',
-      Delete: { Objects: [{ Key: 'audio/a.mp3' }, { Key: 'covers/b.jpg' }] },
+      Delete: {
+        Objects: [
+          { Key: 'audio/a.mp3' },
+          { Key: 'covers/b.jpg' },
+          // Les variantes partent avec leur originale.
+          { Key: 'covers/b-400.jpg' },
+          { Key: 'covers/b-800.jpg' },
+        ],
+      },
     });
+  });
+
+  it("ne dérive aucune variante d'une clé audio", async () => {
+    // `mixes.service` supprime l'audio et la pochette dans le même appel. Une
+    // largeur dérivée d'un mp3 désignerait un objet qui n'existe pas — au
+    // mieux inutile, au pire visant autre chose. C'est la raison d'être de
+    // `repertoireImage`, et elle se vérifie ici plutôt qu'incidemment.
+    await deleteFromR2(['audio/a.mp3']);
+
+    const objets = send.mock.calls[0][0].input.Delete.Objects as {
+      Key: string;
+    }[];
+    expect(objets).toEqual([{ Key: 'audio/a.mp3' }]);
   });
 
   it('sends nothing at all when no key survives filtering', async () => {
@@ -259,7 +280,15 @@ describe('r2Storage', () => {
     });
 
     expect(send.mock.calls[0][0].input).toMatchObject({
-      Delete: { Objects: [{ Key: 'covers/abc.webp' }] },
+      Delete: {
+        Objects: [
+          { Key: 'covers/abc.webp' },
+          // L'objet abandonné emporte ses variantes : sans cela, un envoi
+          // interrompu laisserait deux images que plus rien ne référence.
+          { Key: 'covers/abc-400.webp' },
+          { Key: 'covers/abc-800.webp' },
+        ],
+      },
     });
   });
 });
