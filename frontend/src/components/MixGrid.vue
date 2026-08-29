@@ -39,7 +39,10 @@ const nextEl = ref<HTMLButtonElement | null>(null)
       }"
     >
       <SwiperSlide v-for="mix in mixes" :key="mix.id">
-        <MixCard :mix="mix" landscape />
+        <!-- Sans les trois commandes : cette bande est l'historique d'écoute,
+             on y revient pour relancer un mix, pas pour le classer. Le bouton
+             de lecture, lui, est conservé. -->
+        <MixCard :mix="mix" landscape :actions="false" />
       </SwiperSlide>
     </Swiper>
 
