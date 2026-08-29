@@ -2,9 +2,11 @@ import {
   Body,
   Controller,
   Delete,
+  forwardRef,
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Param,
   Patch,
   Post,
@@ -27,6 +29,7 @@ import {
   assertSourcePageHasASource,
 } from './mixes.service';
 import { CoverImportService } from './cover-import.service';
+import { IncongruesSyncService } from '../incongrues/incongrues.sync.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
@@ -59,6 +62,8 @@ export class MixesController {
   constructor(
     private readonly mixesService: MixesService,
     private readonly coverImportService: CoverImportService,
+    @Inject(forwardRef(() => IncongruesSyncService))
+    private readonly incongruesSync: IncongruesSyncService,
   ) {}
 
   @Get()
@@ -67,6 +72,12 @@ export class MixesController {
     @Query() query: QueryMixesDto,
     @OptionalUserId() currentUserId?: string,
   ) {
+    // Filet de rattrapage. Détaché volontairement : la page ne doit pas
+    // attendre le forum, et une synchronisation en échec n'est pas une raison
+    // de ne rien afficher. L'anti-rebond garde ceci à un passage par minute au
+    // plus, quel que soit le trafic.
+    void this.incongruesSync.syncAllDebounced().catch(() => undefined);
+
     return this.mixesService.findAll(query, currentUserId);
   }
 
