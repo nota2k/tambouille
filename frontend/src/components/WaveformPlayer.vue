@@ -188,7 +188,7 @@ function onToggle(event: Event) {
          d'écran n'annonce que « bouton ». L'état y est dit aussi, l'icône
          seule le portait. -->
     <button
-      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-white hover:bg-tambouille-accent-hover transition"
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-tambouille-ink-on-accent hover:bg-tambouille-accent-hover transition"
       :aria-label="isPlaying ? 'Mettre en pause' : 'Lire ce mix'"
       @click="onToggle"
     >

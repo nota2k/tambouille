@@ -272,7 +272,7 @@ onMounted(loadProfile)
             </div>
             <button
               v-if="isOwnProfile"
-              class="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center bg-tambouille-accent text-white hover:bg-tambouille-accent-hover"
+              class="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center bg-tambouille-accent text-tambouille-ink-on-accent hover:bg-tambouille-accent-hover"
               title="Changer la photo"
               @click="avatarInput?.click()"
             >

@@ -10,8 +10,12 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
 /**
  * Les blocs qui tiennent la place du texte. Assez visibles pour qu'on lise une
  * carte en train d'arriver, assez discrets pour ne pas passer pour du contenu.
+ *
+ * 20 % et non 12 : sur l'aplat de saison, l'encre est blanche et douze pour
+ * cent de blanc sur du bleu ne se distinguent pas du fond. Une bande vide se
+ * lit alors comme une bande cassée, ce qui est pire que ce qu'elle remplace.
  */
-const bloc = computed(() => `color-mix(in srgb, ${props.zone.ink} 12%, transparent)`)
+const bloc = computed(() => `color-mix(in srgb, ${props.zone.ink} 20%, transparent)`)
 </script>
 
 <template>

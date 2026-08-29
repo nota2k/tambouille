@@ -2,12 +2,24 @@
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { mediaUrl } from '@/utils/media'
+import CoverImage from '@/components/CoverImage.vue'
 import { formatDuration } from '@/utils/time'
 import { mixCredit } from '@/composables/useMixCredit'
 import type { FourneeZone } from '@/composables/useFourneeTheme'
 import type { Mix } from '@/types'
 
-const props = defineProps<{ mix: Mix; zone: FourneeZone; layout?: 'large' | 'tall' }>()
+const props = defineProps<{
+  mix: Mix
+  zone: FourneeZone
+  layout?: 'large' | 'tall'
+  /**
+   * Vrai pour les cartes visibles dès l'arrivée : leur pochette part sans
+   * attendre la mise en page, et l'une d'elles est l'image qui décide du
+   * Largest Contentful Paint. Faux — donc différé — pour tout ce qui est hors
+   * écran, c'est-à-dire la plupart des cartes de la bande.
+   */
+  priority?: boolean
+}>()
 
 const playerStore = usePlayerStore()
 const isPlaying = computed(() => playerStore.currentMix?.id === props.mix.id)
@@ -47,13 +59,10 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
     >
       <!-- Duotone : l'aplat clair donne la teinte, la pochette n'apporte que sa
            luminance. Sans pochette il ne reste que l'aplat. -->
-      <img
-        v-if="mix.coverUrl"
+      <CoverImage
         :src="mediaUrl(mix.coverUrl)"
-        loading="lazy"
-        decoding="async"
-        class="h-full w-full object-cover mix-blend-luminosity"
-        alt=""
+        :priority="priority"
+        img-class="mix-blend-luminosity"
       />
     </RouterLink>
 
@@ -67,7 +76,7 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
 
     <!-- Pas de « importé par » ici : la carte est étroite et le gabarit lui
          impose déjà trois informations. L'artiste remplace le compte. -->
-    <p class="pt-4 pb-3 text-[13px] leading-[1.45] opacity-75">
+    <p class="pt-4 pb-3 text-[13px] leading-[1.45] opacity-85">
       {{ credit.primary }}<br />
       <b :style="{ color: ink }">{{ formatDuration(mix.durationSec) ?? 'durée inconnue' }}</b>
       <template v-if="mix.tracklist.length"> · {{ mix.tracklist.length }} morceaux</template>

@@ -72,7 +72,7 @@ function capture() {
     <div class="flex flex-wrap items-center gap-3">
       <button
         type="button"
-        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-white hover:bg-tambouille-accent-hover"
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-tambouille-ink-on-accent hover:bg-tambouille-accent-hover"
         @click="toggle"
       >
         <svg v-if="!isPlaying" viewBox="0 0 24 24" class="ml-0.5 h-4 w-4 fill-current">
@@ -114,7 +114,7 @@ function capture() {
 
       <button
         type="button"
-        class="shrink-0 rounded-none border border-tambouille-accent px-3 py-1.5 text-xs font-semibold text-tambouille-accent hover:bg-tambouille-accent hover:text-white"
+        class="shrink-0 rounded-none border border-tambouille-accent px-3 py-1.5 text-xs font-semibold text-tambouille-accent hover:bg-tambouille-accent hover:text-tambouille-ink-on-accent"
         @click="capture"
       >
         + Ajouter un morceau ici

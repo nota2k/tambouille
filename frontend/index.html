@@ -17,23 +17,28 @@
   <link rel="icon" href="/favicon.ico">
 
   <!--
-      Les polices sont demandées ici et non plus par un `@import` dans le CSS.
-      Depuis la feuille, le navigateur ne découvrait la requête qu'après l'avoir
-      téléchargée et analysée : trois allers-retours en file indienne — HTML,
-      CSS du site, CSS de Google, fichiers de police — soit près d'une seconde
-      avant que le premier caractère ne s'affiche dans la bonne fonte. Déclarées
-      dans le document, elles partent avec lui.
+      Les polices sont servies par le site lui-même (`public/fonts/`), et non
+      plus par Google. Ce qui bloquait le rendu n'était pas leur poids — la
+      feuille de Google fait un kilo-octet — mais l'ouverture de deux origines
+      tierces avant même de savoir quels fichiers demander : 246 ms de rendu
+      bloqué que deux `preconnect` amortissaient au lieu de les supprimer.
 
-      `preconnect` ouvre la connexion à `fonts.gstatic.com` avant même de savoir
-      quel fichier demander : la feuille de Google ne le dira qu'une fois lue,
-      et la poignée de main TLS aurait alors lieu en pure perte de temps.
-      `crossorigin` n'est pas décoratif — les polices sont chargées en mode CORS,
-      et sans lui la connexion préchauffée ne serait pas celle réutilisée.
+      Préchargées, donc : leur nom est fixe (Vite n'appose pas d'empreinte à ce
+      qui vient de `public/`), le navigateur les découvre à la première ligne du
+      document au lieu de les attendre derrière la feuille de style, et le texte
+      s'affiche directement dans la bonne fonte. Sans cela il est peint deux
+      fois, et les trois repeints valaient 0,0036 de décalage cumulé.
+
+      Quatre fichiers et pas huit : les sous-ensembles `latin-ext` et les
+      graisses grasses sont laissés à la découverte normale, ils ne servent
+      qu'à une partie du texte. `crossorigin` reste obligatoire même en même
+      origine — les polices sont chargées en mode CORS, et sans lui le fichier
+      préchargé serait redemandé.
     -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Arvo:wght@400;700&family=Rambla:wght@400;700&display=swap">
+  <link rel="preload" href="/fonts/Gulax-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/rambla-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/rambla-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/arvo-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 
   <!-- Les pochettes viennent toutes de là, et la plus grande d'entre elles est
        l'image qui décide du Largest Contentful Paint. L'URL suit celle du
@@ -77,7 +82,6 @@
   <meta name="twitter:description"
     content="Tambouille, le site de partage et d’écoute de mixs : découvrez les mix des membres, écoutez en streaming et suivez vos artistes.">
   <title>Tambouille</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
