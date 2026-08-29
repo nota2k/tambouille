@@ -21,6 +21,89 @@ NODEVENV="$HOME/nodevenv/tambouille/backend/22/bin/activate"
 echo "source      : $SOURCE"
 echo "destination : $APP"
 
+# ── Schéma — AVANT LA MOINDRE COPIE ────────────────────────────────────────
+#
+# L'ordre de ce bloc n'est pas une question de lisibilité, il a été payé par une
+# production hors service le 29 août 2026.
+#
+# Cette garde vivait autrefois APRÈS les copies. Elle refusait bien de
+# redémarrer sur un schéma en retard — mais `backend/generated`, le client
+# Prisma, avait déjà été remplacé. Le processus en cours a servi le client neuf,
+# qui sélectionne des colonnes que la base n'avait pas encore : l'API entière a
+# répondu 500 alors même que la garde faisait son travail. Elle protégeait le
+# redémarrage quand ce qu'il fallait protéger, c'était les fichiers.
+#
+# Placée ici, un schéma en retard laisse l'ancienne version tourner intacte.
+#
+# Elle interroge le dépôt ENTRANT — `$SOURCE` — et non l'application installée :
+# la question est « la base a-t-elle tout ce que ce code va exiger », et lire
+# `$BACKEND` après copie revenait à se la poser une fois qu'il était trop tard
+# pour y répondre.
+#
+# On détermine s'il reste quelque chose à migrer SANS lancer Prisma.
+#
+# La CLI Prisma 7 instancie un module WebAssembly au démarrage — avant même de
+# savoir s'il y a du travail. Sous la limite mémoire que CloudLinux applique aux
+# processus lancés par cPanel, cette allocation échoue :
+#
+#     RangeError: WebAssembly.Instance(): Cannot allocate Wasm memory
+#
+# La même commande passe en session SSH interactive, où la limite est plus
+# large. Le déploiement ne peut donc pas l'invoquer, mais il peut comparer les
+# répertoires de migrations à ce que la base déclare avoir appliqué.
+#
+# Migrer avant de redémarrer reste la règle : pendant la fenêtre qui suit,
+# l'ancien code tourne sur le nouveau schéma, ce qui est sûr tant que les
+# migrations sont additives. L'inverse ne l'est jamais.
+DB_URL=$(grep -E '^DATABASE_URL=' "$BACKEND/.env" | head -1 | cut -d= -f2- | tr -d "\"'")
+[ -n "$DB_URL" ] || { echo "ERREUR : DATABASE_URL introuvable dans .env" >&2; exit 1; }
+
+# `?schema=public` est un paramètre de Prisma, pas de libpq : psql le refuse avec
+# « invalid URI query parameter ». On retire donc la chaîne de requête, et on
+# rétablit le schéma par PGOPTIONS — sans quoi une base employant autre chose que
+# `public` verrait la table introuvable et le déploiement s'arrêterait à tort.
+DB_BASE=${DB_URL%%\?*}
+SCHEMA=$(echo "$DB_URL" | sed -n 's/.*[?&]schema=\([^&]*\).*/\1/p')
+export PGOPTIONS="--search_path=${SCHEMA:-public}"
+
+appliquees=$(psql "$DB_BASE" -tAc \
+  "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL" 2>/dev/null | sort)
+if [ -z "$appliquees" ]; then
+  echo "ERREUR : impossible de lire _prisma_migrations — on ne redémarre pas à l'aveugle" >&2
+  exit 1
+fi
+presentes=$(ls -1 "$SOURCE/backend/prisma/migrations" | grep -v migration_lock | sort)
+
+# PAS de substitution de processus `<(…)` ici : elle n'est pas disponible dans
+# l'environnement où cPanel exécute ses tâches, et `comm` échouait sur
+# « /dev/fd/63: No such file or directory ». La variable restait vide, le script
+# concluait « à jour », et redémarrait — une garde qui ne gardait rien, du même
+# genre exactement que celles qu'elle est censée remplacer.
+manquantes=$(echo "$presentes" | while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  echo "$appliquees" | grep -qxF "$m" || echo "$m"
+done)
+
+if [ -n "$manquantes" ]; then
+  echo "ERREUR : migrations non appliquées, et ce déploiement ne peut pas les appliquer." >&2
+  echo "$manquantes" | sed 's/^/  - /' >&2
+  echo "" >&2
+  echo "  Prisma 7 ne tient pas dans la limite mémoire des processus cPanel." >&2
+  echo "  À lancer en SSH, où elle fonctionne :" >&2
+  echo "    cd ~/tambouille/backend && source ~/nodevenv/tambouille/backend/22/bin/activate \\" >&2
+  echo "      && npx --yes prisma@7 migrate deploy" >&2
+  echo "" >&2
+  echo "  Si une reprise de données doit s'intercaler — une colonne à remplir" >&2
+  echo "  avant qu'un NOT NULL ne la ferme — son script est déjà construit dans" >&2
+  echo "  le dépôt déployé, que ce déploiement n'a pas encore recopié :" >&2
+  echo "    $SOURCE/backend/dist/src/scripts/" >&2
+  echo "" >&2
+  echo "  Puis relancer ce déploiement." >&2
+  exit 1
+fi
+echo "  schéma à jour — $(echo "$presentes" | wc -l | tr -d ' ') migrations appliquées"
+
+
 # ── Ce qu'on remplace, et ce à quoi on ne touche pas ────────────────────────
 #
 # Chaque répertoire est nommé un par un, et remplacé en entier. AUCUN JOKER, et
@@ -90,65 +173,6 @@ if ! cmp -s package-lock.json package-lock.json.deployed; then
 else
   echo "  verrou inchangé — installation sautée"
 fi
-
-# ── Schéma ──────────────────────────────────────────────────────────────────
-#
-# On détermine s'il reste quelque chose à migrer SANS lancer Prisma.
-#
-# La CLI Prisma 7 instancie un module WebAssembly au démarrage — avant même de
-# savoir s'il y a du travail. Sous la limite mémoire que CloudLinux applique aux
-# processus lancés par cPanel, cette allocation échoue :
-#
-#     RangeError: WebAssembly.Instance(): Cannot allocate Wasm memory
-#
-# La même commande passe en session SSH interactive, où la limite est plus
-# large. Le déploiement ne peut donc pas l'invoquer, mais il peut comparer les
-# répertoires de migrations à ce que la base déclare avoir appliqué.
-#
-# Migrer avant de redémarrer reste la règle : pendant la fenêtre qui suit,
-# l'ancien code tourne sur le nouveau schéma, ce qui est sûr tant que les
-# migrations sont additives. L'inverse ne l'est jamais.
-DB_URL=$(grep -E '^DATABASE_URL=' "$BACKEND/.env" | head -1 | cut -d= -f2- | tr -d "\"'")
-[ -n "$DB_URL" ] || { echo "ERREUR : DATABASE_URL introuvable dans .env" >&2; exit 1; }
-
-# `?schema=public` est un paramètre de Prisma, pas de libpq : psql le refuse avec
-# « invalid URI query parameter ». On retire donc la chaîne de requête, et on
-# rétablit le schéma par PGOPTIONS — sans quoi une base employant autre chose que
-# `public` verrait la table introuvable et le déploiement s'arrêterait à tort.
-DB_BASE=${DB_URL%%\?*}
-SCHEMA=$(echo "$DB_URL" | sed -n 's/.*[?&]schema=\([^&]*\).*/\1/p')
-export PGOPTIONS="--search_path=${SCHEMA:-public}"
-
-appliquees=$(psql "$DB_BASE" -tAc \
-  "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL" 2>/dev/null | sort)
-if [ -z "$appliquees" ]; then
-  echo "ERREUR : impossible de lire _prisma_migrations — on ne redémarre pas à l'aveugle" >&2
-  exit 1
-fi
-presentes=$(ls -1 "$BACKEND/prisma/migrations" | grep -v migration_lock | sort)
-
-# PAS de substitution de processus `<(…)` ici : elle n'est pas disponible dans
-# l'environnement où cPanel exécute ses tâches, et `comm` échouait sur
-# « /dev/fd/63: No such file or directory ». La variable restait vide, le script
-# concluait « à jour », et redémarrait — une garde qui ne gardait rien, du même
-# genre exactement que celles qu'elle est censée remplacer.
-manquantes=$(echo "$presentes" | while IFS= read -r m; do
-  [ -n "$m" ] || continue
-  echo "$appliquees" | grep -qxF "$m" || echo "$m"
-done)
-
-if [ -n "$manquantes" ]; then
-  echo "ERREUR : migrations non appliquées, et ce déploiement ne peut pas les appliquer." >&2
-  echo "$manquantes" | sed 's/^/  - /' >&2
-  echo "" >&2
-  echo "  Prisma 7 ne tient pas dans la limite mémoire des processus cPanel." >&2
-  echo "  À lancer en SSH, où elle fonctionne :" >&2
-  echo "    cd ~/tambouille/backend && source ~/nodevenv/tambouille/backend/22/bin/activate \\" >&2
-  echo "      && npx --yes prisma@7 migrate deploy" >&2
-  echo "  Puis relancer ce déploiement." >&2
-  exit 1
-fi
-echo "  schéma à jour — $(echo "$presentes" | wc -l | tr -d ' ') migrations appliquées"
 
 # ── Redémarrage ─────────────────────────────────────────────────────────────
 /bin/mkdir -p tmp && /bin/touch tmp/restart.txt || { echo "ERREUR : redémarrage impossible" >&2; exit 1; }
