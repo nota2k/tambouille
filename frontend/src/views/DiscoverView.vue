@@ -85,8 +85,18 @@ function toggleTag(tag: string) {
   loadSearchResults()
 }
 
+/**
+ * La fenêtre du mix mis en avant : un mois.
+ *
+ * Le nombre vit ici, à côté de la requête qui s'en sert, et part au serveur en
+ * paramètre. Le filtrer côté client reviendrait à ne trier que les dix mix déjà
+ * chargés, et à manquer le bon dès qu'il en paraît plus de dix dans le mois.
+ */
+const JOURS_A_LA_UNE = 30
+
 // Curated sections (shown when not searching)
 const latestMixes = ref<Mix[]>([])
+const mixALaUne = ref<Mix | null>(null)
 const topMixes = ref<Mix[]>([])
 const followingTopMixes = ref<Mix[]>([])
 const recentlyPlayedMixes = ref<Mix[]>([])
@@ -100,12 +110,31 @@ const totalPages = ref(1)
 let searchTimeout: ReturnType<typeof setTimeout> | undefined
 
 /**
- * Le mix mis en avant, et la liste qui suit sans lui : la maquette ouvre sur un
- * seul mix en grand puis enchaîne, plutôt que de répéter le même mix deux fois
- * comme le faisaient « Derniers uploads » et « Tops ».
+ * Le mix mis en avant : le plus écouté du dernier mois.
+ *
+ * C'était le plus récent, `latestMixes[0]`. La mise en avant récompense
+ * maintenant ce que les auditeurs ont choisi, mais dans une fenêtre courte —
+ * sans elle, les mêmes deux ou trois mix installés depuis un an tiendraient la
+ * place indéfiniment.
+ *
+ * Il vient de sa propre requête et non de `latestMixes` : le tri doit porter
+ * sur TOUS les mix du mois, pas sur les dix derniers déposés.
+ *
+ * Rien ne s'affiche si aucun mix n'a paru depuis un mois — c'est la condition,
+ * et une une vide vaut mieux qu'une une qui ment sur sa fraîcheur.
  */
-const featuredMix = computed(() => latestMixes.value[0] ?? null)
-const restOfLatest = computed(() => latestMixes.value.slice(1))
+const featuredMix = computed(() => mixALaUne.value)
+
+/**
+ * La liste qui suit, sans le mix mis en avant : la maquette ouvre sur un seul
+ * mix en grand puis enchaîne, plutôt que de répéter le même mix deux fois.
+ *
+ * Un filtre par identifiant et non plus un `slice(1)` : le mis en avant n'est
+ * plus forcément le premier de la liste, ni même dedans.
+ */
+const restOfLatest = computed(() =>
+  latestMixes.value.filter((mix) => mix.id !== mixALaUne.value?.id),
+)
 const featuredDuration = computed(() => formatDuration(featuredMix.value?.durationSec))
 
 /**
@@ -154,9 +183,25 @@ async function loadSections() {
   loading.value = true
   try {
     // Les deux premières sections sont publiques ; les deux suivantes n'ont de sens que connecté.
-    const [latest, top, followingTop, recentlyPlayed] = await Promise.all([
+    const [latest, top, uneDuMois, followingTop, recentlyPlayed] = await Promise.all([
       apiClient.get<MixListResponse>('/mixes', { params: { limit: 10 } }),
       apiClient.get<MixListResponse>('/mixes', { params: { sort: 'plays', limit: 10 } }),
+      /*
+       * Le plus écouté du mois, et lui seul : c'est au serveur de trancher sur
+       * l'ensemble du catalogue récent.
+       *
+       * `catch` et non pas laisser remonter : cette requête est la SEULE du lot
+       * à porter un paramètre récent. Une API qui ne le connaît pas encore
+       * répond 400 — vérifié — et sans ce filet le `Promise.all` entier
+       * échouerait : l'accueil perdrait aussi ses derniers mix, ses tops et son
+       * fil, pour une section décorative. La une est un complément ; elle
+       * disparaît seule quand elle ne peut pas être calculée.
+       */
+      apiClient
+        .get<MixListResponse>('/mixes', {
+          params: { sort: 'plays', sinceDays: JOURS_A_LA_UNE, limit: 1 },
+        })
+        .catch(() => null),
       authStore.isAuthenticated
         ? apiClient.get<MixListResponse>('/mixes/feed/following', { params: { limit: 10 } })
         : Promise.resolve(null),
@@ -166,6 +211,7 @@ async function loadSections() {
     ])
     latestMixes.value = latest.data.items
     topMixes.value = top.data.items
+    mixALaUne.value = uneDuMois?.data.items[0] ?? null
     followingTopMixes.value = followingTop?.data.items ?? []
     recentlyPlayedMixes.value = recentlyPlayed?.data.items ?? []
   } finally {

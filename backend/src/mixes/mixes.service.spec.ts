@@ -882,6 +882,54 @@ describe('MixesService', () => {
       );
     });
 
+    it('borne la fenêtre de fraîcheur à la date du jour moins `sinceDays`', async () => {
+      prisma.mix.findMany.mockResolvedValue([]);
+      prisma.mix.count.mockResolvedValue(0);
+
+      const avant = Date.now();
+      await service.findAll({ sinceDays: 30 });
+      const apres = Date.now();
+
+      const appel = prisma.mix.findMany.mock.calls[0][0] as {
+        where: { AND: { createdAt?: { gte: Date } }[] };
+      };
+      const fenetre = appel.where.AND.find((clause) => clause.createdAt);
+      expect(fenetre).toBeDefined();
+
+      // La borne est calculée à la requête, pas au démarrage du serveur : elle
+      // doit tomber entre « il y a 30 jours » mesuré avant l'appel et après.
+      const trenteJours = 30 * 24 * 60 * 60 * 1000;
+      const gte = fenetre!.createdAt!.gte.getTime();
+      expect(gte).toBeGreaterThanOrEqual(avant - trenteJours);
+      expect(gte).toBeLessThanOrEqual(apres - trenteJours);
+    });
+
+    it('ne borne rien quand `sinceDays` est absent', async () => {
+      prisma.mix.findMany.mockResolvedValue([]);
+      prisma.mix.count.mockResolvedValue(0);
+
+      await service.findAll({});
+
+      const appel = prisma.mix.findMany.mock.calls[0][0] as {
+        where: { AND: { createdAt?: unknown }[] };
+      };
+      expect(appel.where.AND.some((clause) => clause.createdAt)).toBe(false);
+    });
+
+    it('trie par écoutes décroissantes quand on le demande', async () => {
+      prisma.mix.findMany.mockResolvedValue([]);
+      prisma.mix.count.mockResolvedValue(0);
+
+      await service.findAll({ sort: 'plays', sinceDays: 30, limit: 1 });
+
+      expect(prisma.mix.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { playsCount: 'desc' },
+          take: 1,
+        }),
+      );
+    });
+
     it('cherche aussi dans l’artiste, sans tenir compte de la casse', async () => {
       prisma.mix.findMany.mockResolvedValue([]);
       prisma.mix.count.mockResolvedValue(0);
