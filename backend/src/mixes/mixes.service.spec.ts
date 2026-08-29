@@ -882,6 +882,69 @@ describe('MixesService', () => {
       );
     });
 
+    it('retrouve un mix par la référence de sa source, pour le contrôle de doublon', async () => {
+      prisma.mix.findFirst.mockResolvedValue({ id: 'mix-1' });
+
+      await service.findBySource('/Notamusic/antimythes/', undefined);
+
+      expect(prisma.mix.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { OR: [{ sourceRef: '/Notamusic/antimythes/' }] },
+        }),
+      );
+    });
+
+    it('cherche AUSSI sur la page d’origine : une source qui réhéberge change de `sourceRef`', async () => {
+      prisma.mix.findFirst.mockResolvedValue(null);
+
+      await service.findBySource(
+        'https://cdn/a.mp3',
+        'https://ouiedire.net/e/54',
+      );
+
+      expect(prisma.mix.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { sourceRef: 'https://cdn/a.mp3' },
+              { sourcePageUrl: 'https://ouiedire.net/e/54' },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('rend le plus ancien quand plusieurs mix partagent la source', async () => {
+      prisma.mix.findFirst.mockResolvedValue({ id: 'mix-1' });
+
+      await service.findBySource('/Notamusic/antimythes/', undefined);
+
+      // C'est l'original qu'on veut montrer, pas le doublon déjà créé.
+      expect(prisma.mix.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { createdAt: 'asc' } }),
+      );
+    });
+
+    it('n’interroge PAS la base sans critère, qui rendrait le premier mix venu', async () => {
+      prisma.mix.findFirst.mockClear();
+
+      await expect(
+        service.findBySource(undefined, undefined),
+      ).resolves.toBeNull();
+
+      // `OR: []` ne filtre rien chez Prisma : le formulaire aurait annoncé un
+      // doublon à tout le monde.
+      expect(prisma.mix.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rend null quand la source est inconnue — c’est le cas normal d’un premier import', async () => {
+      prisma.mix.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.findBySource('/jamais/vu/', undefined),
+      ).resolves.toBeNull();
+    });
+
     it('borne la fenêtre de fraîcheur à la date du jour moins `sinceDays`', async () => {
       prisma.mix.findMany.mockResolvedValue([]);
       prisma.mix.count.mockResolvedValue(0);

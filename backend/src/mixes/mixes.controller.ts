@@ -114,6 +114,22 @@ export class MixesController {
    * route unique par sa longueur, sans dépendre d'un ordre qu'une refonte
    * pourrait défaire sans bruit.
    */
+  /**
+   * Y a-t-il déjà un mix pour cette source ?
+   *
+   * Préfixée comme `by-slug`, et pour la même raison : un segment fixe placé
+   * après `:id` deviendrait inatteignable au gré de l'ordre de déclaration.
+   *
+   * Réservée aux comptes connectés : elle ne sert qu'au formulaire d'import,
+   * et sans garde elle laisserait n'importe qui demander à l'API si telle
+   * adresse est déjà chez nous.
+   */
+  @Get('by-source')
+  @UseGuards(JwtAuthGuard)
+  findBySource(@Query('ref') ref?: string, @Query('pageUrl') pageUrl?: string) {
+    return this.mixesService.findBySource(ref, pageUrl);
+  }
+
   @Get('by-slug/:username/:slug')
   @UseGuards(OptionalJwtAuthGuard)
   findBySlug(
