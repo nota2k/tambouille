@@ -20,7 +20,7 @@ mixes: [id, id, id, id, id]
 Le texte d'intention. Trois phrases, pas quatre.
 ```
 
-Les identifiants de mix se relèvent dans l'URL d'un mix : `/mixes/<id>`.
+Les identifiants de mix se relèvent dans l'URL d'un mix : `/mixes/<username>/<id>`.
 
 Le bandeau apparaît et disparaît tout seul à ses dates, sans redéploiement.
 Le publier une première fois demande en revanche un déploiement, puisque le

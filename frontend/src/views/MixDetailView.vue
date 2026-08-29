@@ -17,6 +17,8 @@ import WaveformPlayer from '@/components/WaveformPlayer.vue'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import { mixShareUrl } from '@/utils/share'
+import { mixEditRoute, mixRoute } from '@/utils/routes'
+import { taireLeProchainVoile } from '@/composables/useTransitionDePage'
 import { useSeo } from '@/composables/useSeo'
 import type { Mix, TracklistEntry, UserProfile } from '@/types'
 
@@ -76,11 +78,31 @@ const sourcePageUrl = computed(() => {
     : current.sourceRef
 })
 
+/**
+ * Réécrit l'URL avec le compte propriétaire, si elle ne l'a pas ou pas le bon.
+ *
+ * C'est ce qui fait vivre les anciens liens `/mixes/<id>` sans les dupliquer :
+ * ils affichent la page, puis l'adresse devient la canonique. Aucune requête de
+ * plus — celle du mix venait d'aboutir, et c'est elle qui apprend l'username.
+ *
+ * `taireLeProchainVoile` parce que rien de ce qui est affiché ne change : sans
+ * lui, le voile rose tomberait sur une page déjà lue.
+ *
+ * Query et fragment sont reconduits : un lien partagé peut porter un `?t=` ou
+ * une ancre, et les perdre en chemin viderait le partage de son sens.
+ */
+function canoniserLUrl(courant: Mix) {
+  if (route.params.username === courant.user.username) return
+  taireLeProchainVoile()
+  router.replace({ ...mixRoute(courant), query: route.query, hash: route.hash })
+}
+
 async function loadMix() {
   loading.value = true
   try {
     const { data } = await apiClient.get<Mix>(`/mixes/${route.params.id}`)
     mix.value = data
+    canoniserLUrl(data)
     const { data: profileData } = await apiClient.get<UserProfile>(`/users/${data.user.username}`)
     uploaderProfile.value = profileData
   } finally {
@@ -197,12 +219,12 @@ useSeo(() => {
         .join(' · '),
     image: cover,
     type: 'music.song',
-    canonical: mixShareUrl(current.id),
+    canonical: mixShareUrl(current),
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'MusicRecording',
       name: current.title,
-      url: mixShareUrl(current.id),
+      url: mixShareUrl(current),
       byArtist: { '@type': 'MusicGroup', name: auteur },
       datePublished: current.createdAt,
       ...(current.description ? { description: current.description } : {}),
@@ -215,11 +237,24 @@ useSeo(() => {
 
 // Une carte de suggestion mène d'un mix à un autre : même route, même composant, que Vue
 // Router réutilise sans le remonter. `onMounted` seul laissait alors l'ancien mix affiché
-// sous la nouvelle URL. On suit donc le paramètre, `immediate` remplaçant le montage.
+// sous la nouvelle URL. On suit donc les paramètres, `immediate` remplaçant le montage.
+//
+// L'username est suivi en plus de l'identifiant, mais ne déclenche aucune requête : il ne
+// désigne pas le mix, il l'accompagne. Sans lui, une adresse au mauvais compte pointant le
+// mix déjà affiché resterait telle quelle — le composant n'ayant rien vu changer.
 watch(
-  () => route.params.id,
-  (id) => {
-    if (typeof id === 'string') loadAll(id)
+  () => [route.params.username, route.params.id] as const,
+  ([, id], precedent) => {
+    if (typeof id !== 'string') return
+
+    // Un autre mix : on recharge, et le chargement canonise l'URL au passage.
+    if (id !== precedent?.[1]) {
+      loadAll(id)
+      return
+    }
+
+    // Le même mix sous une autre adresse : rien à recharger, l'username suffit à corriger.
+    if (mix.value) canoniserLUrl(mix.value)
   },
   { immediate: true },
 )
@@ -290,17 +325,14 @@ watch(
               {{ mix.isFavorited ? 'Favori' : 'Mettre en favori' }}
             </button>
             <AddToPlaylistButton :mix-id="mix.id" />
-            <ShareButton :url="mixShareUrl(mix.id)" />
+            <ShareButton :url="mixShareUrl(mix)" />
           </div>
 
           <div
             v-if="authStore.user?.id === mix.userId"
             class="mt-5 flex items-center gap-5 text-sm"
           >
-            <RouterLink
-              :to="{ name: 'mix-edit', params: { id: mix.id } }"
-              class="text-tambouille-muted hover:underline"
-            >
+            <RouterLink :to="mixEditRoute(mix)" class="text-tambouille-muted hover:underline">
               Modifier ce mix
             </RouterLink>
             <button

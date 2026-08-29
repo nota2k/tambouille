@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import { mixRoute } from '@/utils/routes'
 import { apiClient } from '@/api/client'
 import { mediaUrl } from '@/utils/media'
 import { formatTime } from '@/utils/time'
@@ -666,7 +667,7 @@ function onEnded() {
       <div class="min-w-0 flex-1">
         <div class="flex items-baseline justify-between gap-3">
           <RouterLink
-            :to="{ name: 'mix-detail', params: { id: playerStore.currentMix.id } }"
+            :to="mixRoute(playerStore.currentMix)"
             class="truncate font-display text-sm font-bold text-white hover:underline"
           >
             {{ playerStore.currentMix.title }}

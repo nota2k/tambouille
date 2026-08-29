@@ -8,6 +8,7 @@ import { mixCredit } from '@/composables/useMixCredit'
 import ShareButton from '@/components/ShareButton.vue'
 import AddToPlaylistButton from '@/components/AddToPlaylistButton.vue'
 import { mixShareUrl } from '@/utils/share'
+import { mixRoute } from '@/utils/routes'
 import type { Mix } from '@/types'
 
 const props = withDefaults(defineProps<{ mix: Mix; landscape?: boolean }>(), {
@@ -33,7 +34,7 @@ function play(event: Event) {
     silhouettes différentes.
   -->
   <RouterLink
-    :to="{ name: 'mix-detail', params: { id: mix.id } }"
+    :to="mixRoute(mix)"
     :class="['group relative block shrink-0', landscape ? 'w-full' : 'w-40 sm:w-48']"
   >
     <div class="relative aspect-square w-full overflow-hidden bg-tambouille-surface-hover">
@@ -58,7 +59,7 @@ function play(event: Event) {
       </button>
     </div>
 
-    <ShareButton :url="mixShareUrl(mix.id)" variant="overlay" />
+    <ShareButton :url="mixShareUrl(mix)" variant="overlay" />
     <AddToPlaylistButton :mix-id="mix.id" variant="overlay" />
 
     <p class="mt-2.5 font-display text-[15px] font-bold leading-snug text-tambouille-text">

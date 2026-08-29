@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { mediaUrl } from '@/utils/media'
 import { formatTime } from '@/utils/time'
 import { buildTracklist, type TrackRow } from '@/utils/tracklist'
+import { mixRoute } from '@/utils/routes'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
 import type { Mix } from '@/types'
@@ -25,6 +26,16 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const mixId = route.params.id as string
+
+/**
+ * Le compte propriétaire, retenu au chargement.
+ *
+ * L'adresse d'un mix le contient désormais, et cet écran y renvoie trois fois —
+ * refus d'accès, annulation, enregistrement réussi. Le paramètre d'URL ne suffit
+ * pas : cette vue répond aussi à l'ancienne adresse `/mixes/<id>/edit`, où il
+ * n'y a pas d'username à lire.
+ */
+const proprietaire = ref('')
 
 const loading = ref(true)
 const notFound = ref(false)
@@ -48,9 +59,10 @@ async function load() {
   loading.value = true
   try {
     const { data } = await apiClient.get<Mix>(`/mixes/${mixId}`)
+    proprietaire.value = data.user.username
 
     if (authStore.user?.id !== data.userId) {
-      router.replace({ name: 'mix-detail', params: { id: mixId } })
+      router.replace(mixRoute(data))
       return
     }
 
@@ -110,7 +122,7 @@ async function onSubmit() {
     await apiClient.patch(`/mixes/${mixId}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
-    router.push({ name: 'mix-detail', params: { id: mixId } })
+    router.push(mixRoute({ id: mixId, user: { username: proprietaire.value } }))
   } catch (err) {
     error.value = apiErrorMessage(err, 'Échec de la mise à jour')
   } finally {
@@ -200,7 +212,10 @@ onMounted(load)
         <button type="submit" :disabled="saving" class="flex-1 tb-btn">
           {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
         </button>
-        <RouterLink :to="{ name: 'mix-detail', params: { id: mixId } }" class="tb-btn-outline">
+        <RouterLink
+          :to="mixRoute({ id: mixId, user: { username: proprietaire } })"
+          class="tb-btn-outline"
+        >
           Annuler
         </RouterLink>
       </div>
