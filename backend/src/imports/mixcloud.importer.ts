@@ -39,6 +39,7 @@ export class MixcloudImporter implements SourceImporter {
       durationSec: summary.audioLengthSec,
       coverUrl: summary.pictureUrl,
       publishedAt: summary.createdAt,
+      pageUrl: `https://www.mixcloud.com${summary.key}`,
     }));
   }
 

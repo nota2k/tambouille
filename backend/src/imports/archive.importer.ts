@@ -173,6 +173,7 @@ export function parseArchiveItem(
           : (file.name as string),
       durationSec: parseLength(file.length),
       coverUrl,
+      pageUrl: `https://archive.org/details/${identifier}`,
     };
   });
 }

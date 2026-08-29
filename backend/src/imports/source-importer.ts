@@ -7,6 +7,9 @@ export interface SourceItem {
   durationSec?: number;
   coverUrl?: string;
   publishedAt?: string;
+  /** La page où la source publie cet item. Facultatif : la veille écarte les
+   *  items sans adresse plutôt que d'afficher un lien mort. */
+  pageUrl?: string;
 }
 
 /** Everything the upload form needs to prefill itself from one source entry. */
