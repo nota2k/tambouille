@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IMAGE_EXTENSIONS = exports.COVER_MAX_BYTES = exports.IMAGE_MIME_TYPES = exports.AUDIO_MIME_TYPES = void 0;
 exports.putBufferToR2 = putBufferToR2;
+exports.getBufferFromR2 = getBufferFromR2;
 exports.deleteFromR2 = deleteFromR2;
 exports.r2StorageFor = r2StorageFor;
 exports.r2StorageByField = r2StorageByField;
@@ -17,11 +18,13 @@ const client_s3_1 = require("@aws-sdk/client-s3");
 const common_2 = require("@nestjs/common");
 const r2_keys_1 = require("./r2-keys");
 const multer_s3_1 = __importDefault(require("multer-s3"));
-var mime_constants_1 = require("./mime.constants");
-Object.defineProperty(exports, "AUDIO_MIME_TYPES", { enumerable: true, get: function () { return mime_constants_1.AUDIO_MIME_TYPES; } });
-Object.defineProperty(exports, "IMAGE_MIME_TYPES", { enumerable: true, get: function () { return mime_constants_1.IMAGE_MIME_TYPES; } });
-Object.defineProperty(exports, "COVER_MAX_BYTES", { enumerable: true, get: function () { return mime_constants_1.COVER_MAX_BYTES; } });
-Object.defineProperty(exports, "IMAGE_EXTENSIONS", { enumerable: true, get: function () { return mime_constants_1.IMAGE_EXTENSIONS; } });
+const mime_constants_1 = require("./mime.constants");
+const image_1 = require("./image");
+var mime_constants_2 = require("./mime.constants");
+Object.defineProperty(exports, "AUDIO_MIME_TYPES", { enumerable: true, get: function () { return mime_constants_2.AUDIO_MIME_TYPES; } });
+Object.defineProperty(exports, "IMAGE_MIME_TYPES", { enumerable: true, get: function () { return mime_constants_2.IMAGE_MIME_TYPES; } });
+Object.defineProperty(exports, "COVER_MAX_BYTES", { enumerable: true, get: function () { return mime_constants_2.COVER_MAX_BYTES; } });
+Object.defineProperty(exports, "IMAGE_EXTENSIONS", { enumerable: true, get: function () { return mime_constants_2.IMAGE_EXTENSIONS; } });
 function requireEnv(name) {
     const value = process.env[name];
     if (!value) {
@@ -54,6 +57,13 @@ async function putBufferToR2(subdir, body, contentType, extension) {
     }));
     return key;
 }
+async function getBufferFromR2(key) {
+    const result = await r2Client.send(new client_s3_1.GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+    if (!result.Body) {
+        throw new Error(`Objet R2 vide ou absent : ${key}`);
+    }
+    return Buffer.from(await result.Body.transformToByteArray());
+}
 const storageLogger = new common_2.Logger('R2Storage');
 async function deleteFromR2(keys) {
     const owned = (0, r2_keys_1.r2KeysOnly)(keys);
@@ -72,26 +82,68 @@ async function deleteFromR2(keys) {
         storageLogger.warn(`Suppression R2 échouée pour ${owned.join(', ')}: ${String(err)}`);
     }
 }
-function r2StorageFor(subdir) {
-    return (0, multer_s3_1.default)({
-        s3: r2Client,
-        bucket: R2_BUCKET_NAME,
-        contentType: multer_s3_1.default.AUTO_CONTENT_TYPE,
-        key: (_req, file, callback) => {
-            callback(null, objectKey(subdir, file.originalname));
-        },
+function readUpTo(stream, max) {
+    return new Promise((resolve, reject) => {
+        const chunks = [];
+        let total = 0;
+        stream.on('data', (chunk) => {
+            total += chunk.length;
+            if (total > max) {
+                stream.destroy();
+                reject(new common_1.BadRequestException(`Image trop lourde : ${Math.round(max / (1024 * 1024))} Mo maximum`));
+                return;
+            }
+            chunks.push(chunk);
+        });
+        stream.on('error', reject);
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
     });
 }
-function r2StorageByField(fieldToSubdir) {
-    return (0, multer_s3_1.default)({
+function r2Storage(subdirFor) {
+    const passthrough = (0, multer_s3_1.default)({
         s3: r2Client,
         bucket: R2_BUCKET_NAME,
         contentType: multer_s3_1.default.AUTO_CONTENT_TYPE,
         key: (_req, file, callback) => {
-            const subdir = fieldToSubdir[file.fieldname] ?? 'misc';
-            callback(null, objectKey(subdir, file.originalname));
+            callback(null, objectKey(subdirFor(file), file.originalname));
         },
     });
+    const engine = {
+        _handleFile(request, file, callback) {
+            if (!file.mimetype.startsWith('image/')) {
+                passthrough._handleFile(request, file, callback);
+                return;
+            }
+            const subdir = subdirFor(file);
+            void readUpTo(file.stream, mime_constants_1.COVER_MAX_BYTES)
+                .then(async (original) => {
+                const image = await (0, image_1.toWebp)(original, subdir);
+                const key = await putBufferToR2(subdir, image.buffer, image.contentType, image.extension);
+                callback(null, {
+                    key,
+                    bucket: R2_BUCKET_NAME,
+                    size: image.buffer.length,
+                    contentType: image.contentType,
+                });
+            })
+                .catch((err) => callback(err));
+        },
+        _removeFile(request, file, callback) {
+            const key = file.key;
+            if (!file.mimetype.startsWith('image/')) {
+                passthrough._removeFile(request, file, callback);
+                return;
+            }
+            void deleteFromR2([key]).then(() => callback(null));
+        },
+    };
+    return engine;
+}
+function r2StorageFor(subdir) {
+    return r2Storage(() => subdir);
+}
+function r2StorageByField(fieldToSubdir) {
+    return r2Storage((file) => fieldToSubdir[file.fieldname] ?? 'misc');
 }
 function fileFilterFor(allowedMimeTypes) {
     return (_req, file, callback) => {

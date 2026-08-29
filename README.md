@@ -112,6 +112,60 @@ a déjà changé une fois.
 Deux variables les concernent, décrites dans [`backend/.env.example`](backend/.env.example) :
 `R2_PUBLIC_URL` et `FOURNEES_DIR`.
 
+## Référencement
+
+Le `<head>` est écrit à la navigation par `useSeo` (`frontend/src/composables/useSeo.ts`) :
+titre, description, canonique, Open Graph, carte Twitter, et des données
+structurées schema.org par type de page — `MusicRecording` sur un mix,
+`ProfilePage` sur un profil, `MusicPlaylist` sur une playlist, `WebSite` avec sa
+recherche sur l'accueil. Les écrans de compte (connexion, réglages, upload,
+collection, édition) portent `noindex`. Le calcul est isolé dans
+`frontend/src/utils/seo.ts`, testé sans DOM comme le reste.
+
+Le plan de site est servi par l'API — il se construit à partir de la base, quand
+le front n'est qu'un paquet de fichiers statiques :
+
+| URL | ce qu'elle contient |
+|---|---|
+| `/api/sitemap.xml` | l'accueil, tous les mix, les profils publics, les playlists |
+
+`frontend/public/robots.txt` le déclare et vit, lui, sur le domaine du site :
+c'est cette déclaration qui autorise un plan hébergé ailleurs. Il faut donc y
+tenir à jour l'URL de l'API, et déclarer le plan dans la Search Console, où la
+propriété vérifiée est le domaine du site. Les URL publiées prennent pour base
+`FRONTEND_URL`, comme les flux.
+
+### Aperçus de partage
+
+Googlebot exécute le JavaScript et voit donc les balises écrites par `useSeo`.
+Les robots qui fabriquent l'aperçu d'un lien collé dans une conversation —
+Facebook, Discord, WhatsApp, Slack, Twitter/X, LinkedIn, Telegram, Signal,
+Mastodon, Bluesky — ne l'exécutent pas : ils ne verraient que la coquille vide
+de `frontend/index.html`, et tout lien s'afficherait sous le même titre, sans
+pochette.
+
+`frontend/public/.htaccess` les reconnaît à leur `User-Agent` et les redirige
+(302) vers l'API, qui écrit un vrai document pour eux :
+
+| URL | ce qu'elle décrit |
+|---|---|
+| `/api/preview/mixes/:id` | un mix : titre, artiste, pochette, `og:audio` quand un fichier est jouable |
+| `/api/preview/users/:username` | un membre : nom, bio, avatar |
+| `/api/preview/playlists/:id` | une playlist : titre, auteur, première pochette |
+
+Ces documents portent `noindex` et renvoient tout de suite vers la page réelle,
+que leur `og:url` désigne : l'aperçu reste attribué au domaine du site.
+
+**Googlebot n'est pas dans cette liste et ne doit pas y entrer** : lui servir un
+document différent de celui d'un visiteur est du cloaking, que Google
+sanctionne. Il voit le vrai site, où les mêmes balises sont écrites.
+
+L'URL de l'API est en dur dans `.htaccess`, qui est un fichier statique sans
+accès aux variables d'environnement : elle doit rester alignée sur
+`VITE_API_BASE_URL` de `frontend/.env.production`. Le redirection plutôt qu'un
+proxy `[P]` : mod_proxy n'est pas garanti sur l'hébergement mutualisé, et ces
+robots suivent tous les redirections.
+
 ## Notes techniques
 
 - Prisma 7 nécessite un driver adapter explicite (`@prisma/adapter-pg`) et le générateur client est configuré en `moduleFormat = "cjs"` pour rester compatible avec la compilation CommonJS de NestJS.

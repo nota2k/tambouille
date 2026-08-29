@@ -2,6 +2,15 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSeo } from '@/composables/useSeo'
+
+// Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
+// de toute façon la même page vide à un robot, faute de session.
+useSeo({
+  title: 'Choisir un nom d’utilisateur',
+  description: 'Choisissez le nom sous lequel vos mix seront publiés.',
+  noindex: true,
+})
 
 const authStore = useAuthStore()
 const router = useRouter()

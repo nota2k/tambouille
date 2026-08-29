@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { apiClient } from '@/api/client'
 import UserListItem from '@/components/UserListItem.vue'
 import type { AuthorSummary } from '@/types'
+import { useSeo } from '@/composables/useSeo'
 
 const route = useRoute()
 
@@ -29,6 +30,16 @@ async function load() {
     loading.value = false
   }
 }
+
+/**
+ * Deux listes de comptes, sans contenu propre : elles se laissent parcourir
+ * pour atteindre les profils, mais n'ont rien à faire dans l'index.
+ */
+useSeo(() => ({
+  title: `${title.value} de ${username.value}`,
+  description: `${title.value} de ${username.value} sur Tambouille.`,
+  noindex: true,
+}))
 
 onMounted(load)
 watch(() => [route.params.username, route.name], load)

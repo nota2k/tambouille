@@ -4,6 +4,12 @@
  * throwaway values, and the SDK is mocked, so nothing reaches the network and
  * no credentials are needed.
  */
+import { Readable } from 'stream';
+import type { StorageEngine } from 'multer';
+import { BadRequestException } from '@nestjs/common';
+import sharp from 'sharp';
+import { COVER_MAX_BYTES } from './mime.constants';
+
 process.env.R2_ACCOUNT_ID = 'test-account';
 process.env.R2_ACCESS_KEY_ID = 'test-key';
 process.env.R2_SECRET_ACCESS_KEY = 'test-secret';
@@ -21,11 +27,30 @@ jest.mock('@aws-sdk/client-s3', () => ({
     .mockImplementation((input: unknown) => ({ input })),
 }));
 
+/**
+ * `multer-s3` est remplacé par un double : le moteur ne s'en sert plus que
+ * pour ce qui n'est pas une image, et ce test veut vérifier que la délégation
+ * a bien lieu — pas ce que la bibliothèque en fait ensuite.
+ */
+const passthroughHandle = jest.fn();
+const passthroughRemove = jest.fn();
+
+jest.mock('multer-s3', () => {
+  const factory = jest.fn(() => ({
+    _handleFile: passthroughHandle,
+    _removeFile: passthroughRemove,
+  }));
+  return {
+    __esModule: true,
+    default: Object.assign(factory, { AUTO_CONTENT_TYPE: jest.fn() }),
+  };
+});
+
 // `require`, not `import`: jest hoists `import` above the assignments above,
 // and `upload.utils` reads those variables in its module body. The project is
 // on typescript-eslint v8, where the rule is `no-require-imports`.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { deleteFromR2 } =
+const { deleteFromR2, r2StorageFor, r2StorageByField } =
   require('./upload.utils') as typeof import('./upload.utils');
 
 describe('deleteFromR2', () => {
@@ -65,5 +90,122 @@ describe('deleteFromR2', () => {
       Errors: [{ Key: 'covers/b.jpg', Code: 'AccessDenied' }],
     });
     await expect(deleteFromR2(['covers/b.jpg'])).resolves.toBeUndefined();
+  });
+});
+
+describe('r2Storage', () => {
+  /** Ce que multer passe au moteur : un flux, et ce que le client a déclaré. */
+  function uploadOf(stream: Readable, mimetype: string, fieldname = 'cover') {
+    return {
+      fieldname,
+      originalname: 'pochette.jpg',
+      mimetype,
+      stream,
+    } as unknown as Express.Multer.File;
+  }
+
+  function handle(engine: StorageEngine, file: Express.Multer.File) {
+    return new Promise<Partial<Express.MulterS3.File>>((resolve, reject) => {
+      engine._handleFile({} as never, file, (error, info) => {
+        if (error) reject(error);
+        else resolve(info as Partial<Express.MulterS3.File>);
+      });
+    });
+  }
+
+  function jpeg(width = 900, height = 900) {
+    return sharp({
+      create: {
+        width,
+        height,
+        channels: 3,
+        background: { r: 10, g: 200, b: 120 },
+      },
+    })
+      .jpeg()
+      .toBuffer();
+  }
+
+  beforeEach(() => {
+    send.mockReset();
+    send.mockResolvedValue({});
+    passthroughHandle.mockReset();
+    passthroughRemove.mockReset();
+  });
+
+  it('stocke une image en WebP, sous une clé qui le dit', async () => {
+    const info = await handle(
+      r2StorageFor('covers'),
+      uploadOf(Readable.from(await jpeg()), 'image/jpeg'),
+    );
+
+    expect(info.key).toMatch(/^covers\/[0-9a-f-]+\.webp$/);
+    expect(info.contentType).toBe('image/webp');
+
+    const put = send.mock.calls[0][0].input as {
+      Key: string;
+      ContentType: string;
+      Body: Buffer;
+    };
+    expect(put.ContentType).toBe('image/webp');
+    expect((await sharp(put.Body).metadata()).format).toBe('webp');
+  });
+
+  it('range chaque champ dans son répertoire', async () => {
+    const engine = r2StorageByField({ audio: 'audio', cover: 'covers' });
+    const info = await handle(
+      engine,
+      uploadOf(Readable.from(await jpeg()), 'image/png', 'cover'),
+    );
+
+    expect(info.key).toMatch(/^covers\//);
+  });
+
+  it('laisse l’audio à multer-s3, qui le streame sans le charger en mémoire', () => {
+    const engine = r2StorageByField({ audio: 'audio', cover: 'covers' });
+    const file = uploadOf(
+      Readable.from(Buffer.alloc(8)),
+      'audio/mpeg',
+      'audio',
+    );
+
+    engine._handleFile({} as never, file, () => {});
+
+    expect(passthroughHandle).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('refuse une image au-delà du plafond des pochettes, sans rien écrire', async () => {
+    const trop = Readable.from(Buffer.alloc(COVER_MAX_BYTES + 1024));
+
+    await expect(
+      handle(r2StorageFor('covers'), uploadOf(trop, 'image/jpeg')),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('refuse un fichier qui se déclare image sans en être une', async () => {
+    await expect(
+      handle(
+        r2StorageFor('covers'),
+        uploadOf(Readable.from(Buffer.from('PAS UNE IMAGE')), 'image/jpeg'),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('efface l’objet déjà écrit quand multer abandonne la requête', async () => {
+    const engine = r2StorageFor('covers');
+    const file = {
+      mimetype: 'image/jpeg',
+      key: 'covers/abc.webp',
+    } as unknown as Express.Multer.File;
+
+    await new Promise<void>((resolve) => {
+      engine._removeFile({} as never, file, () => resolve());
+    });
+
+    expect(send.mock.calls[0][0].input).toMatchObject({
+      Delete: { Objects: [{ Key: 'covers/abc.webp' }] },
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { fetchCover } from '../common/cover-source';
+import { toWebp } from '../common/image';
 import { putBufferToR2 } from '../common/upload.utils';
 
 /**
@@ -20,11 +21,16 @@ export class CoverImportService {
   async importFromUrl(coverSourceUrl: string): Promise<string | null> {
     try {
       const cover = await fetchCover(coverSourceUrl);
+      // Converties comme celles qui arrivent par le formulaire : ce qui est
+      // stocké ne doit pas dépendre du chemin emprunté. Les pochettes des
+      // sources sont souvent les plus lourdes — un JPEG de 3000 px destiné à
+      // une page d'émission.
+      const image = await toWebp(cover.buffer, 'covers');
       return await putBufferToR2(
         'covers',
-        cover.buffer,
-        cover.contentType,
-        cover.extension,
+        image.buffer,
+        image.contentType,
+        image.extension,
       );
     } catch (err) {
       this.logger.warn(

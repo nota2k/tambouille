@@ -11,6 +11,8 @@ import PlaylistCard from '@/components/PlaylistCard.vue'
 import AvatarStack from '@/components/AvatarStack.vue'
 import FeedLink from '@/components/FeedLink.vue'
 import { createPlaylist, fetchUserPlaylists } from '@/utils/playlists'
+import { shareUrl } from '@/utils/share'
+import { useSeo } from '@/composables/useSeo'
 import type { AuthorSummary, Mix, PlaylistSummary, UserProfile } from '@/types'
 
 /** Followers, following and playlists now live in the two-column section, not in tabs. */
@@ -91,6 +93,41 @@ async function loadProfile() {
     loading.value = false
   }
 }
+
+/**
+ * Un profil est une page de collection : ce qu'un moteur en retient doit être
+ * le nom du membre et ce qu'on y trouve, pas la coquille « Tambouille » que
+ * portait chaque URL du site jusqu'ici.
+ */
+useSeo(() => {
+  const current = profile.value
+  if (!current) return {}
+
+  const avatar = mediaUrl(current.avatarUrl)
+
+  return {
+    title: current.displayName,
+    description:
+      current.bio ||
+      `Les mix de ${current.displayName} sur Tambouille` +
+        (current.mixesCount ? ` — ${current.mixesCount} mix publiés.` : '.'),
+    image: avatar,
+    type: 'profile',
+    canonical: shareUrl({ name: 'profile', params: { username: current.username } }),
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'ProfilePage',
+      mainEntity: {
+        '@type': 'Person',
+        name: current.displayName,
+        alternateName: current.username,
+        url: shareUrl({ name: 'profile', params: { username: current.username } }),
+        ...(current.bio ? { description: current.bio } : {}),
+        ...(avatar ? { image: avatar } : {}),
+      },
+    },
+  }
+})
 
 async function onAvatarChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]

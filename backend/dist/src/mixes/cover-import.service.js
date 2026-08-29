@@ -10,13 +10,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CoverImportService = void 0;
 const common_1 = require("@nestjs/common");
 const cover_source_1 = require("../common/cover-source");
+const image_1 = require("../common/image");
 const upload_utils_1 = require("../common/upload.utils");
 let CoverImportService = CoverImportService_1 = class CoverImportService {
     logger = new common_1.Logger(CoverImportService_1.name);
     async importFromUrl(coverSourceUrl) {
         try {
             const cover = await (0, cover_source_1.fetchCover)(coverSourceUrl);
-            return await (0, upload_utils_1.putBufferToR2)('covers', cover.buffer, cover.contentType, cover.extension);
+            const image = await (0, image_1.toWebp)(cover.buffer, 'covers');
+            return await (0, upload_utils_1.putBufferToR2)('covers', image.buffer, image.contentType, image.extension);
         }
         catch (err) {
             this.logger.warn(`Pochette non importée depuis ${coverSourceUrl}: ${String(err)}`);

@@ -4,6 +4,15 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import GoogleSignInButton from '@/components/GoogleSignInButton.vue'
 import KeycloakSignInButton from '@/components/KeycloakSignInButton.vue'
+import { useSeo } from '@/composables/useSeo'
+
+// Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
+// de toute façon la même page vide à un robot, faute de session.
+useSeo({
+  title: 'Créer un compte',
+  description: 'Créez votre compte Tambouille pour publier et écouter des mix.',
+  noindex: true,
+})
 
 const authStore = useAuthStore()
 const router = useRouter()

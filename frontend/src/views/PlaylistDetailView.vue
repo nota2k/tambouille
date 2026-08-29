@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { mediaUrl } from '@/utils/media'
 import { formatDate } from '@/utils/date'
 import { playlistShareUrl } from '@/utils/share'
+import { useSeo } from '@/composables/useSeo'
 import {
   deletePlaylist,
   fetchPlaylist,
@@ -43,6 +44,41 @@ async function loadPlaylist() {
     loading.value = false
   }
 }
+
+/**
+ * Une playlist est une sélection éditoriale : son titre et le nom de qui l'a
+ * faite sont ce qui la distingue, la liste des mix venant après.
+ */
+useSeo(() => {
+  const current = playlist.value
+  if (notFound.value) return { noindex: true }
+  if (!current) return {}
+
+  return {
+    // Une virgule et non un tiret : le suffixe du site en pose déjà un.
+    title: `${current.title}, une playlist de ${current.user.displayName}`,
+    description:
+      current.description ||
+      `Une playlist de ${current.user.displayName} sur Tambouille, ${current.mixesCount} mix à écouter.`,
+    image: mediaUrl(current.coverUrls[0]),
+    type: 'music.playlist',
+    canonical: playlistShareUrl(current.id),
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'MusicPlaylist',
+      name: current.title,
+      url: playlistShareUrl(current.id),
+      numTracks: current.mixesCount,
+      ...(current.description ? { description: current.description } : {}),
+      author: { '@type': 'Person', name: current.user.displayName },
+      track: current.mixes.map((mix) => ({
+        '@type': 'MusicRecording',
+        name: mix.title,
+        byArtist: { '@type': 'MusicGroup', name: mix.artist?.trim() || mix.user.displayName },
+      })),
+    },
+  }
+})
 
 function startEditing() {
   if (!playlist.value) return

@@ -7,6 +7,15 @@ import { buildTracklist, type TrackRow } from '@/utils/tracklist'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
 import type { Mix, MixImport, ResolveResponse, SourceItem } from '@/types'
+import { useSeo } from '@/composables/useSeo'
+
+// Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
+// de toute façon la même page vide à un robot, faute de session.
+useSeo({
+  title: 'Déposer un mix',
+  description: 'Déposez un mix sur Tambouille.',
+  noindex: true,
+})
 
 const router = useRouter()
 

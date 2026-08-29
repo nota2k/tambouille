@@ -6,6 +6,15 @@ import { fetchUserPlaylists } from '@/utils/playlists'
 import MixListItem from '@/components/MixListItem.vue'
 import PlaylistCard from '@/components/PlaylistCard.vue'
 import type { Mix, PlaylistSummary } from '@/types'
+import { useSeo } from '@/composables/useSeo'
+
+// Écran de compte, sans contenu public : il n'a rien à indexer et répondrait
+// de toute façon la même page vide à un robot, faute de session.
+useSeo({
+  title: 'Ma collection',
+  description: 'Vos mix favoris et vos playlists sur Tambouille.',
+  noindex: true,
+})
 
 type Tab = 'mixes' | 'favorites' | 'playlists'
 type SortOrder = 'recent' | 'oldest'
