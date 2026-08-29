@@ -9,7 +9,16 @@ const fetchMock = safeFetch as jest.Mock;
 describe('canonicalUrl', () => {
   it.each([
     ['https://Ouiedire.net/Feed/', 'https://ouiedire.net/Feed'],
-    ['https://ouiedire.net/feed?x=1#a', 'https://ouiedire.net/feed'],
+    // La query est conservée : elle désigne la ressource. Le fragment part,
+    // lui, parce qu'il n'est jamais envoyé au serveur.
+    ['https://ouiedire.net/feed?x=1#a', 'https://ouiedire.net/feed?x=1'],
+    // Le cas qui motivait la correction : sans sa query, ce flux n'existe pas.
+    [
+      'https://www.youtube.com/feeds/videos.xml?channel_id=UCabc',
+      'https://www.youtube.com/feeds/videos.xml?channel_id=UCabc',
+    ],
+    ['https://blog.test/?feed=rss2', 'https://blog.test?feed=rss2'],
+    ['https://x.test/feed#top', 'https://x.test/feed'],
     ['https://ouiedire.net', 'https://ouiedire.net'],
     ['https://ouiedire.net./feed', 'https://ouiedire.net/feed'],
     ['https://x.test//feed', 'https://x.test/feed'],
@@ -19,6 +28,15 @@ describe('canonicalUrl', () => {
     ['https://x.test:443/feed', 'https://x.test/feed'],
   ])('%s → %s', (raw, expected) => {
     expect(canonicalUrl(raw)).toBe(expected);
+  });
+
+  it('distingue deux flux qui ne diffèrent que par leur query', () => {
+    // Sur beaucoup de CMS, `?feed=rss2` et `?feed=atom` sont deux flux
+    // distincts du même site. Les confondre ferait suivre l'un en croyant
+    // suivre l'autre, et la contrainte d'unicité refuserait le second.
+    expect(canonicalUrl('https://blog.test/?feed=rss2')).not.toBe(
+      canonicalUrl('https://blog.test/?feed=atom'),
+    );
   });
 
   it('refuse ce qui n’est pas une URL https', () => {
@@ -36,6 +54,8 @@ describe('canonicalUrl', () => {
     'https://x.test//feed',
     'https://x.test/feed//',
     'https://x.test:8443/feed',
+    'https://www.youtube.com/feeds/videos.xml?channel_id=UCabc',
+    'https://blog.test/feed/?a=1&b=2',
   ])('est idempotente sur %s', (raw) => {
     const once = canonicalUrl(raw);
     expect(canonicalUrl(once)).toBe(once);

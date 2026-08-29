@@ -59,8 +59,9 @@ model WatchedSource {
 ```
 
 - `url` est canonicalisée à l'ajout (schéma en minuscules, hôte en minuscules,
-  slash final retiré, query et fragment abandonnés) pour que deux façons
-  d'écrire la même adresse tombent sur la même ligne.
+  slash final retiré, fragment abandonné) pour que deux façons d'écrire la même
+  adresse tombent sur la même ligne. **La query est conservée** — voir
+  l'amendement en fin de document, qui corrige ce point.
 - `label` est le nom affiché. Il est proposé par le résolveur à l'ajout, puis
   l'utilisateur peut le corriger.
 - `resolver` nomme le maillon qui a réussi : `"bandcamp"`, `"mixcloud"`,
@@ -276,3 +277,27 @@ raisonnable à un seul, d'autant que le cache d'une heure l'absorbe.
 Les sources continuent de rendre et de stocker jusqu'à dix items : n'en garder
 qu'un ne ferait économiser ni requête ni parsing, et refermerait la porte à un
 bloc plus riche sans rien acheter aujourd'hui.
+
+
+---
+
+## Amendement du 29/08/2026 (2) — la query survit à la canonicalisation
+
+La canonicalisation abandonnait la query, au nom de la déduplication. C'était une
+erreur, et elle rendait inatteignable toute une classe de sources.
+
+Chez YouTube, le flux d'une chaîne **est** `?channel_id=…` ; chez WordPress et
+Blogger, `?feed=rss2` et `?feed=atom` sont deux flux distincts du même site.
+Privées de leur query, ces adresses ne désignent plus rien : l'ajout échouait sur
+« Aucune sortie lisible à cette adresse », alors que l'adresse était bonne et que
+le message accusait l'utilisateur.
+
+La query est donc conservée, et **telle quelle** — ses paramètres ne sont pas
+réordonnés. La chaîne rendue par `canonicalUrl` est celle qu'on enregistre et
+qu'on ira relire : tout ce qui peut désigner une autre ressource s'y garde
+intact. C'est la règle qui avait déjà fait rétablir le port explicite et refuser
+les URL portant des identifiants. Le prix est que deux écritures d'une même query
+dans un ordre différent font deux lignes — rare, et sans conséquence.
+
+Le fragment, lui, continue d'être retiré : il n'est jamais envoyé au serveur,
+il ne peut donc pas désigner une autre ressource.

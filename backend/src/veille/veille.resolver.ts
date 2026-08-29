@@ -54,7 +54,22 @@ export function canonicalUrl(raw: string): string {
   // Idem pour les barres obliques répétées ou finales dans le chemin : le
   // serveur les traite comme une seule, ou comme absentes.
   const path = url.pathname.replace(/\/{2,}/g, '/').replace(/\/+$/, '');
-  return `https://${host}${port}${path}`;
+  // La query est gardée TELLE QUELLE. Elle a longtemps été retirée, au nom de
+  // la déduplication, et c'était une erreur : chez YouTube le flux d'une chaîne
+  // EST `?channel_id=…`, chez WordPress et Blogger `?feed=rss2` et `?feed=atom`
+  // sont deux flux distincts du même site. Sans elle, ces adresses ne
+  // désignaient plus rien et l'ajout échouait sur « aucune sortie lisible »,
+  // alors que l'adresse était bonne.
+  //
+  // On ne réordonne pas non plus ses paramètres : la chaîne rendue ici est
+  // celle qu'on enregistre ET qu'on ira relire, donc tout ce qui peut changer
+  // la ressource se garde intact — la même règle que pour le port et les
+  // identifiants juste au-dessus. Deux écritures d'une même query dans un ordre
+  // différent feront donc deux lignes ; c'est rare, et sans conséquence.
+  //
+  // Le fragment, lui, part : il n'est jamais envoyé au serveur, il ne peut donc
+  // pas désigner une autre ressource.
+  return `https://${host}${port}${path}${url.search}`;
 }
 
 function toVeilleItems(items: SourceItem[]): VeilleItem[] {
