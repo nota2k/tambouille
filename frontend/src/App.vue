@@ -6,6 +6,7 @@ import EcoutezAilleurs from '@/components/EcoutezAilleurs.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
 import PageFade from '@/components/PageFade.vue'
+import TraitsLateraux from '@/components/TraitsLateraux.vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
 import { useSmoothScroll } from '@/composables/useSmoothScroll'
@@ -108,6 +109,9 @@ onMounted(() => {
     <!-- Hors du flux et par-dessus tout le reste : le voile ne participe à
          aucune mise en page, donc il ne peut rien décaler. -->
     <PageFade v-if="!enCadre" />
+    <!-- La bordure décorative, hors du flux comme le voile. Pas dans un cadre :
+         deux cents pixels de haut chez un tiers n'ont pas de marge à border. -->
+    <TraitsLateraux v-if="!enCadre" />
   </div>
 </template>
 

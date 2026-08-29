@@ -209,6 +209,18 @@
   --color-tambouille-border: #dcd8d1;
   --color-tambouille-rule: #000000;
   --color-tambouille-text: #000000;
+  /*
+   * L'encre au survol : un noir levé, pas un gris.
+   *
+   * Le titre d'une carte est en noir plein, et sur une carte entièrement
+   * cliquable il faut bien que quelque chose réponde au curseur. Un cran vers
+   * `muted` (#555050) suffit à le dire, sans que le titre ait l'air désactivé —
+   * ce que produirait le passage au gris de texte secondaire.
+   *
+   * Le rouge légèrement en avance sur les deux autres canaux reprend la
+   * chaleur de `muted` : la palette n'a pas de gris neutre.
+   */
+  --color-tambouille-text-hover: #757373;
   --color-tambouille-muted: #555050;
   --color-tambouille-faint: #aaaaaa;
   --color-tambouille-accent: #ff2d6f;
