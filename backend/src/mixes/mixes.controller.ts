@@ -191,6 +191,22 @@ export class MixesController {
     );
   }
 
+  /**
+   * Les autres mixs du même artiste, pour la section qui les affiche sous le
+   * mix. Distincte de `suggestions` : celle-là cherche quoi écouter ensuite et
+   * se rabat sur des voisins quand elle n'a pas de signal, celle-ci répond à
+   * une question précise et préfère ne rien rendre que rendre autre chose.
+   */
+  @Get(':id/by-artist')
+  @UseGuards(OptionalJwtAuthGuard)
+  listByArtist(
+    @Param('id') id: string,
+    @Query() query: QuerySuggestionsDto,
+    @OptionalUserId() currentUserId?: string,
+  ) {
+    return this.mixesService.listByArtist(id, query.limit ?? 3, currentUserId);
+  }
+
   @Post(':id/play')
   @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)

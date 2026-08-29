@@ -636,6 +636,50 @@ export class MixesService {
   }
 
   /**
+   * Les autres mixs du même artiste, du plus récent au plus ancien.
+   *
+   * « Le même artiste » se lit comme la page le montre, c'est-à-dire comme
+   * `mixCredit` côté frontend : quand la colonne `artist` est remplie, c'est
+   * elle qui nomme l'artiste, et deux mixs importés de sources différentes se
+   * retrouvent par ce nom — la comparaison ignore la casse parce que chaque
+   * source écrit le sien à sa façon. Quand elle est vide, l'artiste *est* le
+   * compte, et ce sont les autres mixs qu'il a déposés lui-même.
+   *
+   * Ce second cas garde `artist: null` dans son filtre, et ce n'est pas un
+   * détail : un compte qui importe le mix de quelqu'un d'autre ne l'a pas
+   * signé, et le faire figurer ici attribuerait au compte une œuvre qui n'est
+   * pas la sienne — exactement ce que la colonne `artist` sert à distinguer.
+   *
+   * Aucun repli, contrairement aux suggestions : une section vide vaut mieux
+   * qu'une section qui ment sur ce qu'elle annonce.
+   */
+  async listByArtist(id: string, limit: number, currentUserId?: string) {
+    const mix = await this.prisma.mix.findUnique({
+      where: { id },
+      select: { id: true, artist: true, userId: true },
+    });
+    if (!mix) {
+      throw new NotFoundException('Mix not found');
+    }
+
+    // Un artiste réduit à des espaces vaut pas d'artiste : le champ est libre
+    // dans le formulaire, et `mixCredit` tranche déjà pareil à l'affichage.
+    const artiste = mix.artist?.trim();
+    const meme = artiste
+      ? { artist: { equals: artiste, mode: 'insensitive' as const } }
+      : { userId: mix.userId, artist: null };
+
+    const items = await this.prisma.mix.findMany({
+      where: { ...meme, id: { not: id } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      ...buildMixInclude(currentUserId),
+    });
+
+    return { items: items.map(toMixResponse) };
+  }
+
+  /**
    * `playsCount` counts plays that happened *on Tambouille*. A remotely-hosted mix is
    * streamed by the host — that is the whole point of importing one — and its play count
    * lives there, which is why the UI never shows one for it. Counting those plays anyway
