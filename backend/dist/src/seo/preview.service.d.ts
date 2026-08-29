@@ -8,7 +8,9 @@ export interface PreviewContext {
 export declare class PreviewService {
     private readonly prisma;
     constructor(prisma: PrismaService);
+    mixBySlug(username: string, slug: string, context: PreviewContext): Promise<PreviewPage>;
     mix(id: string, context: PreviewContext): Promise<PreviewPage>;
+    private pagePourMix;
     user(username: string, context: PreviewContext): Promise<PreviewPage>;
     playlist(id: string, context: PreviewContext): Promise<PreviewPage>;
 }

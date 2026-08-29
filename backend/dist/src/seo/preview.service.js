@@ -17,44 +17,67 @@ const preview_builder_1 = require("./preview.builder");
 function credit(artist, displayName) {
     const artiste = artist?.trim();
     if (!artiste)
-        return displayName;
-    return artiste.toLowerCase() === displayName.trim().toLowerCase()
-        ? displayName
-        : artiste;
+        return { principal: displayName, secondaire: null };
+    const memePersonne = artiste.toLowerCase() === displayName.trim().toLowerCase();
+    return memePersonne
+        ? { principal: displayName, secondaire: null }
+        : { principal: artiste, secondaire: displayName };
 }
+const CHAMPS_DU_MIX = {
+    id: true,
+    title: true,
+    slug: true,
+    description: true,
+    artist: true,
+    coverUrl: true,
+    durationSec: true,
+    createdAt: true,
+    audioUrl: true,
+    sourceType: true,
+    sourceRef: true,
+    tags: true,
+    user: { select: { displayName: true, username: true } },
+};
 let PreviewService = class PreviewService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async mix(id, context) {
-        const mix = await this.prisma.mix.findUnique({
-            where: { id },
-            select: {
-                id: true,
-                title: true,
-                description: true,
-                artist: true,
-                coverUrl: true,
-                durationSec: true,
-                createdAt: true,
-                audioUrl: true,
-                sourceType: true,
-                sourceRef: true,
-                tags: true,
-                user: { select: { displayName: true } },
+    async mixBySlug(username, slug, context) {
+        const mix = await this.prisma.mix.findFirst({
+            where: {
+                slug,
+                user: { username: { equals: username, mode: 'insensitive' } },
             },
+            select: CHAMPS_DU_MIX,
         });
         if (!mix)
             throw new common_1.NotFoundException('Mix not found');
-        const auteur = credit(mix.artist, mix.user.displayName);
-        const url = `${context.site}/mixes/${mix.id}`;
+        return this.pagePourMix(mix, context);
+    }
+    async mix(id, context) {
+        const mix = await this.prisma.mix.findUnique({
+            where: { id },
+            select: CHAMPS_DU_MIX,
+        });
+        if (!mix)
+            throw new common_1.NotFoundException('Mix not found');
+        return this.pagePourMix(mix, context);
+    }
+    pagePourMix(mix, context) {
+        const { principal, secondaire } = credit(mix.artist, mix.user.displayName);
+        const url = mix.user.username
+            ? `${context.site}/mixes/${encodeURIComponent(mix.user.username)}/${encodeURIComponent(mix.slug)}`
+            : `${context.site}/mixes/${mix.id}`;
         const image = mix.coverUrl
             ? (0, audio_source_1.publicMediaUrl)(mix.coverUrl, context.bases)
             : null;
+        const titre = secondaire
+            ? `${mix.title} par ${principal}, mijoté par ${secondaire}`
+            : `${mix.title} par ${principal}`;
         return {
-            title: `${mix.title} par ${auteur}`,
-            description: (0, preview_builder_1.previewDescription)(mix.description, `${mix.title}, un mix de ${auteur} à écouter sur ${preview_builder_1.SITE_NAME}`),
+            title: titre,
+            description: (0, preview_builder_1.previewDescription)(mix.description, `${mix.title}, un mix de ${principal} à écouter sur ${preview_builder_1.SITE_NAME}`),
             canonical: url,
             image,
             type: 'music.song',
@@ -64,7 +87,7 @@ let PreviewService = class PreviewService {
                 '@type': 'MusicRecording',
                 name: mix.title,
                 url,
-                byArtist: { '@type': 'MusicGroup', name: auteur },
+                byArtist: { '@type': 'MusicGroup', name: principal },
                 datePublished: mix.createdAt.toISOString(),
                 ...(mix.description ? { description: mix.description } : {}),
                 ...(image ? { image } : {}),

@@ -25,6 +25,9 @@ let PreviewController = class PreviewController {
     constructor(previewService) {
         this.previewService = previewService;
     }
+    mixBySlug(username, slug, request, response, ifNoneMatch) {
+        return this.serve(request, response, ifNoneMatch, (context) => this.previewService.mixBySlug(username, slug, context));
+    }
     mix(id, request, response, ifNoneMatch) {
         return this.serve(request, response, ifNoneMatch, (context) => this.previewService.mix(id, context));
     }
@@ -52,6 +55,17 @@ let PreviewController = class PreviewController {
     }
 };
 exports.PreviewController = PreviewController;
+__decorate([
+    (0, common_1.Get)('mixes/:username/:slug'),
+    __param(0, (0, common_1.Param)('username')),
+    __param(1, (0, common_1.Param)('slug')),
+    __param(2, (0, common_1.Req)()),
+    __param(3, (0, common_1.Res)()),
+    __param(4, (0, common_1.Headers)('if-none-match')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object, Object, String]),
+    __metadata("design:returntype", void 0)
+], PreviewController.prototype, "mixBySlug", null);
 __decorate([
     (0, common_1.Get)('mixes/:id'),
     __param(0, (0, common_1.Param)('id')),
