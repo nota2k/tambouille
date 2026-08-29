@@ -8,6 +8,7 @@ import PageFade from '@/components/PageFade.vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
 import { useSmoothScroll } from '@/composables/useSmoothScroll'
+import { useTransitionDePage } from '@/composables/useTransitionDePage'
 
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
@@ -15,6 +16,17 @@ const playerStore = usePlayerStore()
 // Le défilement est un état de la fenêtre, pas d'une page : il s'installe ici,
 // une seule fois, plutôt que dans chaque vue.
 useSmoothScroll()
+
+/**
+ * Le contenu de route attend sous le volet, à opacité nulle, et se révèle
+ * pendant que celui-ci sort. Sans cela, la partie que le volet n'a pas encore
+ * couverte pendant sa montée laisserait voir la page en train de charger.
+ *
+ * Seul `<main>` est concerné : la barre de navigation et le pied de page ne
+ * changent pas d'une route à l'autre, et les faire disparaître à chaque
+ * navigation serait un clignotement, pas une transition.
+ */
+const { visible: sousLeVolet, sortie: voletQuiSort, dureeDeLaSortie } = useTransitionDePage()
 
 onMounted(() => {
   if (authStore.accessToken) {
@@ -53,7 +65,11 @@ onMounted(() => {
          vide en bas, trop petite, le bas de page revient dans l'écran et le
          saut avec lui.
     -->
-    <main class="min-h-[calc(100vh-4rem)] flex-1 pb-16">
+    <main
+      class="min-h-[calc(100vh-4rem)] flex-1 pb-16"
+      :class="voletQuiSort ? 'tb-contenu-revele' : sousLeVolet ? 'tb-contenu-couvert' : ''"
+      :style="{ '--tb-sortie': `${dureeDeLaSortie}ms` }"
+    >
       <RouterView />
     </main>
     <!-- Sous chaque page, avant le pied de page : c'est la « bande de pied de
@@ -67,3 +83,51 @@ onMounted(() => {
     <PageFade />
   </div>
 </template>
+
+<style>
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * LA MÊME RÈGLE QUE POUR LE VOLET, ET POUR LA MÊME RAISON
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Un contenu à opacité nulle est un contenu invisible : s'il ne revient pas,
+ * il n'y a plus de page. Il ne dépend donc que de `sortie`, que trois
+ * minuteries indépendantes garantissent — voir `useTransitionDePage`. Aucune
+ * classe ici n'attend un `animationend`.
+ */
+.tb-contenu-couvert {
+  opacity: 0;
+}
+
+.tb-contenu-revele {
+  /* Même durée ET même courbe que la sortie du volet : sans cela les deux ne
+     partagent que leurs bornes, et progressent différemment entre elles — le
+     contenu apparaîtrait en retard sur le mouvement qui le découvre. */
+  animation: tb-contenu-apparition var(--tb-sortie) var(--tb-courbe-sortie) forwards;
+}
+
+@keyframes tb-contenu-apparition {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+ * Sans cette exception, le mouvement réduit rendrait la page BLANCHE.
+ *
+ * Le volet ne s'y affiche pas — c'est voulu — mais `visible` reste vrai, et le
+ * contenu resterait donc à opacité nulle sans rien par-dessus pour le masquer :
+ * une page vide pendant plus d'une seconde, à chaque navigation. Le réglage qui
+ * demande moins d'animations doit rendre la page immédiatement, pas la retirer.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .tb-contenu-couvert,
+  .tb-contenu-revele {
+    opacity: 1;
+    animation: none;
+  }
+}
+</style>
