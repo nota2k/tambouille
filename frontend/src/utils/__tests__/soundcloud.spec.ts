@@ -39,9 +39,11 @@ describe('createSoundcloudWidget', () => {
       },
       play() {},
       pause() {},
-      seekTo(ms: number) {},
-      getPosition(callback: (ms: number) => void) {},
-      getDuration(callback: (ms: number) => void) {},
+      // Préfixés parce qu'inutilisés ici : le corps est vide, mais la signature
+      // doit rester celle du widget SoundCloud pour que le double le remplace.
+      seekTo(_ms: number) {},
+      getPosition(_callback: (ms: number) => void) {},
+      getDuration(_callback: (ms: number) => void) {},
     }
 
     const emit = (event: string, ...args: unknown[]) => {
@@ -52,7 +54,7 @@ describe('createSoundcloudWidget', () => {
   }
 
   it('convertit seek(seconds) en seekTo(milliseconds)', async () => {
-    const { mockRaw, listeners } = createMockRawWidget()
+    const { mockRaw } = createMockRawWidget()
 
     const seekCalls: number[] = []
     mockRaw.seekTo = (ms: number) => seekCalls.push(ms)
