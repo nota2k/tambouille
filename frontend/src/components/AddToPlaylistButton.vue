@@ -122,8 +122,8 @@ onUnmounted(() => {
       ref="trigger"
       :class="
         variant === 'overlay'
-          ? 'absolute right-2 top-11 flex h-8 w-8 items-center justify-center rounded-none bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
-          : 'tb-btn-outline tb-btn-icone'
+          ? 'absolute right-2 top-11 flex h-8 w-8 items-center rounded-xl justify-center rounded-none bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
+          : 'tb-btn-outline tb-btn-icone rounded-full'
       "
       :aria-expanded="open"
       aria-haspopup="true"
@@ -161,7 +161,7 @@ onUnmounted(() => {
         <ul v-else class="max-h-56 overflow-y-auto">
           <li v-for="playlist in playlists" :key="playlist.id">
             <button
-              class="flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition hover:bg-tambouille-surface-hover"
+              class="flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition hover:bg-tambouille-surface-hover rounded-xl"
               @click="toggle(playlist)"
             >
               <span

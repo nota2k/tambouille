@@ -251,7 +251,7 @@ onMounted(loadProfile)
         />
       </div>
 
-      <div class="mx-auto max-w-[1900px] px-4 pb-12">
+      <div class="mx-auto max-w-[1280px] min-[1600px]:max-w-[1900px] px-4 pb-12">
         <div
           class="flex flex-col items-start gap-5 border-b-2 border-tambouille-rule pb-6 sm:flex-row sm:items-end sm:gap-7 align-start mt-30px"
         >

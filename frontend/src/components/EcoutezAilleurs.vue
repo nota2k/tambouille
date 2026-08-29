@@ -35,7 +35,7 @@ function leaveForElsewhere() {
   <!-- Le noir dit « ceci n'est pas le catalogue Tambouille ». Pas de rose :
        le gabarit le réserve au direct, dont cet encart n'a pas la notion. -->
   <section v-if="list" class="w-full bg-black text-white" :aria-label="list.title">
-    <div class="mx-auto max-w-[1900px] px-4 py-9 sm:px-8">
+    <div class="mx-auto max-w-[1280px] min-[1600px]:max-w-[1900px] px-4 py-9 sm:px-8">
       <div
         class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-white pb-3"
       >

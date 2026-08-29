@@ -33,7 +33,7 @@ onUnmounted(() => clearTimeout(resetTimer))
     :class="
       variant === 'overlay'
         ? 'flex items-center justify-center rounded-none border border-tambouille-muted text-sm hover:bg-tambouille-surface-hover px-2 bg-black/60 text-white opacity-0 shadow-lg backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/80 focus-visible:opacity-100'
-        : 'tb-btn-outline tb-btn-icone'
+        : 'tb-btn-outline tb-btn-icone rounded-full'
     "
     :title="copied ? 'Lien copié' : 'Copier le lien'"
     :aria-label="copied ? 'Lien copié' : 'Copier le lien'"
