@@ -52,6 +52,26 @@ const r2Client = new S3Client({
   },
 });
 
+/**
+ * Ce que R2 renverra au navigateur pour chaque objet écrit ici.
+ *
+ * Un an et `immutable` parce qu'une clé ne désigne jamais deux contenus : elle
+ * porte un UUID tiré à chaque envoi (voir `objectKey` juste dessous), et rien
+ * ne réécrit un objet en place. Remplacer une pochette produit une clé neuve,
+ * donc une URL neuve — le même raisonnement que pour les fichiers empreintés
+ * par Vite dans `frontend/public/.htaccess`.
+ *
+ * Sans cet en-tête, R2 ne renvoyait qu'un `ETag` : le navigateur devait
+ * redemander chaque pochette à chaque visite pour s'entendre répondre qu'elle
+ * n'avait pas changé, et le cache de Cloudflare répondait `DYNAMIC` faute de
+ * savoir combien de temps la garder.
+ *
+ * Il vaut pour les deux chemins d'écriture — les images converties en WebP et
+ * l'audio que multer dépose tel quel — parce qu'un objet mis en cache d'un côté
+ * et pas de l'autre n'aurait aucune raison de l'être.
+ */
+const R2_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+
 function objectKey(subdir: string, originalname: string): string {
   return `${subdir}/${randomUUID()}${extname(originalname).toLowerCase()}`;
 }
@@ -74,6 +94,7 @@ export async function putBufferToR2(
       Key: key,
       Body: body,
       ContentType: contentType,
+      CacheControl: R2_CACHE_CONTROL,
     }),
   );
   return key;
@@ -189,6 +210,7 @@ function r2Storage(subdirFor: (file: Express.Multer.File) => string) {
     s3: r2Client,
     bucket: R2_BUCKET_NAME,
     contentType: multerS3.AUTO_CONTENT_TYPE,
+    cacheControl: R2_CACHE_CONTROL,
     key: (_req, file, callback) => {
       callback(null, objectKey(subdirFor(file), file.originalname));
     },
