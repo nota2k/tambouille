@@ -4,12 +4,25 @@ import { usePlayerStore } from '@/stores/player'
 import { formatDuration } from '@/utils/time'
 import { useFourneeTheme, type FourneeZone } from '@/composables/useFourneeTheme'
 import FourneeMixCard from './FourneeMixCard.vue'
+import FourneeMixSkeleton from './FourneeMixSkeleton.vue'
+import { NOMBRE_DE_MIX } from '@/content/fournees'
 import type { Fournee } from '@/types'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import 'swiper/swiper.css'
 
 const props = defineProps<{ fournee: Fournee }>()
 const playerStore = usePlayerStore()
+
+/**
+ * Combien de pochettes partent sans attendre la mise en page.
+ *
+ * Trois : c'est ce que la bande montre à la largeur d'un ordinateur portable
+ * (`800: { slidesPerView: 3 }`), et le mobile n'en voit qu'une et demie. Les
+ * suivantes restent différées — elles sont hors écran, et cinq images en
+ * priorité haute ne feraient que se disputer la bande passante de celle qui
+ * décide du LCP.
+ */
+const CARTES_PRIORITAIRES = 3
 const { season, inkOnSeason, paper, inkOnPaper, seasonOnPaper, wash } = useFourneeTheme(
   () => props.fournee,
 )
@@ -51,6 +64,20 @@ function playAll() {
   const first = props.fournee.mixes[0]
   if (first) playerStore.play(first)
 }
+
+/**
+ * Les cartes fantômes, tant que les mix ne sont pas revenus de l'API.
+ *
+ * Le bandeau se monte sans eux — c'est voulu, `useFournee` l'explique — mais la
+ * bande restait alors vide : une barre de quelques pixels là où cinq cartes de
+ * 380 px allaient s'installer. La section grandissait d'un coup vers 900 ms et
+ * poussait tout le bas de page, l'encart « Écoutez ailleurs » en tête. Ce seul
+ * saut valait 0,77 de décalage cumulé, sur un seuil de 0,1.
+ *
+ * Le nombre vient du parseur, qui l'exige déjà du fichier : réserver autre
+ * chose que ce qui va arriver ne déplacerait le saut que de quelques cartes.
+ */
+const cartesFantomes = computed(() => (props.fournee.mixes.length ? 0 : NOMBRE_DE_MIX.tall.attendu))
 </script>
 
 <template>
@@ -129,8 +156,20 @@ function playAll() {
             1280: { slidesPerView: 5 },
           }"
         >
-          <SwiperSlide v-for="mix in fournee.mixes" :key="mix.id" tag="li">
-            <FourneeMixCard :mix="mix" :zone="zone" class="h-full" />
+          <SwiperSlide v-for="(mix, index) in fournee.mixes" :key="mix.id" tag="li">
+            <!-- Les premières pochettes ne sont pas différées : la bande est en
+                 haut de page et l'une d'elles est l'image qui décide du Largest
+                 Contentful Paint. `lazy` lui faisait attendre la mise en page,
+                 après le paquet JavaScript et cinq appels à l'API. -->
+            <FourneeMixCard
+              :mix="mix"
+              :zone="zone"
+              :priority="index < CARTES_PRIORITAIRES"
+              class="h-full"
+            />
+          </SwiperSlide>
+          <SwiperSlide v-for="n in cartesFantomes" :key="`fantome-${n}`" tag="li">
+            <FourneeMixSkeleton :zone="zone" class="h-full" />
           </SwiperSlide>
         </Swiper>
       </div>

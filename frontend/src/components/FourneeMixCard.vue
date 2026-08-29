@@ -7,7 +7,18 @@ import { mixCredit } from '@/composables/useMixCredit'
 import type { FourneeZone } from '@/composables/useFourneeTheme'
 import type { Mix } from '@/types'
 
-const props = defineProps<{ mix: Mix; zone: FourneeZone; layout?: 'large' | 'tall' }>()
+const props = defineProps<{
+  mix: Mix
+  zone: FourneeZone
+  layout?: 'large' | 'tall'
+  /**
+   * Vrai pour les cartes visibles dès l'arrivée : leur pochette part sans
+   * attendre la mise en page, et l'une d'elles est l'image qui décide du
+   * Largest Contentful Paint. Faux — donc différé — pour tout ce qui est hors
+   * écran, c'est-à-dire la plupart des cartes de la bande.
+   */
+  priority?: boolean
+}>()
 
 const playerStore = usePlayerStore()
 const isPlaying = computed(() => playerStore.currentMix?.id === props.mix.id)
@@ -50,7 +61,8 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
       <img
         v-if="mix.coverUrl"
         :src="mediaUrl(mix.coverUrl)"
-        loading="lazy"
+        :loading="priority ? 'eager' : 'lazy'"
+        :fetchpriority="priority ? 'high' : 'auto'"
         decoding="async"
         class="h-full w-full object-cover mix-blend-luminosity"
         alt=""
