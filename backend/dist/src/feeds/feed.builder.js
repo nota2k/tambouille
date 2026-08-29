@@ -10,6 +10,7 @@ const builder = new fast_xml_parser_1.XMLBuilder({
 });
 const ITUNES_NS = 'http://www.itunes.com/dtds/podcast-1.0.dtd';
 const ATOM_NS = 'http://www.w3.org/2005/Atom';
+const MEDIA_NS = 'http://search.yahoo.com/mrss/';
 const UNKNOWN_LENGTH = '0';
 function rfc822(date) {
     return date.toUTCString();
@@ -31,7 +32,10 @@ function buildItem(item) {
         ...(item.durationSec !== undefined && {
             'itunes:duration': item.durationSec,
         }),
-        ...(item.imageUrl && { 'itunes:image': { '@href': item.imageUrl } }),
+        ...(item.imageUrl && {
+            'itunes:image': { '@href': item.imageUrl },
+            'media:thumbnail': { '@url': item.imageUrl },
+        }),
     };
 }
 function buildRssFeed(channel) {
@@ -41,6 +45,7 @@ function buildRssFeed(channel) {
             '@version': '2.0',
             '@xmlns:itunes': ITUNES_NS,
             '@xmlns:atom': ATOM_NS,
+            '@xmlns:media': MEDIA_NS,
             channel: {
                 title: channel.title,
                 link: channel.link,
