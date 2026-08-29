@@ -43,6 +43,10 @@ export class SitemapService {
 
     const entries: SitemapEntry[] = [
       { loc: `${site}/`, changefreq: 'daily', priority: 1 },
+      // La page qui explique le site. Publique, indexable, et sans date de
+      // modification en base — elle vit dans le code, pas dans une table, donc
+      // `lastmod` serait une invention. `monthly` dit le peu qu'on sait.
+      { loc: `${site}/a-propos`, changefreq: 'monthly', priority: 0.5 },
       ...mixes.map((mix) => ({
         loc: `${site}/mixes/${mix.id}`,
         lastmod: mix.updatedAt,

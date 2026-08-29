@@ -126,8 +126,24 @@ export class MixesController {
    */
   @Get('by-source')
   @UseGuards(JwtAuthGuard)
-  findBySource(@Query('ref') ref?: string, @Query('pageUrl') pageUrl?: string) {
-    return this.mixesService.findBySource(ref, pageUrl);
+  async findBySource(
+    @Query('ref') ref?: string,
+    @Query('pageUrl') pageUrl?: string,
+  ) {
+    /*
+     * Enveloppé dans un objet, et ce n'est pas de la cérémonie.
+     *
+     * Un contrôleur Nest qui rend `null` envoie un corps VIDE, pas le littéral
+     * JSON `null`. Axios le parse alors en chaîne vide, et `data ?? null` la
+     * laisse passer — `??` ne rattrape que `null` et `undefined`. Le formulaire
+     * d'upload tenait donc `''` pour un doublon, désactivait son bouton de
+     * publication pour toujours, et n'affichait aucun encart puisque `''` est
+     * falsy : un bouton mort sans explication.
+     *
+     * `{ mix }` se sérialise dans les deux cas, et l'absence se lit
+     * explicitement chez l'appelant.
+     */
+    return { mix: await this.mixesService.findBySource(ref, pageUrl) };
   }
 
   @Get('by-slug/:username/:slug')

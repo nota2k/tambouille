@@ -44,16 +44,18 @@ export declare class MixesController {
     }>;
     findAllTags(): Promise<string[]>;
     findBySource(ref?: string, pageUrl?: string): Promise<{
-        id: string;
-        coverUrl: string | null;
-        createdAt: Date;
-        title: string;
-        slug: string;
-        user: {
-            username: string | null;
-            displayName: string;
-        };
-    } | null>;
+        mix: {
+            id: string;
+            coverUrl: string | null;
+            createdAt: Date;
+            title: string;
+            slug: string;
+            user: {
+                username: string | null;
+                displayName: string;
+            };
+        } | null;
+    }>;
     findBySlug(username: string, slug: string, currentUserId?: string): Promise<any>;
     findOne(id: string, currentUserId?: string): Promise<any>;
     resolveAudio(id: string, request: Request): Promise<{

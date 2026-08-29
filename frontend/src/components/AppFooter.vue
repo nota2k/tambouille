@@ -8,7 +8,15 @@
         <span class="mx-1.5 text-tambouille-faint" aria-hidden="true">//</span>
         <span>2026</span>
       </p>
-      <a class="text-lg text-tambouille-muted" href="mailto:noreply@tambouille.pantagruweb.club"
+      <!-- Avant Contact : on cherche d'abord à comprendre le site, on écrit
+           ensuite. C'est le seul endroit d'où la page est atteignable — la barre
+           de navigation est réservée à ce qu'on fait tous les jours. -->
+      <RouterLink :to="{ name: 'about' }" class="text-lg text-tambouille-muted hover:underline">
+        Comment ça marche
+      </RouterLink>
+      <a
+        class="text-lg text-tambouille-muted hover:underline"
+        href="mailto:noreply@tambouille.pantagruweb.club"
         >Contact</a
       >
     </div>

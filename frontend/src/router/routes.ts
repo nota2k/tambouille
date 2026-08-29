@@ -74,6 +74,13 @@ export const routes: RouteRecordRaw[] = [
     meta: { layout: 'embed' },
   },
   {
+    // Publique et indexable : c'est la page qui explique le site à qui arrive
+    // par un lien de mix sans savoir où il est tombé.
+    path: '/a-propos',
+    name: 'about',
+    component: () => import('@/views/AboutView.vue'),
+  },
+  {
     path: '/bienvenue',
     name: 'choose-username',
     component: () => import('@/views/ChooseUsernameView.vue'),

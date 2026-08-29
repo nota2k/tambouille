@@ -42,6 +42,7 @@ let SitemapService = class SitemapService {
         ]);
         const entries = [
             { loc: `${site}/`, changefreq: 'daily', priority: 1 },
+            { loc: `${site}/a-propos`, changefreq: 'monthly', priority: 0.5 },
             ...mixes.map((mix) => ({
                 loc: `${site}/mixes/${mix.id}`,
                 lastmod: mix.updatedAt,

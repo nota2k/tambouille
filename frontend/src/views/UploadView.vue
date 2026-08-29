@@ -86,13 +86,34 @@ const doublon = ref<{
   user: { username: string; displayName: string }
 } | null>(null)
 
+/**
+ * Vrai seulement pour un doublon EXPLOITABLE.
+ *
+ * On testait `doublon !== null`, et c'est ce test qui a laissé passer la chaîne
+ * vide renvoyée par l'API : tout ce qui n'était pas exactement `null` grisait le
+ * bouton. Exiger le slug — ce dont l'encart a besoin pour construire son lien —
+ * ferme la porte à toute valeur qui ne serait pas un mix : une réponse
+ * malformée laisse alors publier, ce qui est le bon défaut. Un doublon manqué
+ * se corrige après coup ; un formulaire qu'on ne peut plus envoyer, non.
+ */
+const aUnDoublon = computed(() => !!doublon.value?.slug)
+
 async function verifierLeDoublon(source: { ref: string; pageUrl?: string }) {
   doublon.value = null
   try {
-    const { data } = await apiClient.get<typeof doublon.value>('/mixes/by-source', {
+    /*
+     * `data.mix` et non `data` : la réponse est enveloppée.
+     *
+     * Elle ne l'était pas, et l'absence de doublon arrivait ici en chaîne vide
+     * — un contrôleur Nest qui rend `null` envoie un corps vide, qu'axios parse
+     * ainsi. `data ?? null` la laissait passer, `??` ne rattrapant que `null` et
+     * `undefined` : le bouton de publication restait grisé pour toujours, sans
+     * encart pour l'expliquer puisque `''` est falsy.
+     */
+    const { data } = await apiClient.get<{ mix: typeof doublon.value }>('/mixes/by-source', {
       params: { ref: source.ref, pageUrl: source.pageUrl },
     })
-    doublon.value = data ?? null
+    doublon.value = data.mix ?? null
   } catch {
     // Le contrôle est un garde-fou, pas une étape du dépôt : s'il échoue, on
     // laisse publier plutôt que de bloquer sur une question secondaire.
@@ -214,7 +235,7 @@ async function onSubmit() {
    * clavier partie avant que la vérification ne réponde. Le refus est donc
    * aussi ici, sur le chemin qu'emprunte réellement l'envoi.
    */
-  if (doublon.value) {
+  if (aUnDoublon.value) {
     error.value = 'Ce mix est déjà en ligne. Voir le lien ci-dessous.'
     return
   }
@@ -535,11 +556,7 @@ async function onSubmit() {
           </div>
 
           <div class="pt-8">
-            <button
-              type="submit"
-              :disabled="uploading || doublon !== null"
-              class="tb-btn px-8 py-4"
-            >
+            <button type="submit" :disabled="uploading || aUnDoublon" class="tb-btn px-8 py-4">
               {{ uploading ? 'Envoi en cours…' : 'Publier le mix' }}
             </button>
 
@@ -557,7 +574,7 @@ async function onSubmit() {
               que le mien ? ».
             -->
             <div
-              v-if="doublon"
+              v-if="aUnDoublon && doublon"
               role="alert"
               class="mt-6 flex max-w-prose items-start gap-4 border-2 border-tambouille-accent bg-tambouille-accent-wash p-5"
             >

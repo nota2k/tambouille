@@ -48,8 +48,8 @@ let MixesController = class MixesController {
     findAllTags() {
         return this.mixesService.findAllTags();
     }
-    findBySource(ref, pageUrl) {
-        return this.mixesService.findBySource(ref, pageUrl);
+    async findBySource(ref, pageUrl) {
+        return { mix: await this.mixesService.findBySource(ref, pageUrl) };
     }
     findBySlug(username, slug, currentUserId) {
         return this.mixesService.findBySlug(username, slug, currentUserId);
@@ -146,7 +146,7 @@ __decorate([
     __param(1, (0, common_1.Query)('pageUrl')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], MixesController.prototype, "findBySource", null);
 __decorate([
     (0, common_1.Get)('by-slug/:username/:slug'),
