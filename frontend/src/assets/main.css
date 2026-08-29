@@ -587,3 +587,74 @@ h6,
   height: auto !important;
   display: flex;
 }
+
+/*
+ * La largeur des diapos AVANT que Swiper ne la calcule.
+ *
+ * Swiper pose une largeur en style en ligne, mais seulement une fois monté.
+ * D'ici là une diapo vaut `width: auto` et se réduit à son contenu.
+ *
+ * Les pourcentages reprennent les `slidesPerView` de chaque gabarit, avec
+ * `spaceBetween: 0` : 100/n. Ils doivent suivre les `breakpoints` déclarés
+ * dans FourneeTall.vue et FourneeLarge.vue. Le style en ligne de Swiper les
+ * emporte dès l'initialisation, donc ils ne décident de rien après elle — ils
+ * n'ont à être justes que le temps de la première peinture, et c'est
+ * précisément là que ça se joue.
+ */
+.fournee-swiper .swiper-slide {
+  width: 100%;
+}
+
+/*
+ * Et la carte remplit sa diapo.
+ *
+ * La diapo est en `display: flex` (règle ci-dessus) : la carte y est un élément
+ * flex, donc sa largeur suit son contenu. Les vraies cartes ne s'en sortaient
+ * que par accident — leurs titres débordent, puis `flex-shrink` les ramène à la
+ * largeur de la diapo. Une carte fantôme n'a rien qui déborde, ses enfants
+ * étant tous en pourcentage : elle mesurait zéro, sa pochette en `aspect-3/2`
+ * réservait donc zéro de haut, et les cinq cartes se réduisaient à leur filet
+ * vertical.
+ *
+ * La bande gagnait ainsi ~170 px à l'arrivée des mix. Ce que le bandeau est en
+ * `min-h-[80vh] justify-center` transformait en déplacement des DEUX côtés : le
+ * contenu déjà lisible remontait de la moitié de ce qui venait de pousser.
+ *
+ * Accessoirement, cela répare un défaut latent : un mix au titre très court
+ * donnait une carte étroite au milieu des autres.
+ */
+.fournee-swiper .swiper-slide > * {
+  width: 100%;
+}
+
+@media (min-width: 450px) {
+  /* tall : 1.5 diapo — large : 2 */
+  .fournee-swiper--tall .swiper-slide {
+    width: 66.6667%;
+  }
+  .fournee-swiper--large .swiper-slide {
+    width: 50%;
+  }
+}
+
+@media (min-width: 800px) {
+  /* les deux gabarits passent à 3 */
+  .fournee-swiper--tall .swiper-slide,
+  .fournee-swiper--large .swiper-slide {
+    width: 33.3333%;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* large : 4 */
+  .fournee-swiper--large .swiper-slide {
+    width: 25%;
+  }
+}
+
+@media (min-width: 1280px) {
+  /* tall : 5 */
+  .fournee-swiper--tall .swiper-slide {
+    width: 20%;
+  }
+}
