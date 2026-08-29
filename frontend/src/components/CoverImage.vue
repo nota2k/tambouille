@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { onMounted, ref, useTemplateRef, watch } from 'vue'
-import TambouilleLoader from './TambouilleLoader.vue'
+import { signalerImage } from '@/composables/useTransitionDePage'
 
 /**
- * Une pochette, sa place réservée, et le rouage qui tourne en attendant.
+ * Une pochette et sa place réservée.
  *
  * La boîte est occupée dès le premier rendu, avant que l'image ne soit
  * demandée : c'est elle qui empêche la carte de grandir d'un coup quand la
  * pochette arrive. Les conteneurs d'appel imposent presque tous un format
  * carré, `min-height` n'est qu'un garde-fou pour ceux qui ne contraindraient
  * rien.
+ *
+ * Ce qui se passe pendant l'attente ne se joue plus ici mais à l'échelle de la
+ * page : le voile rose de `useTransitionDePage` couvre l'écran entier tant que
+ * les pochettes ne sont pas là. Ce composant se contente de lui dire où il en
+ * est.
  */
 const props = withDefaults(
   defineProps<{
@@ -40,10 +45,23 @@ const chargee = ref(false)
  */
 function verifierLeCache() {
   const el = image.value
-  if (el?.complete && el.naturalWidth > 0) chargee.value = true
+  if (el?.complete && el.naturalWidth > 0) marquerArrivee()
 }
 
-onMounted(verifierLeCache)
+/** Une seule annonce par pochette, quoi qu'il arrive ensuite. */
+function marquerArrivee() {
+  if (chargee.value) return
+  chargee.value = true
+  signalerImage.arrivee()
+}
+
+onMounted(() => {
+  // Annoncé avant la vérification du cache : une pochette déjà en cache passe
+  // alors immédiatement de « attendue » à « arrivée », ce qui est vrai, plutôt
+  // que de n'être jamais comptée.
+  if (props.src) signalerImage.attendue()
+  verifierLeCache()
+})
 
 // La même carte peut servir deux mix de suite — une bande qui défile, une
 // recherche qui se relance. Le rouage doit alors revenir.
@@ -51,6 +69,7 @@ watch(
   () => props.src,
   () => {
     chargee.value = false
+    if (props.src) signalerImage.attendue()
     // Le `src` de l'élément n'est à jour qu'après le rendu.
     requestAnimationFrame(verifierLeCache)
   },
@@ -61,7 +80,7 @@ watch(
  * un rouage éternel dit « ça arrive » à quelqu'un qui attendrait pour rien.
  */
 function surEchec() {
-  chargee.value = true
+  marquerArrivee()
 }
 </script>
 
@@ -91,19 +110,9 @@ function surEchec() {
       decoding="async"
       class="h-full w-full object-cover"
       :class="imgClass"
-      @load="chargee = true"
+      @load="marquerArrivee"
       @error="surEchec"
     />
-
-    <!-- Au centre, et à l'échelle de la boîte : un tiers de sa largeur, borné
-         pour qu'il ne devienne ni un point sur la pochette à la une ni une roue
-         de charrette sur une vignette de flux. -->
-    <span
-      v-if="src && !chargee"
-      class="pointer-events-none absolute inset-0 flex items-center justify-center"
-    >
-      <TambouilleLoader class="h-1/3 max-h-14 w-1/3 max-w-14 opacity-60" />
-    </span>
 
     <!-- Sans pochette, ce que le composant appelant veut mettre à la place. -->
     <slot v-if="!src" name="vide" />

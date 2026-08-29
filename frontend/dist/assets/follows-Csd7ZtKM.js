@@ -1,0 +1,1 @@
+import{o as e}from"./useSeo-iBvXYvyG.js";async function t(t){let n=t.isFollowing;t.isFollowing=!n,t.followersCount+=n?-1:1;try{n?await e.delete(`/users/${t.username}/follow`):await e.post(`/users/${t.username}/follow`)}catch(e){throw t.isFollowing=n,t.followersCount+=n?1:-1,e}}export{t};

@@ -265,7 +265,7 @@ onUnmounted(() => {
 
             <RouterLink
               to="/upload"
-              class="rounded-none border border-black px-4 py-2 text-lg font-bold text-tambouille-ink-on-accent hover:bg-black hover:text-tambouille-accent"
+              class="rounded-none border border-white px-4 py-2 text-lg font-bold text-tambouille-ink-on-accent hover:bg-white hover:text-tambouille-accent"
             >
               Uploader
             </RouterLink>
@@ -336,7 +336,7 @@ onUnmounted(() => {
             </RouterLink>
             <RouterLink
               to="/register"
-              class="rounded-none border border-black px-4 py-2 text-[13px] font-bold text-tambouille-ink-on-accent hover:bg-black hover:text-tambouille-accent"
+              class="rounded-none border border-white px-4 py-2 text-[13px] font-bold text-tambouille-ink-on-accent hover:bg-white hover:text-tambouille-accent"
             >
               S'inscrire
             </RouterLink>

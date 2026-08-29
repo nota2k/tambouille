@@ -4,6 +4,7 @@ import NavBar from '@/components/NavBar.vue'
 import EcoutezAilleurs from '@/components/EcoutezAilleurs.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
+import PageFade from '@/components/PageFade.vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
 import { useSmoothScroll } from '@/composables/useSmoothScroll'
@@ -39,5 +40,8 @@ onMounted(() => {
     <EcoutezAilleurs />
     <AppFooter />
     <PlayerBar />
+    <!-- Hors du flux et par-dessus tout le reste : le voile ne participe à
+         aucune mise en page, donc il ne peut rien décaler. -->
+    <PageFade />
   </div>
 </template>
