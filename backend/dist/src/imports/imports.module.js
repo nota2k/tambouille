@@ -16,6 +16,7 @@ const mixcloud_importer_1 = require("./mixcloud.importer");
 const soundcloud_importer_1 = require("./soundcloud.importer");
 const ouiedire_importer_1 = require("./ouiedire.importer");
 const lyl_importer_1 = require("./lyl.importer");
+const brain_importer_1 = require("./brain.importer");
 const podcast_importer_1 = require("./podcast.importer");
 let ImportsModule = class ImportsModule {
 };
@@ -30,6 +31,7 @@ exports.ImportsModule = ImportsModule = __decorate([
             archive_importer_1.ArchiveImporter,
             ouiedire_importer_1.OuiedireImporter,
             lyl_importer_1.LylImporter,
+            brain_importer_1.BrainImporter,
             podcast_importer_1.PodcastImporter,
             imports_service_1.ImportsService,
             {
@@ -40,9 +42,10 @@ exports.ImportsModule = ImportsModule = __decorate([
                     archive_importer_1.ArchiveImporter,
                     ouiedire_importer_1.OuiedireImporter,
                     lyl_importer_1.LylImporter,
+                    brain_importer_1.BrainImporter,
                     podcast_importer_1.PodcastImporter,
                 ],
-                useFactory: (mixcloud, soundcloud, archive, ouiedire, lyl, podcast) => [mixcloud, soundcloud, archive, ouiedire, lyl, podcast],
+                useFactory: (mixcloud, soundcloud, archive, ouiedire, lyl, brain, podcast) => [mixcloud, soundcloud, archive, ouiedire, lyl, brain, podcast],
             },
         ],
     })

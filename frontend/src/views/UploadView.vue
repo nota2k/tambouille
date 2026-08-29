@@ -332,8 +332,9 @@ async function onSubmit() {
                  rien ne dise d'où il vient est une surprise, pas un service. -->
             <!-- Archive.org et les podcasts ne donnent aucun artiste : sans le
                  `&& artist`, la mention s'afficherait quand même, pointant vers
-                 un champ resté vide. Mixcloud, SoundCloud, Ouïedire et LYL le
-                 donnent, eux. -->
+                 un champ resté vide. Mixcloud, SoundCloud, Ouïedire, LYL et
+                 The Brain le donnent, eux — ce dernier toujours le même, son
+                 émission étant son propre artiste. -->
             <p v-if="importedSource && artist" class="mt-1.5 text-xs text-tambouille-muted">
               Repris de {{ importedSource.label }}. Vide si tu es l'artiste.
             </p>

@@ -8,12 +8,12 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OuiedireImporter = void 0;
 exports.isEmissionUrl = isEmissionUrl;
-exports.parseTimecode = parseTimecode;
 exports.parseOuiedireTitle = parseOuiedireTitle;
 exports.parseEmissionPage = parseEmissionPage;
 const common_1 = require("@nestjs/common");
 const safe_fetch_1 = require("../common/safe-fetch");
 const strip_html_1 = require("../common/strip-html");
+const timecode_1 = require("../common/timecode");
 const PAGE_MAX_BYTES = 2 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;
 const HOSTS = ['ouiedire.net', 'www.ouiedire.net'];
@@ -23,15 +23,6 @@ function isEmissionUrl(url) {
         return false;
     const segments = url.pathname.split('/').filter(Boolean);
     return segments[0] === 'emission' && Boolean(segments[1]);
-}
-function parseTimecode(raw) {
-    const parts = raw.trim().split(':');
-    if (parts.length < 2 || parts.length > 3)
-        return null;
-    const numbers = parts.map(Number);
-    if (numbers.some((part) => !Number.isInteger(part) || part < 0))
-        return null;
-    return numbers.reduce((acc, part) => acc * 60 + part, 0);
 }
 function parseOuiedireTitle(raw) {
     const afterNumber = raw.match(/Émission\s*#?\d*\s*:\s*(.+)$/u);
@@ -74,7 +65,7 @@ function parseEmissionPage(html) {
             const span = cells.match(/<span[^>]*>([\s\S]*?)<\/span>/i);
             if (!timecode || !span)
                 continue;
-            const timecodeSec = parseTimecode((0, strip_html_1.stripHtml)(timecode[1]));
+            const timecodeSec = (0, timecode_1.parseTimecode)((0, strip_html_1.stripHtml)(timecode[1]));
             if (timecodeSec === null)
                 continue;
             const trailing = cells.slice(cells.indexOf('</span>') + '</span>'.length);

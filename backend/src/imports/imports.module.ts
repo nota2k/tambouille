@@ -7,6 +7,7 @@ import { MixcloudImporter } from './mixcloud.importer';
 import { SoundcloudImporter } from './soundcloud.importer';
 import { OuiedireImporter } from './ouiedire.importer';
 import { LylImporter } from './lyl.importer';
+import { BrainImporter } from './brain.importer';
 import { PodcastImporter } from './podcast.importer';
 
 @Module({
@@ -18,6 +19,7 @@ import { PodcastImporter } from './podcast.importer';
     ArchiveImporter,
     OuiedireImporter,
     LylImporter,
+    BrainImporter,
     PodcastImporter,
     ImportsService,
     {
@@ -28,13 +30,15 @@ import { PodcastImporter } from './podcast.importer';
       // `OuiedireImporter` sits before it and claims `/emission/...` only, so
       // `ouiedire.net/feed` still reaches the podcast importer that reads it
       // properly. `LylImporter` narrows the same way, to `/episode/...` and
-      // `/show/...`.
+      // `/show/...`, et `BrainImporter` à `listen.php?episode=NNN` — sa page de
+      // liste reste donc au message « lien non reconnu », qui dit la vérité.
       inject: [
         MixcloudImporter,
         SoundcloudImporter,
         ArchiveImporter,
         OuiedireImporter,
         LylImporter,
+        BrainImporter,
         PodcastImporter,
       ],
       useFactory: (
@@ -43,8 +47,9 @@ import { PodcastImporter } from './podcast.importer';
         archive: ArchiveImporter,
         ouiedire: OuiedireImporter,
         lyl: LylImporter,
+        brain: BrainImporter,
         podcast: PodcastImporter,
-      ) => [mixcloud, soundcloud, archive, ouiedire, lyl, podcast],
+      ) => [mixcloud, soundcloud, archive, ouiedire, lyl, brain, podcast],
     },
   ],
 })

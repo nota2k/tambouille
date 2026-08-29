@@ -1,23 +1,24 @@
 import { type MixImport, type SourceImporter, type SourceItem } from './source-importer';
-export interface OuiedireEmission {
+export interface BrainEpisode {
     title: string;
-    author?: string;
     coverUrl?: string;
     audioUrl: string;
+    durationSec?: number;
     tracklist: {
         artist: string;
         title: string;
         timecodeSec: number;
     }[];
 }
-export declare function isEmissionUrl(url: URL): boolean;
-export declare function parseOuiedireTitle(raw: string): {
+export declare function isEpisodeUrl(url: URL): boolean;
+export declare function parseCoverPath(html: string): string | undefined;
+export declare function parseTrackLabel(label: string): {
+    artist: string;
     title: string;
-    author?: string;
 };
-export declare function parseEmissionPage(html: string): OuiedireEmission;
-export declare class OuiedireImporter implements SourceImporter {
-    readonly name = "ouiedire";
+export declare function parseEpisodePage(html: string): BrainEpisode;
+export declare class BrainImporter implements SourceImporter {
+    readonly name = "brain";
     matches(url: URL): boolean;
     resolve(url: URL): Promise<MixImport | SourceItem[]>;
     importItem(value: string): Promise<MixImport>;
