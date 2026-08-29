@@ -52,6 +52,7 @@ function createServiceMock() {
         return { id: 'new-mix', ...dto, ...files };
       },
     ),
+    findBySource: jest.fn().mockResolvedValue(null),
   };
 }
 
@@ -82,6 +83,38 @@ describe('MixesController', () => {
       mixesService as unknown as MixesService,
       coverImport as unknown as CoverImportService,
     );
+  });
+
+  describe('by-source — le contrôle de doublon', () => {
+    it('enveloppe le résultat, y compris quand il n’y a pas de doublon', async () => {
+      mixesService.findBySource.mockResolvedValue(null);
+
+      // Le corps DOIT être un objet. Rendre `null` tel quel produit une réponse
+      // au corps vide, qu'axios parse en chaîne vide : l'appelant l'a prise
+      // pour un doublon et a grisé son bouton de publication pour toujours.
+      await expect(
+        controller.findBySource('/x/y/', undefined),
+      ).resolves.toEqual({ mix: null });
+    });
+
+    it('enveloppe aussi le mix trouvé', async () => {
+      mixesService.findBySource.mockResolvedValue({ id: 'mix-1' });
+
+      await expect(
+        controller.findBySource('/x/y/', undefined),
+      ).resolves.toEqual({ mix: { id: 'mix-1' } });
+    });
+
+    it('transmet les deux critères au service', async () => {
+      mixesService.findBySource.mockResolvedValue(null);
+
+      await controller.findBySource('/x/y/', 'https://source/page');
+
+      expect(mixesService.findBySource).toHaveBeenCalledWith(
+        '/x/y/',
+        'https://source/page',
+      );
+    });
   });
 
   describe('create — nothing is written before the audio source is known', () => {
