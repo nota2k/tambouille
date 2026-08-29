@@ -215,7 +215,15 @@ useSeo(() => {
   return {
     // « par » plutôt qu'un tiret : le suffixe du site en pose déjà un, et
     // « Mix — Artiste — Tambouille » se lit comme trois choses sans lien.
-    title: `${current.title} par ${auteur}`,
+    //
+    // Les DEUX noms quand ils diffèrent, comme dans l'aperçu que le backend
+    // sert aux robots de partage (`backend/src/seo/preview.service.ts`) : un
+    // mix importé annoncerait sinon son artiste et rien du membre qui l'a
+    // déposé, alors que c'est précisément le lien qu'un partage fait
+    // connaître. Les deux surfaces doivent se lire pareil.
+    title: credit.value?.secondary
+      ? `${current.title} par ${credit.value.primary}, mijoté par ${credit.value.secondary}`
+      : `${current.title} par ${auteur}`,
     description:
       current.description ||
       [`${current.title}, un mix de ${auteur} à écouter sur Tambouille`, duree]
