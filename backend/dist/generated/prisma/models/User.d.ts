@@ -13,6 +13,7 @@ export type UserMinAggregateOutputType = {
     password: string | null;
     googleId: string | null;
     keycloakId: string | null;
+    incongruesUsername: string | null;
     displayName: string | null;
     bio: string | null;
     avatarUrl: string | null;
@@ -27,6 +28,7 @@ export type UserMaxAggregateOutputType = {
     password: string | null;
     googleId: string | null;
     keycloakId: string | null;
+    incongruesUsername: string | null;
     displayName: string | null;
     bio: string | null;
     avatarUrl: string | null;
@@ -41,6 +43,7 @@ export type UserCountAggregateOutputType = {
     password: number;
     googleId: number;
     keycloakId: number;
+    incongruesUsername: number;
     displayName: number;
     bio: number;
     avatarUrl: number;
@@ -56,6 +59,7 @@ export type UserMinAggregateInputType = {
     password?: true;
     googleId?: true;
     keycloakId?: true;
+    incongruesUsername?: true;
     displayName?: true;
     bio?: true;
     avatarUrl?: true;
@@ -70,6 +74,7 @@ export type UserMaxAggregateInputType = {
     password?: true;
     googleId?: true;
     keycloakId?: true;
+    incongruesUsername?: true;
     displayName?: true;
     bio?: true;
     avatarUrl?: true;
@@ -84,6 +89,7 @@ export type UserCountAggregateInputType = {
     password?: true;
     googleId?: true;
     keycloakId?: true;
+    incongruesUsername?: true;
     displayName?: true;
     bio?: true;
     avatarUrl?: true;
@@ -123,6 +129,7 @@ export type UserGroupByOutputType = {
     password: string | null;
     googleId: string | null;
     keycloakId: string | null;
+    incongruesUsername: string | null;
     displayName: string;
     bio: string | null;
     avatarUrl: string | null;
@@ -146,6 +153,7 @@ export type UserWhereInput = {
     password?: Prisma.StringNullableFilter<"User"> | string | null;
     googleId?: Prisma.StringNullableFilter<"User"> | string | null;
     keycloakId?: Prisma.StringNullableFilter<"User"> | string | null;
+    incongruesUsername?: Prisma.StringNullableFilter<"User"> | string | null;
     displayName?: Prisma.StringFilter<"User"> | string;
     bio?: Prisma.StringNullableFilter<"User"> | string | null;
     avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null;
@@ -169,6 +177,7 @@ export type UserOrderByWithRelationInput = {
     password?: Prisma.SortOrderInput | Prisma.SortOrder;
     googleId?: Prisma.SortOrderInput | Prisma.SortOrder;
     keycloakId?: Prisma.SortOrderInput | Prisma.SortOrder;
+    incongruesUsername?: Prisma.SortOrderInput | Prisma.SortOrder;
     displayName?: Prisma.SortOrder;
     bio?: Prisma.SortOrderInput | Prisma.SortOrder;
     avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder;
@@ -191,6 +200,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
     username?: string;
     googleId?: string;
     keycloakId?: string;
+    incongruesUsername?: string;
     AND?: Prisma.UserWhereInput | Prisma.UserWhereInput[];
     OR?: Prisma.UserWhereInput[];
     NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[];
@@ -210,7 +220,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
     followedBy?: Prisma.FollowListRelationFilter;
     passwordResetTokens?: Prisma.PasswordResetTokenListRelationFilter;
     watchedSources?: Prisma.WatchedSourceListRelationFilter;
-}, "id" | "email" | "username" | "googleId" | "keycloakId">;
+}, "id" | "email" | "username" | "googleId" | "keycloakId" | "incongruesUsername">;
 export type UserOrderByWithAggregationInput = {
     id?: Prisma.SortOrder;
     email?: Prisma.SortOrder;
@@ -218,6 +228,7 @@ export type UserOrderByWithAggregationInput = {
     password?: Prisma.SortOrderInput | Prisma.SortOrder;
     googleId?: Prisma.SortOrderInput | Prisma.SortOrder;
     keycloakId?: Prisma.SortOrderInput | Prisma.SortOrder;
+    incongruesUsername?: Prisma.SortOrderInput | Prisma.SortOrder;
     displayName?: Prisma.SortOrder;
     bio?: Prisma.SortOrderInput | Prisma.SortOrder;
     avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder;
@@ -238,6 +249,7 @@ export type UserScalarWhereWithAggregatesInput = {
     password?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null;
     googleId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null;
     keycloakId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null;
+    incongruesUsername?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null;
     displayName?: Prisma.StringWithAggregatesFilter<"User"> | string;
     bio?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null;
     avatarUrl?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null;
@@ -252,6 +264,7 @@ export type UserCreateInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -275,6 +288,7 @@ export type UserUncheckedCreateInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -298,6 +312,7 @@ export type UserUpdateInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -321,6 +336,7 @@ export type UserUncheckedUpdateInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -344,6 +360,7 @@ export type UserCreateManyInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -358,6 +375,7 @@ export type UserUpdateManyMutationInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -372,6 +390,7 @@ export type UserUncheckedUpdateManyInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -386,6 +405,7 @@ export type UserCountOrderByAggregateInput = {
     password?: Prisma.SortOrder;
     googleId?: Prisma.SortOrder;
     keycloakId?: Prisma.SortOrder;
+    incongruesUsername?: Prisma.SortOrder;
     displayName?: Prisma.SortOrder;
     bio?: Prisma.SortOrder;
     avatarUrl?: Prisma.SortOrder;
@@ -400,6 +420,7 @@ export type UserMaxOrderByAggregateInput = {
     password?: Prisma.SortOrder;
     googleId?: Prisma.SortOrder;
     keycloakId?: Prisma.SortOrder;
+    incongruesUsername?: Prisma.SortOrder;
     displayName?: Prisma.SortOrder;
     bio?: Prisma.SortOrder;
     avatarUrl?: Prisma.SortOrder;
@@ -414,6 +435,7 @@ export type UserMinOrderByAggregateInput = {
     password?: Prisma.SortOrder;
     googleId?: Prisma.SortOrder;
     keycloakId?: Prisma.SortOrder;
+    incongruesUsername?: Prisma.SortOrder;
     displayName?: Prisma.SortOrder;
     bio?: Prisma.SortOrder;
     avatarUrl?: Prisma.SortOrder;
@@ -549,6 +571,7 @@ export type UserCreateWithoutPasswordResetTokensInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -571,6 +594,7 @@ export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -606,6 +630,7 @@ export type UserUpdateWithoutPasswordResetTokensInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -628,6 +653,7 @@ export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -650,6 +676,7 @@ export type UserCreateWithoutMixesInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -672,6 +699,7 @@ export type UserUncheckedCreateWithoutMixesInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -707,6 +735,7 @@ export type UserUpdateWithoutMixesInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -729,6 +758,7 @@ export type UserUncheckedUpdateWithoutMixesInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -751,6 +781,7 @@ export type UserCreateWithoutPlaylistsInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -773,6 +804,7 @@ export type UserUncheckedCreateWithoutPlaylistsInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -808,6 +840,7 @@ export type UserUpdateWithoutPlaylistsInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -830,6 +863,7 @@ export type UserUncheckedUpdateWithoutPlaylistsInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -852,6 +886,7 @@ export type UserCreateWithoutFavoritesInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -874,6 +909,7 @@ export type UserUncheckedCreateWithoutFavoritesInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -909,6 +945,7 @@ export type UserUpdateWithoutFavoritesInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -931,6 +968,7 @@ export type UserUncheckedUpdateWithoutFavoritesInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -953,6 +991,7 @@ export type UserCreateWithoutFollowingInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -975,6 +1014,7 @@ export type UserUncheckedCreateWithoutFollowingInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -1001,6 +1041,7 @@ export type UserCreateWithoutFollowedByInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -1023,6 +1064,7 @@ export type UserUncheckedCreateWithoutFollowedByInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -1058,6 +1100,7 @@ export type UserUpdateWithoutFollowingInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1080,6 +1123,7 @@ export type UserUncheckedUpdateWithoutFollowingInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1111,6 +1155,7 @@ export type UserUpdateWithoutFollowedByInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1133,6 +1178,7 @@ export type UserUncheckedUpdateWithoutFollowedByInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1155,6 +1201,7 @@ export type UserCreateWithoutPlayHistoryInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -1177,6 +1224,7 @@ export type UserUncheckedCreateWithoutPlayHistoryInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -1212,6 +1260,7 @@ export type UserUpdateWithoutPlayHistoryInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1234,6 +1283,7 @@ export type UserUncheckedUpdateWithoutPlayHistoryInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1256,6 +1306,7 @@ export type UserCreateWithoutCommentsInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -1278,6 +1329,7 @@ export type UserUncheckedCreateWithoutCommentsInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -1313,6 +1365,7 @@ export type UserUpdateWithoutCommentsInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1335,6 +1388,7 @@ export type UserUncheckedUpdateWithoutCommentsInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1357,6 +1411,7 @@ export type UserCreateWithoutWatchedSourcesInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -1379,6 +1434,7 @@ export type UserUncheckedCreateWithoutWatchedSourcesInput = {
     password?: string | null;
     googleId?: string | null;
     keycloakId?: string | null;
+    incongruesUsername?: string | null;
     displayName: string;
     bio?: string | null;
     avatarUrl?: string | null;
@@ -1414,6 +1470,7 @@ export type UserUpdateWithoutWatchedSourcesInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1436,6 +1493,7 @@ export type UserUncheckedUpdateWithoutWatchedSourcesInput = {
     password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     displayName?: Prisma.StringFieldUpdateOperationsInput | string;
     bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1510,6 +1568,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
     password?: boolean;
     googleId?: boolean;
     keycloakId?: boolean;
+    incongruesUsername?: boolean;
     displayName?: boolean;
     bio?: boolean;
     avatarUrl?: boolean;
@@ -1534,6 +1593,7 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
     password?: boolean;
     googleId?: boolean;
     keycloakId?: boolean;
+    incongruesUsername?: boolean;
     displayName?: boolean;
     bio?: boolean;
     avatarUrl?: boolean;
@@ -1548,6 +1608,7 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
     password?: boolean;
     googleId?: boolean;
     keycloakId?: boolean;
+    incongruesUsername?: boolean;
     displayName?: boolean;
     bio?: boolean;
     avatarUrl?: boolean;
@@ -1562,6 +1623,7 @@ export type UserSelectScalar = {
     password?: boolean;
     googleId?: boolean;
     keycloakId?: boolean;
+    incongruesUsername?: boolean;
     displayName?: boolean;
     bio?: boolean;
     avatarUrl?: boolean;
@@ -1569,7 +1631,7 @@ export type UserSelectScalar = {
     createdAt?: boolean;
     updatedAt?: boolean;
 };
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "username" | "password" | "googleId" | "keycloakId" | "displayName" | "bio" | "avatarUrl" | "coverUrl" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>;
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "username" | "password" | "googleId" | "keycloakId" | "incongruesUsername" | "displayName" | "bio" | "avatarUrl" | "coverUrl" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>;
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     mixes?: boolean | Prisma.User$mixesArgs<ExtArgs>;
     favorites?: boolean | Prisma.User$favoritesArgs<ExtArgs>;
@@ -1604,6 +1666,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
         password: string | null;
         googleId: string | null;
         keycloakId: string | null;
+        incongruesUsername: string | null;
         displayName: string;
         bio: string | null;
         avatarUrl: string | null;
@@ -1682,6 +1745,7 @@ export interface UserFieldRefs {
     readonly password: Prisma.FieldRef<"User", 'String'>;
     readonly googleId: Prisma.FieldRef<"User", 'String'>;
     readonly keycloakId: Prisma.FieldRef<"User", 'String'>;
+    readonly incongruesUsername: Prisma.FieldRef<"User", 'String'>;
     readonly displayName: Prisma.FieldRef<"User", 'String'>;
     readonly bio: Prisma.FieldRef<"User", 'String'>;
     readonly avatarUrl: Prisma.FieldRef<"User", 'String'>;

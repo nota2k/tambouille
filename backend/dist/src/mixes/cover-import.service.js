@@ -27,6 +27,13 @@ let CoverImportService = CoverImportService_1 = class CoverImportService {
             return null;
         }
     }
+    async resolveCoverUrl(uploadedKey, coverSourceUrl) {
+        if (uploadedKey)
+            return uploadedKey;
+        if (!coverSourceUrl)
+            return undefined;
+        return (await this.importFromUrl(coverSourceUrl)) ?? undefined;
+    }
 };
 exports.CoverImportService = CoverImportService;
 exports.CoverImportService = CoverImportService = CoverImportService_1 = __decorate([

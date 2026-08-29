@@ -11,6 +11,7 @@ import { ImportsModule } from './imports/imports.module';
 import { FeedsModule } from './feeds/feeds.module';
 import { SeoModule } from './seo/seo.module';
 import { VeilleModule } from './veille/veille.module';
+import { IncongruesModule } from './incongrues/incongrues.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { VeilleModule } from './veille/veille.module';
     FeedsModule,
     SeoModule,
     VeilleModule,
+    IncongruesModule,
   ],
 })
 export class AppModule {}

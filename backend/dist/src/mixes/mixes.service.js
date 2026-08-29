@@ -19,6 +19,7 @@ const prisma_service_1 = require("../prisma/prisma.service");
 const upload_utils_1 = require("../common/upload.utils");
 const audio_source_1 = require("../common/audio-source");
 const slug_1 = require("../common/slug");
+const cover_import_service_1 = require("./cover-import.service");
 function parseTags(tags) {
     if (!tags)
         return [];
@@ -26,6 +27,16 @@ function parseTags(tags) {
         .split(',')
         .map((tag) => tag.trim().toLowerCase())
         .filter(Boolean))).slice(0, 10);
+}
+function joindreTags(tags) {
+    let chaine = '';
+    for (const tag of tags) {
+        const candidat = chaine ? `${chaine},${tag}` : tag;
+        if (candidat.length > 300)
+            break;
+        chaine = candidat;
+    }
+    return chaine;
 }
 function parseTracklist(tracklist) {
     if (!tracklist)
@@ -109,8 +120,10 @@ function toMixResponse(mix) {
 }
 let MixesService = class MixesService {
     prisma;
-    constructor(prisma) {
+    coverImport;
+    constructor(prisma, coverImport) {
         this.prisma = prisma;
+        this.coverImport = coverImport;
     }
     async findAllTags() {
         const rows = await this.prisma.$queryRaw `
@@ -144,6 +157,20 @@ let MixesService = class MixesService {
             ...buildMixInclude(userId),
         });
         return toMixResponse(mix);
+    }
+    async createFromImport(userId, imp) {
+        const coverUrl = await this.coverImport.resolveCoverUrl(undefined, imp.coverSourceUrl);
+        return this.create(userId, {
+            title: imp.title.slice(0, 120),
+            description: imp.description?.slice(0, 2000),
+            artist: imp.artist?.slice(0, 120),
+            tags: joindreTags(imp.tags),
+            tracklist: JSON.stringify(imp.tracklist),
+            sourceType: imp.sourceType,
+            sourceRef: imp.sourceRef,
+            sourcePageUrl: imp.sourcePageUrl,
+            durationSec: imp.durationSec,
+        }, { coverUrl });
     }
     slugLibrePour(userId, titre) {
         return (0, slug_1.slugUnique)(titre, async (slug) => {
@@ -542,6 +569,7 @@ let MixesService = class MixesService {
 exports.MixesService = MixesService;
 exports.MixesService = MixesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        cover_import_service_1.CoverImportService])
 ], MixesService);
 //# sourceMappingURL=mixes.service.js.map

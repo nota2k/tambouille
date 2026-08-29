@@ -23,6 +23,7 @@ export declare class AuthController {
             avatarUrl: string | null;
             createdAt: Date;
             hasPassword: boolean;
+            incongruesUsername: string | null;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -38,6 +39,7 @@ export declare class AuthController {
             avatarUrl: string | null;
             createdAt: Date;
             hasPassword: boolean;
+            incongruesUsername: string | null;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -53,6 +55,7 @@ export declare class AuthController {
             avatarUrl: string | null;
             createdAt: Date;
             hasPassword: boolean;
+            incongruesUsername: string | null;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -66,6 +69,7 @@ export declare class AuthController {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -80,6 +84,7 @@ export declare class AuthController {
             avatarUrl: string | null;
             createdAt: Date;
             hasPassword: boolean;
+            incongruesUsername: string | null;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -93,6 +98,7 @@ export declare class AuthController {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -105,6 +111,7 @@ export declare class AuthController {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -117,6 +124,7 @@ export declare class AuthController {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -129,6 +137,7 @@ export declare class AuthController {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;

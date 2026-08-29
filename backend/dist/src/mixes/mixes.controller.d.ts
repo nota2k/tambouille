@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 import { MixesService } from './mixes.service';
 import { CoverImportService } from './cover-import.service';
+import { IncongruesSyncService } from '../incongrues/incongrues.sync.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
@@ -13,7 +14,8 @@ type UploadedFilesShape = {
 export declare class MixesController {
     private readonly mixesService;
     private readonly coverImportService;
-    constructor(mixesService: MixesService, coverImportService: CoverImportService);
+    private readonly incongruesSync;
+    constructor(mixesService: MixesService, coverImportService: CoverImportService, incongruesSync: IncongruesSyncService);
     findAll(query: QueryMixesDto, currentUserId?: string): Promise<{
         items: any[];
         total: number;

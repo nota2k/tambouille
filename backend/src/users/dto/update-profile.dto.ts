@@ -11,4 +11,9 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(280)
   bio?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  incongruesUsername?: string;
 }

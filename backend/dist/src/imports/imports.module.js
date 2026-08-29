@@ -18,6 +18,8 @@ const ouiedire_importer_1 = require("./ouiedire.importer");
 const lyl_importer_1 = require("./lyl.importer");
 const brain_importer_1 = require("./brain.importer");
 const podcast_importer_1 = require("./podcast.importer");
+const flarum_client_1 = require("./flarum.client");
+const musiques_incongrues_importer_1 = require("./musiques-incongrues.importer");
 let ImportsModule = class ImportsModule {
 };
 exports.ImportsModule = ImportsModule;
@@ -32,6 +34,8 @@ exports.ImportsModule = ImportsModule = __decorate([
             ouiedire_importer_1.OuiedireImporter,
             lyl_importer_1.LylImporter,
             brain_importer_1.BrainImporter,
+            flarum_client_1.FlarumClient,
+            musiques_incongrues_importer_1.MusiquesIncongruesImporter,
             podcast_importer_1.PodcastImporter,
             imports_service_1.ImportsService,
             {
@@ -43,12 +47,22 @@ exports.ImportsModule = ImportsModule = __decorate([
                     ouiedire_importer_1.OuiedireImporter,
                     lyl_importer_1.LylImporter,
                     brain_importer_1.BrainImporter,
+                    musiques_incongrues_importer_1.MusiquesIncongruesImporter,
                     podcast_importer_1.PodcastImporter,
                 ],
-                useFactory: (mixcloud, soundcloud, archive, ouiedire, lyl, brain, podcast) => [mixcloud, soundcloud, archive, ouiedire, lyl, brain, podcast],
+                useFactory: (mixcloud, soundcloud, archive, ouiedire, lyl, brain, musiquesIncongrues, podcast) => [
+                    mixcloud,
+                    soundcloud,
+                    archive,
+                    ouiedire,
+                    lyl,
+                    brain,
+                    musiquesIncongrues,
+                    podcast,
+                ],
             },
         ],
-        exports: [imports_service_1.ImportsService],
+        exports: [imports_service_1.ImportsService, musiques_incongrues_importer_1.MusiquesIncongruesImporter, flarum_client_1.FlarumClient],
     })
 ], ImportsModule);
 //# sourceMappingURL=imports.module.js.map

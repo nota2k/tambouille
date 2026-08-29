@@ -11,13 +11,16 @@ const common_1 = require("@nestjs/common");
 const mixes_service_1 = require("./mixes.service");
 const mixes_controller_1 = require("./mixes.controller");
 const cover_import_service_1 = require("./cover-import.service");
+const incongrues_module_1 = require("../incongrues/incongrues.module");
 let MixesModule = class MixesModule {
 };
 exports.MixesModule = MixesModule;
 exports.MixesModule = MixesModule = __decorate([
     (0, common_1.Module)({
+        imports: [(0, common_1.forwardRef)(() => incongrues_module_1.IncongruesModule)],
         controllers: [mixes_controller_1.MixesController],
         providers: [mixes_service_1.MixesService, cover_import_service_1.CoverImportService],
+        exports: [mixes_service_1.MixesService, cover_import_service_1.CoverImportService],
     })
 ], MixesModule);
 //# sourceMappingURL=mixes.module.js.map

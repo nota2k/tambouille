@@ -3,6 +3,8 @@ import { type MediaBases } from '../common/audio-source';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
 import { QueryMixesDto } from './dto/query-mixes.dto';
+import { CoverImportService } from './cover-import.service';
+import type { MixImport } from '../imports/source-importer';
 export declare function assertExactlyOneAudioSource(audioUrl: string | null, sourceType: string | null, sourceRef: string | null): void;
 export declare function assertSourcePageHasASource(sourceRef: string | null, sourcePageUrl: string | null): void;
 export declare function buildMixInclude(currentUserId?: string): {
@@ -39,12 +41,14 @@ export declare function buildMixInclude(currentUserId?: string): {
 export declare function toMixResponse(mix: any): any;
 export declare class MixesService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly coverImport;
+    constructor(prisma: PrismaService, coverImport: CoverImportService);
     findAllTags(): Promise<string[]>;
     create(userId: string, dto: CreateMixDto, files: {
         audioUrl?: string;
         coverUrl?: string;
     }): Promise<any>;
+    createFromImport(userId: string, imp: MixImport): Promise<any>;
     private slugLibrePour;
     findAll(query: QueryMixesDto, currentUserId?: string): Promise<{
         items: any[];

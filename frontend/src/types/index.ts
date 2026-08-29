@@ -135,6 +135,13 @@ export interface AuthUser {
   hasGoogle: boolean
   /** Idem pour la carte de membre du club : jamais le sujet, seulement s'il y en a une. */
   hasKeycloak: boolean
+  /**
+   * Le pseudo forum lié, vu du titulaire lui-même. Absent de `UserProfile`
+   * (rendu par `getPublicProfile`) : ce champ-là part vers n'importe quel
+   * visiteur du profil, alors que ce paquet-ci ne part que vers le titulaire
+   * de la session.
+   */
+  incongruesUsername: string | null
 }
 
 export interface AuthResponse {

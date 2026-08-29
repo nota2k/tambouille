@@ -20,6 +20,7 @@ const imports_module_1 = require("./imports/imports.module");
 const feeds_module_1 = require("./feeds/feeds.module");
 const seo_module_1 = require("./seo/seo.module");
 const veille_module_1 = require("./veille/veille.module");
+const incongrues_module_1 = require("./incongrues/incongrues.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -38,6 +39,7 @@ exports.AppModule = AppModule = __decorate([
             feeds_module_1.FeedsModule,
             seo_module_1.SeoModule,
             veille_module_1.VeilleModule,
+            incongrues_module_1.IncongruesModule,
         ],
     })
 ], AppModule);

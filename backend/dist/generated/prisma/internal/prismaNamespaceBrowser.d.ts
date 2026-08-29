@@ -38,6 +38,7 @@ export declare const UserScalarFieldEnum: {
     readonly password: "password";
     readonly googleId: "googleId";
     readonly keycloakId: "keycloakId";
+    readonly incongruesUsername: "incongruesUsername";
     readonly displayName: "displayName";
     readonly bio: "bio";
     readonly avatarUrl: "avatarUrl";

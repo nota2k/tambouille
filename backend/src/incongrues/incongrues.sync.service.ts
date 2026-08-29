@@ -1,0 +1,167 @@
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { FlarumClient } from '../imports/flarum.client';
+import { MusiquesIncongruesImporter } from '../imports/musiques-incongrues.importer';
+import { MixesService } from '../mixes/mixes.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { CACHE_TTL_MS } from '../veille/veille.types';
+import { pseudoAutorise } from './allowed-usernames';
+
+/** La route est publique et déclenche des appels sortants. Une sonnerie de
+ *  plus dans la minute ne peut rien apporter que la précédente n'ait déjà vu. */
+export const DEBOUNCE_MS = 60_000;
+
+/** Le filet de rattrapage ne répare qu'un webhook perdu : il se mesure à
+ *  l'heure, pas à la minute. Il pend à `findAll`, la route la plus visitée du
+ *  site — à la cadence de l'anti-rebond, chaque minute de trafic vaudrait un
+ *  passage complet sur le forum. On reprend le seuil de la veille plutôt que
+ *  d'en écrire un second : c'est le même compromis, sur la même fraîcheur. */
+export const RATTRAPAGE_MS = CACHE_TTL_MS;
+
+@Injectable()
+export class IncongruesSyncService {
+  private readonly logger = new Logger(IncongruesSyncService.name);
+
+  /** Une synchronisation en cours par compte. Sans ce verrou, deux appels
+   *  simultanés franchiraient tous deux `findBySource` avant que l'un ait
+   *  écrit, et deux mix identiques paraîtraient. Le projet n'a ni file
+   *  d'attente ni `Throttler` : une promesse en mémoire suffit à cette
+   *  échelle, et disparaît avec le processus, ce qui est sans conséquence —
+   *  `findBySource` reste la vraie garantie. */
+  private readonly enCours = new Map<string, Promise<number>>();
+
+  // Deux horodatages distincts : partagés, le rattrapage horaire absorberait
+  // la sonnerie du webhook, qui est justement ce qui doit passer devant.
+  private dernierPassage = 0;
+  private dernierRattrapage = 0;
+
+  constructor(
+    private readonly flarum: FlarumClient,
+    private readonly importeur: MusiquesIncongruesImporter,
+    private readonly mixes: MixesService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  async syncUser(userId: string, incongruesUsername: string): Promise<number> {
+    const enCours = this.enCours.get(userId);
+    if (enCours) return enCours;
+
+    // La promesse doit être posée dans la Map AVANT tout `await` : sinon un
+    // second appel concurrent la trouverait absente et franchirait, lui
+    // aussi, l'appel réseau que le verrou est censé lui épargner.
+    const travail = this.faire(userId, incongruesUsername).finally(() => {
+      this.enCours.delete(userId);
+    });
+    this.enCours.set(userId, travail);
+    return travail;
+  }
+
+  async syncAll(): Promise<number> {
+    const lies = await this.prisma.user.findMany({
+      where: { incongruesUsername: { not: null } },
+      select: { id: true, incongruesUsername: true },
+    });
+
+    let crees = 0;
+    for (const user of lies) {
+      // La garde posée à la saisie du pseudo empêche une NOUVELLE revendication ;
+      // elle ne dit rien des liens déjà en base. Sans ce second contrôle,
+      // retirer un pseudo de la liste ne retirerait rien — le compte
+      // continuerait d'être servi à chaque passage, et la liste ne saurait
+      // qu'ajouter des droits, jamais en reprendre.
+      if (!pseudoAutorise(user.incongruesUsername!)) {
+        // `warn` et non `debug` : un lien devenu hors liste est une anomalie de
+        // configuration qu'on veut voir passer, pas un rejet de routine comme
+        // un post sans lecteur exploitable.
+        this.logger.warn(
+          `Compte ${user.incongruesUsername!} ignoré : absent de INCONGRUES_ALLOWED_USERNAMES`,
+        );
+        continue;
+      }
+
+      // Chaque compte dans son propre `try` : `listByAuthor` est HORS du `try`
+      // de `faire`, donc un forum injoignable ou un pseudo inexistant sortirait
+      // de la boucle, et le webhook rendrait 502 au lieu de son compte de mix.
+      try {
+        crees += await this.syncUser(user.id, user.incongruesUsername!);
+      } catch (erreur) {
+        this.logger.warn(
+          `Compte ${user.incongruesUsername!} en échec : ${(erreur as Error).message}`,
+        );
+      }
+    }
+    return crees;
+  }
+
+  async syncAllDebounced(): Promise<number> {
+    const maintenant = Date.now();
+    if (maintenant - this.dernierPassage < DEBOUNCE_MS) return 0;
+    this.dernierPassage = maintenant;
+    return this.syncAll();
+  }
+
+  /** Le filet de rattrapage, à l'heure : ce que le webhook a pu perdre pendant
+   *  une indisponibilité de Mixcloud, ou parce que FoF Webhooks a raté
+   *  l'événement. */
+  async syncAllRattrapageHoraire(): Promise<number> {
+    const maintenant = Date.now();
+    if (maintenant - this.dernierRattrapage < RATTRAPAGE_MS) return 0;
+    this.dernierRattrapage = maintenant;
+    return this.syncAll();
+  }
+
+  private async faire(
+    userId: string,
+    incongruesUsername: string,
+  ): Promise<number> {
+    const discussions = await this.flarum.listByAuthor(incongruesUsername);
+    let crees = 0;
+
+    for (const discussion of discussions) {
+      // Chaque discussion dans son propre `try` : un cloudcast supprimé chez
+      // Mixcloud ne doit pas empêcher les treize autres de paraître.
+      try {
+        // Premier contrôle, AVANT tout appel sortant. `listByAuthor` a déjà
+        // rapporté la `pageUrl`, et tout ce que la synchronisation a créé la
+        // porte : en régime établi, les mix déjà là sont écartés sans qu'un
+        // seul oEmbed soit payé pour être jeté.
+        if (await this.mixes.findBySource(undefined, discussion.pageUrl)) {
+          continue;
+        }
+
+        // Le premier message voyage déjà dans la réponse de `listByAuthor` :
+        // le recharger par `getDiscussion` serait une requête HTTP par
+        // discussion pour un `contentHtml` qu'on tient en main.
+        const mix = await this.importeur.importDiscussion(discussion);
+
+        // L'idempotence vient d'ici, pas d'un curseur : la base est la seule
+        // source de vérité sur ce qui a déjà été importé, et elle n'a pas
+        // besoin d'être réparée quand elle dérive. Ce second contrôle porte
+        // sur `sourceRef`, que le premier ne connaissait pas : c'est lui qui
+        // rattrape les mix saisis à la main, sans `pageUrl` du forum.
+        const deja = await this.mixes.findBySource(
+          mix.sourceRef,
+          mix.sourcePageUrl,
+        );
+        if (deja) continue;
+
+        await this.mixes.createFromImport(userId, mix);
+        crees += 1;
+      } catch (erreur) {
+        // Un post sans lecteur exploitable est le cas NORMAL — 10 sur 24 pour
+        // le compte de référence. En `warn`, ils noieraient les vrais
+        // incidents dès le premier passage.
+        if (erreur instanceof BadRequestException) {
+          this.logger.debug(
+            `${discussion.pageUrl} ignorée : ${erreur.message}`,
+          );
+        } else {
+          this.logger.warn(
+            `${discussion.pageUrl} en échec : ${(erreur as Error).message}`,
+          );
+        }
+      }
+    }
+
+    return crees;
+  }
+}

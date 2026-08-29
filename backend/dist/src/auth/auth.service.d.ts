@@ -25,6 +25,7 @@ export declare class AuthService {
             avatarUrl: string | null;
             createdAt: Date;
             hasPassword: boolean;
+            incongruesUsername: string | null;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -40,6 +41,7 @@ export declare class AuthService {
             avatarUrl: string | null;
             createdAt: Date;
             hasPassword: boolean;
+            incongruesUsername: string | null;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -55,6 +57,7 @@ export declare class AuthService {
             avatarUrl: string | null;
             createdAt: Date;
             hasPassword: boolean;
+            incongruesUsername: string | null;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -68,6 +71,7 @@ export declare class AuthService {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -82,6 +86,7 @@ export declare class AuthService {
             avatarUrl: string | null;
             createdAt: Date;
             hasPassword: boolean;
+            incongruesUsername: string | null;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -95,6 +100,7 @@ export declare class AuthService {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -107,6 +113,7 @@ export declare class AuthService {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -119,6 +126,7 @@ export declare class AuthService {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -131,6 +139,7 @@ export declare class AuthService {
         avatarUrl: string | null;
         createdAt: Date;
         hasPassword: boolean;
+        incongruesUsername: string | null;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;

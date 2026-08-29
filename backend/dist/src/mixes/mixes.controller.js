@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const mixes_service_1 = require("./mixes.service");
 const cover_import_service_1 = require("./cover-import.service");
+const incongrues_sync_service_1 = require("../incongrues/incongrues.sync.service");
 const create_mix_dto_1 = require("./dto/create-mix.dto");
 const update_mix_dto_1 = require("./dto/update-mix.dto");
 const query_mixes_dto_1 = require("./dto/query-mixes.dto");
@@ -29,11 +30,14 @@ const upload_utils_1 = require("../common/upload.utils");
 let MixesController = class MixesController {
     mixesService;
     coverImportService;
-    constructor(mixesService, coverImportService) {
+    incongruesSync;
+    constructor(mixesService, coverImportService, incongruesSync) {
         this.mixesService = mixesService;
         this.coverImportService = coverImportService;
+        this.incongruesSync = incongruesSync;
     }
     findAll(query, currentUserId) {
+        void this.incongruesSync.syncAllRattrapageHoraire().catch(() => undefined);
         return this.mixesService.findAll(query, currentUserId);
     }
     listFavorites(userId, query) {
@@ -79,13 +83,7 @@ let MixesController = class MixesController {
         const audioFile = files.audio?.[0];
         (0, mixes_service_1.assertExactlyOneAudioSource)(audioFile?.key ?? null, dto.sourceType || null, dto.sourceRef || null);
         (0, mixes_service_1.assertSourcePageHasASource)(dto.sourceRef || null, dto.sourcePageUrl?.trim() || null);
-        const coverFile = files.cover?.[0];
-        let coverUrl = coverFile?.key;
-        if (!coverUrl && dto.coverSourceUrl) {
-            coverUrl =
-                (await this.coverImportService.importFromUrl(dto.coverSourceUrl)) ??
-                    undefined;
-        }
+        const coverUrl = await this.coverImportService.resolveCoverUrl(files.cover?.[0]?.key, dto.coverSourceUrl);
         return this.mixesService.create(userId, dto, {
             audioUrl: audioFile?.key,
             coverUrl,
@@ -278,7 +276,9 @@ __decorate([
 ], MixesController.prototype, "remove", null);
 exports.MixesController = MixesController = __decorate([
     (0, common_1.Controller)('mixes'),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => incongrues_sync_service_1.IncongruesSyncService))),
     __metadata("design:paramtypes", [mixes_service_1.MixesService,
-        cover_import_service_1.CoverImportService])
+        cover_import_service_1.CoverImportService,
+        incongrues_sync_service_1.IncongruesSyncService])
 ], MixesController);
 //# sourceMappingURL=mixes.controller.js.map

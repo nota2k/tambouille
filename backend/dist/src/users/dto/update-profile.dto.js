@@ -14,6 +14,7 @@ const class_validator_1 = require("class-validator");
 class UpdateProfileDto {
     displayName;
     bio;
+    incongruesUsername;
 }
 exports.UpdateProfileDto = UpdateProfileDto;
 __decorate([
@@ -29,4 +30,10 @@ __decorate([
     (0, class_validator_1.MaxLength)(280),
     __metadata("design:type", String)
 ], UpdateProfileDto.prototype, "bio", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    __metadata("design:type", String)
+], UpdateProfileDto.prototype, "incongruesUsername", void 0);
 //# sourceMappingURL=update-profile.dto.js.map

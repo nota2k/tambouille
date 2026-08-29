@@ -12,17 +12,17 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(uuid())
-  email       String   @unique
+  id                 String   @id @default(uuid())
+  email              String   @unique
   // Null until an account created by an identity provider picks one. Postgres
   // allows several NULLs under a unique constraint, so pending accounts can
   // coexist.
-  username    String?  @unique
+  username           String?  @unique
   // Null for accounts that only sign in through an identity provider.
-  password    String?
+  password           String?
   // Google's stable subject claim. Stored rather than matching on email, so a
   // user who later changes their Google address still resolves to this account.
-  googleId    String?  @unique
+  googleId           String?  @unique
   // The same claim from the club's Keycloak realm, kept in its own column
   // rather than sharing one with `googleId`: a single column would need a
   // second one naming the issuer, and every lookup would have to match both or
@@ -31,13 +31,21 @@ model User {
   // the query returned first captured every sign-in for both. The index is
   // what holds under concurrency; the check preceding the write only buys a
   // clean message.
-  keycloakId  String?  @unique
-  displayName String
-  bio         String?
-  avatarUrl   String?
-  coverUrl    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  keycloakId         String?  @unique
+  /// Le pseudo du compte Musiques Incongrues lié, quand il y en a un.
+  ///
+  /// Nullable : personne d'autre que le titulaire du lien n'en a besoin.
+  /// Unique : deux comptes Tambouille revendiquant le même pseudo forum se
+  /// voleraient mutuellement les mix, et c'est l'index qui tient sous
+  /// concurrence — la vérification préalable ne fait qu'offrir un message
+  /// propre.
+  incongruesUsername String?  @unique
+  displayName        String
+  bio                String?
+  avatarUrl          String?
+  coverUrl           String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   mixes       Mix[]
   favorites   Favorite[]

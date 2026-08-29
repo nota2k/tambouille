@@ -12,12 +12,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const allowed_usernames_1 = require("../incongrues/allowed-usernames");
 const userSummarySelect = {
     id: true,
     username: true,
     displayName: true,
     avatarUrl: true,
 };
+function isUniqueConstraintError(error) {
+    return (typeof error === 'object' &&
+        error !== null &&
+        error.code === 'P2002');
+}
 let UsersService = class UsersService {
     prisma;
     constructor(prisma) {
@@ -87,10 +93,31 @@ let UsersService = class UsersService {
     }
     async updateProfile(userId, dto) {
         const username = await this.requireUsername(userId);
-        await this.prisma.user.update({
-            where: { id: userId },
-            data: dto,
-        });
+        const data = { ...dto };
+        if (dto.incongruesUsername !== undefined) {
+            const pseudo = dto.incongruesUsername.trim() || null;
+            if (pseudo !== null) {
+                const autorises = (0, allowed_usernames_1.pseudosAutorises)();
+                if (!autorises.includes(pseudo.toLowerCase())) {
+                    throw new common_1.ForbiddenException(autorises.length
+                        ? 'Ce pseudo Musiques Incongrues ne fait pas partie des comptes autorisés'
+                        : 'La liaison avec Musiques Incongrues n’est pas ouverte sur cette instance');
+                }
+            }
+            data.incongruesUsername = pseudo;
+        }
+        try {
+            await this.prisma.user.update({
+                where: { id: userId },
+                data,
+            });
+        }
+        catch (error) {
+            if (isUniqueConstraintError(error)) {
+                throw new common_1.ConflictException('Ce pseudo Musiques Incongrues est déjà lié à un autre compte');
+            }
+            throw error;
+        }
         return this.getPublicProfile(username);
     }
     async updateAvatar(userId, avatarUrl) {
