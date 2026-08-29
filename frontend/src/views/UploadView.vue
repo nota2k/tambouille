@@ -419,7 +419,7 @@ async function onSubmit() {
               type="file"
               accept="audio/mpeg,audio/mp4,audio/wav,audio/x-wav,audio/ogg,audio/x-m4a,audio/aac"
               required
-              class="mt-4 w-full border-2 border-dashed border-tambouille-faint p-6 text-sm text-tambouille-muted file:mr-4 file:border-0 file:bg-tambouille-accent file:px-4 file:py-2 file:font-bold file:text-white hover:file:bg-tambouille-accent-hover"
+              class="mt-4 w-full border-2 border-dashed border-tambouille-faint p-6 text-sm text-tambouille-muted file:mr-4 file:border-0 file:bg-tambouille-accent file:px-4 file:py-2 file:font-bold file:text-tambouille-ink-on-accent hover:file:bg-tambouille-accent-hover"
               @change="onAudioChange"
             />
             <MixAudioPreview :src="audioPreviewUrl" class="mt-4" @capture="onCapture" />

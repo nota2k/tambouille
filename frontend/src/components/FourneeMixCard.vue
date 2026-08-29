@@ -79,7 +79,7 @@ const rule = computed(() => `color-mix(in srgb, ${props.zone.ink} 30%, transpare
 
     <!-- Pas de « importé par » ici : la carte est étroite et le gabarit lui
          impose déjà trois informations. L'artiste remplace le compte. -->
-    <p class="pt-4 pb-3 text-[13px] leading-[1.45] opacity-75">
+    <p class="pt-4 pb-3 text-[13px] leading-[1.45] opacity-85">
       {{ credit.primary }}<br />
       <b :style="{ color: ink }">{{ formatDuration(mix.durationSec) ?? 'durée inconnue' }}</b>
       <template v-if="mix.tracklist.length"> · {{ mix.tracklist.length }} morceaux</template>

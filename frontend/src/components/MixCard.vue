@@ -51,7 +51,7 @@ function play(event: Event) {
       </div>
 
       <button
-        class="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center bg-tambouille-accent text-white opacity-0 transition group-hover:opacity-100 hover:bg-tambouille-accent-hover"
+        class="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center bg-tambouille-accent text-tambouille-ink-on-accent opacity-0 transition group-hover:opacity-100 hover:bg-tambouille-accent-hover"
         aria-label="Lire ce mix"
         @click="play"
       >

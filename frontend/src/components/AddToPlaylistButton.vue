@@ -169,7 +169,7 @@ onUnmounted(() => {
                 class="flex h-4 w-4 shrink-0 items-center justify-center rounded-none border"
                 :class="
                   playlist.containsMix
-                    ? 'border-tambouille-accent bg-tambouille-accent text-white'
+                    ? 'border-tambouille-accent bg-tambouille-accent text-tambouille-ink-on-accent'
                     : 'border-tambouille-border'
                 "
               >

@@ -129,6 +129,22 @@
   --color-tambouille-accent: #ff2d6f;
   --color-tambouille-accent-dark: #d61f59;
   --color-tambouille-accent-hover: #e0265f;
+  /*
+   * L'encre posée sur le rose. Noire, et non blanche.
+   *
+   * `#ff2d6f` sous du blanc plafonne à 3,59:1, là où le texte courant en
+   * demande 4,5 — ce n'est pas une nuance d'écran, c'est « Écouter » qui
+   * s'efface sous un soleil d'été ou sur une dalle bas de gamme. Le même rose
+   * sous du noir tient 5,86:1.
+   *
+   * Ce n'était donc pas au rose de changer. `useFourneeTheme` le fait déjà pour
+   * les couleurs de saison : il choisit l'encre selon le fond au lieu
+   * d'imposer le fond à l'encre. C'est la même règle, appliquée à l'accent de
+   * la marque — qui, lui, reste exactement celui de la maquette.
+   *
+   * Le survol `#e0265f` tient 4,61:1 sous du noir : il passe aussi.
+   */
+  --color-tambouille-ink-on-accent: #000000;
   --color-tambouille-jaune: #ffd76e;
   /* Le lavis rose de la ligne en cours de lecture — le seul aplat de couleur
      autorisé dans un flux, pour dire « c'est celui-là qui tourne ». */
@@ -335,7 +351,7 @@ h6,
 
 .tb-btn {
   background: var(--color-tambouille-accent);
-  color: #fff;
+  color: var(--color-tambouille-ink-on-accent);
 }
 
 .tb-btn:hover:not(:disabled) {
@@ -396,13 +412,13 @@ h6,
 .tb-chip-on {
   background: var(--color-tambouille-accent);
   border-color: var(--color-tambouille-accent);
-  color: #fff;
+  color: var(--color-tambouille-ink-on-accent);
 }
 
 .tb-chip-on:hover {
   background: var(--color-tambouille-accent-hover);
   border-color: var(--color-tambouille-accent-hover);
-  color: #fff;
+  color: var(--color-tambouille-ink-on-accent);
 }
 
 /* Un tag dans un flux est un lien rose, pas une pastille grise de plus. */

@@ -599,7 +599,7 @@ function onEnded() {
     <p
       v-if="playbackError"
       role="alert"
-      class="bg-tambouille-accent px-4 py-2 text-sm text-tambouille-white"
+      class="bg-tambouille-accent px-4 py-2 text-sm text-tambouille-ink-on-accent"
     >
       {{ playbackError }}
     </p>
@@ -622,7 +622,7 @@ function onEnded() {
         clickable throughout — pausing is how the user calls off a load that drags.
       -->
       <button
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-white hover:bg-tambouille-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-tambouille-ink-on-accent hover:bg-tambouille-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="!canPlay"
         :aria-label="widgetLoading ? 'Chargement' : playerStore.isPlaying ? 'Pause' : 'Lecture'"
         @click="playerStore.toggle()"

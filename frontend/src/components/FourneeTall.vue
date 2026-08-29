@@ -104,7 +104,7 @@ const cartesFantomes = computed(() => (props.fournee.mixes.length ? 0 : NOMBRE_D
             >
               La fournée n°{{ fournee.number }}
             </span>
-            <span class="text-[11px] uppercase leading-none tracking-[0.16em] opacity-70">
+            <span class="text-[11px] uppercase leading-none tracking-[0.16em] opacity-85">
               {{ fournee.period }}
             </span>
           </div>
@@ -128,7 +128,7 @@ const cartesFantomes = computed(() => (props.fournee.mixes.length ? 0 : NOMBRE_D
             >
               Tout enfourner<template v-if="totalDuration"> — {{ totalDuration }}</template>
             </button>
-            <span class="text-[13px] opacity-70">choisi par {{ fournee.curator }}</span>
+            <span class="text-[13px] opacity-85">choisi par {{ fournee.curator }}</span>
           </div>
         </div>
       </div>

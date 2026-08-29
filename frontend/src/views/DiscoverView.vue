@@ -279,16 +279,23 @@ onMounted(loadSections)
         </button>
         <button
           type="button"
-          class="pb-2 hover:text-tambouille-tex text-lg"
+          class="pb-2 hover:text-tambouille-text text-lg"
           @click="showTagsOverlay = true"
         >
           Par tag<span v-if="selectedTags.length" class="text-tambouille-accent text-lg">
             ({{ selectedTags.length }})</span
           >
         </button>
+        <!-- Le jaune de la maquette vit sur les panneaux noirs, où il tient
+             12:1. Posé sur du papier il tombe à 1,38 — un texte qu'on devine
+             plutôt qu'on ne le lit.
+
+             L'aplat rose le remplace, et dit mieux ce que ce bouton est : ses
+             trois voisins filtrent la liste, celui-ci lance un mix. Un onglet
+             de plus le faisait passer pour un quatrième tri. -->
         <button
           type="button"
-          class="pb-2 hover:text-tambouille-text text-tambouille-jaune text-lg"
+          class="min-h-9 bg-tambouille-accent px-3.5 py-1.5 text-lg text-tambouille-ink-on-accent transition-opacity hover:opacity-80"
           @click="playRandomMix"
         >
           Au hasard
@@ -346,7 +353,7 @@ onMounted(loadSections)
             />
             <div
               v-else
-              class="flex h-11 w-11 items-center justify-center bg-tambouille-accent text-sm font-bold text-white"
+              class="flex h-11 w-11 items-center justify-center bg-tambouille-accent text-sm font-bold text-tambouille-ink-on-accent"
             >
               {{ user.displayName?.[0]?.toUpperCase() }}
             </div>
