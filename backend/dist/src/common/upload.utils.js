@@ -99,11 +99,12 @@ async function getBufferFromR2(key) {
     return Buffer.from(await result.Body.transformToByteArray());
 }
 async function* listerClesR2(prefixe) {
+    const racine = prefixe.replace(/\/+$/, '');
     let suite;
     do {
         const page = await r2Client.send(new client_s3_1.ListObjectsV2Command({
             Bucket: R2_BUCKET_NAME,
-            Prefix: `${prefixe}/`,
+            Prefix: `${racine}/`,
             ContinuationToken: suite,
         }));
         for (const objet of page.Contents ?? []) {

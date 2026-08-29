@@ -198,12 +198,17 @@ export async function getBufferFromR2(key: string): Promise<Buffer> {
  * clé lue en base.
  */
 export async function* listerClesR2(prefixe: string): AsyncGenerator<string> {
+  // La barre oblique est posée ici, donc un appelant qui l'a déjà mise
+  // produirait `covers//` — un préfixe qui ne correspond à rien, et une liste
+  // vide qu'aucune erreur ne signale. C'est arrivé à `backfill-variantes`, qui
+  // se croyait alors devant un bucket vide et réécrivait tout à chaque passage.
+  const racine = prefixe.replace(/\/+$/, '');
   let suite: string | undefined;
   do {
     const page = await r2Client.send(
       new ListObjectsV2Command({
         Bucket: R2_BUCKET_NAME,
-        Prefix: `${prefixe}/`,
+        Prefix: `${racine}/`,
         ContinuationToken: suite,
       }),
     );

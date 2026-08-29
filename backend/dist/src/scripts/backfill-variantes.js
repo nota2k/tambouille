@@ -66,7 +66,7 @@ function largeurDe(cle) {
 async function traiter(prisma, cible, options, resultat) {
     console.log(`\n${cible.nom} (${cible.table}.${cible.colonne}) :`);
     const presentes = new Set();
-    for await (const cle of (0, upload_utils_1.listerClesR2)(`${cible.nom}/`))
+    for await (const cle of (0, upload_utils_1.listerClesR2)(cible.nom))
         presentes.add(cle);
     const where = { [cible.colonne]: { not: null } };
     const rows = cible.table === 'mix'
