@@ -76,6 +76,27 @@ function fromGridMarkup(html: string, origin: string): VeilleItem[] {
   return items;
 }
 
+/** La date de sortie d'un album, lue dans le JSON de `data-tralbum` de sa
+ *  propre page (`current.publish_date`). La page réelle gelée en fixture ne
+ *  porte pas la balise `<meta itemprop="datePublished">` que le brief
+ *  envisageait comme repli — seul `data-tralbum` porte la date ici. */
+export function extractAlbumPublishedAt(html: string): string | undefined {
+  const match = /data-tralbum="([^"]*)"/.exec(html);
+  if (!match) return undefined;
+  let data: { current?: { publish_date?: string } };
+  try {
+    data = JSON.parse(
+      match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+    ) as { current?: { publish_date?: string } };
+  } catch {
+    return undefined;
+  }
+  const raw = data.current?.publish_date;
+  if (!raw) return undefined;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
 function parseLabel(html: string, origin: string): string {
   const band = /<meta property="og:site_name" content="([^"]*)"/.exec(html);
   if (band?.[1]) return stripHtml(band[1]).trim();
@@ -123,6 +144,35 @@ export class BandcampReader {
         'Cette page Bandcamp ne montre aucune sortie',
       );
     }
-    return { resolver: this.name, label, url: `${origin}/music`, items };
+    return {
+      resolver: this.name,
+      label,
+      url: `${origin}/music`,
+      items: await this.dateLaPremiereSortie(items),
+    };
+  }
+
+  /** La grille ne date jamais ses sorties, mais la page de la première en
+   *  porte une : une requête de plus par source suffit à faire concourir
+   *  Bandcamp pour l'unique place du bloc, plutôt qu'une par sortie. */
+  private async dateLaPremiereSortie(
+    items: VeilleItem[],
+  ): Promise<VeilleItem[]> {
+    const [premiere, ...reste] = items;
+    if (!premiere) return items;
+
+    try {
+      const { body } = await safeFetch(premiere.pageUrl, {
+        maxBytes: PAGE_MAX_BYTES,
+        timeoutMs: FETCH_TIMEOUT_MS,
+        accept: 'text/html',
+      });
+      const publishedAt = extractAlbumPublishedAt(body.toString('utf8'));
+      return publishedAt ? [{ ...premiere, publishedAt }, ...reste] : items;
+    } catch {
+      // Une page d'album injoignable ou sans date ne doit jamais faire
+      // échouer la lecture de la grille qui, elle, a réussi.
+      return items;
+    }
   }
 }
