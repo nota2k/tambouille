@@ -246,6 +246,46 @@ describe('MixesService', () => {
       expect(dto.title).toHaveLength(120);
     });
 
+    // Le scénario qui fait mal : le mix entre en base avec une description plus
+    // longue que `@MaxLength(2000)`, puis la personne ouvre l'édition, corrige
+    // une virgule et enregistre — le `PATCH` refuse sur un champ qu'elle n'a
+    // pas touché, et le mix devient inéditable.
+    it('tronque une description de plus de 2000 caractères', async () => {
+      await service.createFromImport(USER_ID, {
+        ...IMPORT,
+        description: 'a'.repeat(3000),
+      });
+
+      const [, dto] = creer.mock.calls[0];
+      expect(dto.description).toHaveLength(2000);
+    });
+
+    it('tronque un artiste de plus de 120 caractères', async () => {
+      await service.createFromImport(USER_ID, {
+        ...IMPORT,
+        artist: 'a'.repeat(200),
+      });
+
+      const [, dto] = creer.mock.calls[0];
+      expect(dto.artist).toHaveLength(120);
+    });
+
+    // La chaîne de tags a sa propre borne, `@MaxLength(300)`, indépendante des
+    // 10 tags de `parseTags`. La coupe tombe entre deux tags : une moitié de
+    // mot n'est pas un tag qu'on veut garder.
+    it('borne la chaîne de tags à 300 caractères, sans couper un tag', async () => {
+      await service.createFromImport(USER_ID, {
+        ...IMPORT,
+        tags: Array.from({ length: 10 }, (_, i) => `${i}`.repeat(60)),
+      });
+
+      const [, dto] = creer.mock.calls[0];
+      expect(dto.tags.length).toBeLessThanOrEqual(300);
+      expect(
+        dto.tags.split(',').every((tag: string) => tag.length === 60),
+      ).toBe(true);
+    });
+
     it('importe la pochette distante et la passe en clé R2', async () => {
       coverImport.resolveCoverUrl.mockResolvedValue('covers/importee.webp');
       await service.createFromImport(USER_ID, IMPORT);

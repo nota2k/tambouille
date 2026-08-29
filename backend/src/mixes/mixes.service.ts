@@ -26,6 +26,20 @@ function parseTags(tags?: string): string[] {
   ).slice(0, 10);
 }
 
+/** Les tags d'un import, en la chaîne que le DTO transporte, bornée à ses
+ *  `@MaxLength(300)`. La coupe se fait entre deux tags et jamais au milieu de
+ *  l'un d'eux : `parseTags` en tronque déjà 10, ce qui suffit à tenir la borne
+ *  dans tous les cas réels — cette découpe est le filet pour les autres. */
+function joindreTags(tags: string[]): string {
+  let chaine = '';
+  for (const tag of tags) {
+    const candidat = chaine ? `${chaine},${tag}` : tag;
+    if (candidat.length > 300) break;
+    chaine = candidat;
+  }
+  return chaine;
+}
+
 interface TracklistEntryInput {
   artist: string;
   title: string;
@@ -238,12 +252,18 @@ export class MixesService {
         // `@MaxLength(120)` côté DTO. Tronqué plutôt que refusé : un titre long
         // est un mix qu'on veut, pas une erreur à remonter.
         title: imp.title.slice(0, 120),
-        description: imp.description,
-        artist: imp.artist,
+        // Mêmes bornes que le DTO : `@MaxLength(2000)` et `@MaxLength(120)`.
+        // Un champ qui les dépasse ici passerait quand même — rien ne valide ce
+        // chemin —, mais le mix deviendrait INÉDITABLE : le `PATCH` suivant
+        // renverrait la main sur un champ que la personne n'a pas touché.
+        description: imp.description?.slice(0, 2000),
+        artist: imp.artist?.slice(0, 120),
         // Le DTO transporte les tags en chaîne séparée par des virgules et la
         // tracklist en JSON : c'est `parseTags` et `parseTracklist` qui les
-        // relisent, et ils n'acceptent que cette forme.
-        tags: imp.tags.join(','),
+        // relisent, et ils n'acceptent que cette forme. La chaîne est bornée à
+        // `@MaxLength(300)` par découpe sur la virgule, jamais au milieu d'un
+        // tag : une moitié de mot n'est pas un tag qu'on veut garder.
+        tags: joindreTags(imp.tags),
         tracklist: JSON.stringify(imp.tracklist),
         sourceType: imp.sourceType,
         sourceRef: imp.sourceRef,
