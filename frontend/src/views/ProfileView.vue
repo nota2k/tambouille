@@ -10,6 +10,7 @@ import MixListItem from '@/components/MixListItem.vue'
 import PlaylistCard from '@/components/PlaylistCard.vue'
 import AvatarStack from '@/components/AvatarStack.vue'
 import FeedLink from '@/components/FeedLink.vue'
+import WatchedSourcesPanel from '@/components/WatchedSourcesPanel.vue'
 import { createPlaylist, fetchUserPlaylists } from '@/utils/playlists'
 import { shareUrl } from '@/utils/share'
 import { useSeo } from '@/composables/useSeo'
@@ -391,6 +392,8 @@ onMounted(loadProfile)
             >
               + Ajoute une description
             </RouterLink>
+
+            <WatchedSourcesPanel :username="profile.username" :is-own-profile="isOwnProfile" />
 
             <!-- Trois blocs « (0) » devenaient trois façons de dire que le profil
                  est vide. Une seule carte d'invitation les remplace. -->
