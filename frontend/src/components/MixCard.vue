@@ -152,13 +152,21 @@ function play(event: Event) {
         :to="profileRoute"
         class="artiste relative z-10 font-bold hover:underline"
         >{{ credit.primary }}</RouterLink
-      ><span v-else class="artiste">{{ credit.primary }}</span
+      ><span v-else class="artiste font-bold">{{ credit.primary }}</span
       ><template v-if="duration"> · {{ duration }}</template>
       <span v-if="credit.secondary" class="block text-tambouille-muted">
         importé par
         <RouterLink :to="profileRoute" class="relative z-10 font-bold hover:underline">{{
           credit.secondary
         }}</RouterLink>
+      </span>
+      <!-- Sur sa propre ligne et non à la suite de la durée : la ligne est en
+           `truncate` et la carte fait 160 px, où « artiste · 1 h » tient déjà
+           tout juste. À la suite, le compteur serait coupé sur la moitié des
+           cartes. Aucune condition, comme aux trois autres endroits : les
+           écoutes se comptent aussi dans les widgets, et le zéro se dit. -->
+      <span class="block text-tambouille-muted">
+        {{ mix.playsCount }} {{ mix.playsCount > 1 ? 'écoutes' : 'écoute' }}
       </span>
     </p>
   </div>
