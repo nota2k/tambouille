@@ -32,6 +32,14 @@ export function canonicalUrl(raw: string): string {
   if (url.protocol !== 'https:') {
     throw new BadRequestException('La source doit être en https');
   }
+  // Rendre l'URL sans ses identifiants ferait pointer la source stockée
+  // ailleurs que ce que l'utilisateur a collé : mieux vaut refuser que de les
+  // retirer en douce, comme pour le port qu'on ne trafique pas non plus.
+  if (url.username || url.password) {
+    throw new BadRequestException(
+      "Cette adresse contient des identifiants (user:pass@) : retire-les avant de l'ajouter",
+    );
+  }
   // Le point final d'un nom d'hôte ("ouiedire.net.") est ignoré par le DNS et
   // par tout navigateur : deux adresses qui ne diffèrent que par lui désignent
   // le même serveur et doivent tomber sur la même ligne. `url.hostname` ne
@@ -92,7 +100,22 @@ export class VeilleResolver {
   ) {}
 
   async resolve(rawUrl: string): Promise<ResolvedSource> {
-    const url = canonicalUrl(rawUrl);
+    return this.resolveExact(canonicalUrl(rawUrl));
+  }
+
+  /**
+   * Pour une URL déjà en base, jamais pour une adresse saisie. La
+   * canonicalisation ne s'applique qu'à l'ajout : elle retire la query, ce qui
+   * convient à une page collée par un humain mais pas à un flux autodétecté
+   * dont la query sélectionne lequel ("/feed?type=full" contre "/feed"). La
+   * relire telle quelle est le seul moyen de rafraîchir le flux réellement
+   * choisi plutôt qu'un autre trouvé par coïncidence au même chemin.
+   */
+  async refresh(storedUrl: string): Promise<ResolvedSource> {
+    return this.resolveExact(storedUrl);
+  }
+
+  private async resolveExact(url: string): Promise<ResolvedSource> {
     const parsed = new URL(url);
 
     if (this.bandcamp.matches(parsed)) {
@@ -134,9 +157,17 @@ export class VeilleResolver {
     }
     const items = toVeilleItems(resolved.items);
     if (!items.length) return null;
+    // Mixcloud et Archive.org portent le nom du compte ou de la collection
+    // dans la réponse déjà lue (`collectionLabel`) : bien plus parlant, une
+    // fois que le bloc n'affiche plus qu'un item, qu'un nom de domaine. Il ne
+    // reste au nom de domaine qu'à servir de repli quand aucun importeur ne
+    // le fournit.
+    const collectionLabel = resolved.items.find(
+      (item) => item.collectionLabel,
+    )?.collectionLabel;
     return {
       resolver: new URL(url).hostname.toLowerCase(),
-      label: new URL(url).hostname.replace(/^www\./, ''),
+      label: collectionLabel ?? new URL(url).hostname.replace(/^www\./, ''),
       url,
       items,
     };
