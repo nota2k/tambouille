@@ -19,6 +19,7 @@
     "backfill:variantes": "npm run build && node dist/src/scripts/backfill-variantes.js",
     "backfill:slugs": "npm run build && node dist/src/scripts/backfill-slugs.js",
     "backfill:cache-control": "npm run build && node dist/src/scripts/backfill-cache-control.js",
+    "backfill:pages-source": "npm run build && node dist/src/scripts/backfill-source-page-urls.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "pretest": "prisma generate",

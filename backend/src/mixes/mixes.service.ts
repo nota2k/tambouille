@@ -107,6 +107,22 @@ export function assertExactlyOneAudioSource(
   }
 }
 
+/**
+ * La page d'origine décrit une source ; sans source, elle ne décrit rien.
+ *
+ * Refusée plutôt que silencieusement ignorée : un appelant qui l'envoie sur un
+ * mix déposé à la main s'est trompé de champ, et la laisser tomber sans un mot
+ * lui ferait croire qu'elle est enregistrée.
+ */
+export function assertSourcePageHasASource(
+  sourceRef: string | null,
+  sourcePageUrl: string | null,
+): void {
+  if (sourcePageUrl && !sourceRef) {
+    throw new BadRequestException('A source page needs a remote source');
+  }
+}
+
 /** Mix include shape. When `currentUserId` is set, also fetches whether that user favorited each mix. */
 export function buildMixInclude(currentUserId?: string) {
   return {
@@ -165,7 +181,9 @@ export class MixesService {
     const audioUrl = files.audioUrl || null;
     const sourceType = dto.sourceType || null;
     const sourceRef = dto.sourceRef || null;
+    const sourcePageUrl = dto.sourcePageUrl?.trim() || null;
     assertExactlyOneAudioSource(audioUrl, sourceType, sourceRef);
+    assertSourcePageHasASource(sourceRef, sourcePageUrl);
 
     const mix = await this.prisma.mix.create({
       data: {
@@ -181,6 +199,7 @@ export class MixesService {
         audioUrl,
         sourceType,
         sourceRef,
+        sourcePageUrl,
         // Archive.org reports each file's length and an RSS item carries
         // <itunes:duration>, so an imported mix knows its own duration where an
         // uploaded one does not (nothing probes the file server-side). This is
@@ -377,6 +396,18 @@ export class MixesService {
       assertExactlyOneAudioSource(mix.audioUrl, sourceType, sourceRef);
       data.sourceType = sourceType;
       data.sourceRef = sourceRef;
+    }
+
+    // Vide vaut effacement, comme pour `artist`. La source à laquelle la page
+    // doit s'attacher est celle que cette mise à jour laisse derrière elle, et
+    // non celle d'avant : corriger les deux d'un coup doit rester possible.
+    if (dto.sourcePageUrl !== undefined) {
+      const sourcePageUrl = dto.sourcePageUrl.trim() || null;
+      assertSourcePageHasASource(
+        (data.sourceRef as string | null | undefined) ?? mix.sourceRef,
+        sourcePageUrl,
+      );
+      data.sourcePageUrl = sourcePageUrl;
     }
 
     const updated = await this.prisma.mix.update({

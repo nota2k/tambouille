@@ -196,6 +196,12 @@ async function onSubmit() {
   if (importedSource.value && keepAudioAtSource.value) {
     formData.append('sourceType', importedSource.value.type)
     formData.append('sourceRef', importedSource.value.ref)
+    // La page de l'émission, que l'importateur vient de lire. Elle n'accompagne
+    // que la source : sur un mix dont l'audio est déposé ici, la page ne dirait
+    // pas où le mix se lit, et le serveur la refuse.
+    if (importedSource.value.pageUrl) {
+      formData.append('sourcePageUrl', importedSource.value.pageUrl)
+    }
   } else if (audioFile.value) {
     formData.append('audio', audioFile.value)
   }
