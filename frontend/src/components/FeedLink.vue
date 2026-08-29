@@ -11,7 +11,23 @@ import { onUnmounted, watchEffect } from 'vue'
  * gestionnaire de `<head>` ; ces quelques lignes évitent d'en ajouter un pour
  * une balise.
  */
-const props = defineProps<{ href: string; title: string }>()
+const props = withDefaults(
+  defineProps<{
+    href: string
+    title: string
+    /**
+     * Ne poser que la balise du `<head>`, sans bouton visible.
+     *
+     * Sert au flux du site sur l'accueil, où celui de la fournée garde seul son
+     * bouton : les deux étaient jumeaux — même icône, même taille — et rien à
+     * l'œil ne disait lequel menait où. Le flux, lui, reste annonçable : c'est
+     * par cette balise que les lecteurs RSS et les extensions le trouvent, sans
+     * qu'il encombre la barre de titre.
+     */
+    headOnly?: boolean
+  }>(),
+  { headOnly: false },
+)
 
 let balise: HTMLLinkElement | undefined
 
@@ -30,6 +46,7 @@ onUnmounted(() => balise?.remove())
 
 <template>
   <a
+    v-if="!headOnly"
     :href="href"
     :title="`S’abonner : ${title}`"
     :aria-label="`S’abonner au flux podcast — ${title}`"
