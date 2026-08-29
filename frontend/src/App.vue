@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import EcoutezAilleurs from '@/components/EcoutezAilleurs.vue'
 import AppFooter from '@/components/AppFooter.vue'
@@ -10,8 +11,23 @@ import { usePlayerStore } from '@/stores/player'
 import { useSmoothScroll } from '@/composables/useSmoothScroll'
 import { useTransitionDePage } from '@/composables/useTransitionDePage'
 
+const route = useRoute()
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
+
+/**
+ * Le gabarit nu des lecteurs intégrables.
+ *
+ * Une intégration est une page du site servie dans le cadre d'un autre site,
+ * souvent haute de deux cents pixels. Tout ce qui suppose une fenêtre entière
+ * — l'en-tête, la bande « écoutez ailleurs », le pied de page — n'y a pas sa
+ * place : à cette taille il ne resterait plus rien pour le lecteur lui-même.
+ *
+ * Le voile de transition part avec eux : il n'y a pas de navigation dans un
+ * cadre, un aplat rose n'y couvrirait donc jamais que le chargement initial —
+ * exactement ce que `router.afterEach` prend soin de ne pas couvrir.
+ */
+const enCadre = computed(() => route.meta.layout === 'embed')
 
 // Le défilement est un état de la fenêtre, pas d'une page : il s'installe ici,
 // une seule fois, plutôt que dans chaque vue.
@@ -38,11 +54,19 @@ onMounted(() => {
 <template>
   <!-- pb-28 sur le conteneur, pas sur main : la barre de lecture est en position
        fixe, et le pied de page doit lui aussi rester au-dessus d'elle. -->
+  <!-- Dans un cadre, la hauteur est CELLE DU CADRE et pas une de plus : `h-screen`
+       et non `min-h-screen`, sans quoi la page déborderait de l'iframe qui
+       l'héberge. La barre de lecture y est un élément de flux (voir
+       `PlayerBar`), donc rien à réserver sous elle — la réserve de 7rem est ce
+       qui laissait une bande blanche entre le lecteur et le contenu. -->
   <div
-    class="flex min-h-screen flex-col text-tambouille-text"
-    :class="playerStore.currentMix ? 'pb-28' : ''"
+    class="flex flex-col text-tambouille-text"
+    :class="[
+      enCadre ? 'h-screen overflow-hidden' : 'min-h-screen',
+      playerStore.currentMix && !enCadre ? 'pb-28' : '',
+    ]"
   >
-    <NavBar />
+    <NavBar v-if="!enCadre" />
     <!--
          `min-h` en plus de `flex-1`, et ce n'est pas une ceinture avec des
          bretelles : `flex-1` seul étire `main` jusqu'à ce que le conteneur
@@ -66,8 +90,11 @@ onMounted(() => {
          saut avec lui.
     -->
     <main
-      class="min-h-[calc(100vh-4rem)] flex-1 pb-16"
-      :class="voletQuiSort ? 'tb-contenu-revele' : sousLeVolet ? 'tb-contenu-couvert' : ''"
+      class="min-h-0 flex-1"
+      :class="[
+        enCadre ? '' : 'min-h-[calc(100vh-4rem)] pb-16',
+        voletQuiSort ? 'tb-contenu-revele' : sousLeVolet ? 'tb-contenu-couvert' : '',
+      ]"
       :style="{ '--tb-sortie': `${dureeDeLaSortie}ms` }"
     >
       <RouterView />
@@ -75,12 +102,12 @@ onMounted(() => {
     <!-- Sous chaque page, avant le pied de page : c'est la « bande de pied de
          page » du gabarit 4b. Elle sort les auditeurs du site, donc elle vient
          après tout le reste. -->
-    <EcoutezAilleurs />
-    <AppFooter />
+    <EcoutezAilleurs v-if="!enCadre" />
+    <AppFooter v-if="!enCadre" />
     <PlayerBar />
     <!-- Hors du flux et par-dessus tout le reste : le voile ne participe à
          aucune mise en page, donc il ne peut rien décaler. -->
-    <PageFade />
+    <PageFade v-if="!enCadre" />
   </div>
 </template>
 

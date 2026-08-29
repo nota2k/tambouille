@@ -183,19 +183,27 @@ function onToggle(event: Event) {
 </script>
 
 <template>
-  <div class="flex items-center gap-3 w-full">
+  <!-- La respiration verticale est portée ici, pas par la page : le lecteur est
+       posé entre les boutons d'action et la tracklist, et sans elle il colle
+       aux deux. -->
+  <div class="flex w-full items-center gap-3 py-4">
     <!-- Le bouton ne contient qu'un chevron : sans étiquette, un lecteur
          d'écran n'annonce que « bouton ». L'état y est dit aussi, l'icône
          seule le portait. -->
+    <!-- Aussi haut que la forme d'onde à côté de lui, et c'est nouveau : la
+         page d'un mix avait un bouton « Écouter » en pleine largeur au-dessus,
+         qui portait l'action ; celui-ci n'était que son doublon en réduction.
+         Le doublon parti, c'est lui la commande principale de la page, et il
+         doit se voir comme telle. -->
     <button
-      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-tambouille-accent text-tambouille-ink-on-accent hover:bg-tambouille-accent-hover transition"
+      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tambouille-accent text-tambouille-ink-on-accent transition hover:bg-tambouille-accent-hover"
       :aria-label="isPlaying ? 'Mettre en pause' : 'Lire ce mix'"
       @click="onToggle"
     >
-      <svg v-if="!isPlaying" viewBox="0 0 24 24" class="ml-0.5 h-3.5 w-3.5 fill-current">
+      <svg v-if="!isPlaying" viewBox="0 0 24 24" class="ml-0.5 h-6 w-6 fill-current">
         <path d="M8 5v14l11-7z" />
       </svg>
-      <svg v-else viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current">
+      <svg v-else viewBox="0 0 24 24" class="h-6 w-6 fill-current">
         <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
       </svg>
     </button>

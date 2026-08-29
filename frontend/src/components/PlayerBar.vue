@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { usePlayerStore } from '@/stores/player'
 import { mixRoute } from '@/utils/routes'
 import { apiClient } from '@/api/client'
@@ -17,7 +18,23 @@ import { mixCredit } from '@/composables/useMixCredit'
 /** A cloudcast that was removed or made private never answers `ready`; fail loudly instead of hanging. */
 const WIDGET_READY_TIMEOUT_MS = 15000
 
+const route = useRoute()
 const playerStore = usePlayerStore()
+
+/**
+ * Dans une intégration, les liens de la barre sortent du cadre.
+ *
+ * Sans cela, cliquer sur le titre remplacerait le lecteur par le site entier à
+ * l'intérieur des deux cents pixels du cadre — l'auditeur perdrait sa lecture
+ * et se retrouverait devant une page illisible, chez quelqu'un d'autre.
+ *
+ * `_blank` suffit à désarmer `RouterLink` : son gestionnaire de clic laisse
+ * passer au navigateur tout lien qui porte une cible. `rel` va avec, comme
+ * pour tout lien qui ouvre un onglet.
+ */
+const enCadre = computed(() => route.meta.layout === 'embed')
+const cibleDesLiens = computed(() => (enCadre.value ? '_blank' : undefined))
+
 const audioEl = ref<HTMLAudioElement | null>(null)
 const mixcloudFrame = ref<HTMLIFrameElement | null>(null)
 const soundcloudFrame = ref<HTMLIFrameElement | null>(null)
@@ -554,7 +571,18 @@ function onEnded() {
 </script>
 
 <template>
-  <div v-if="playerStore.currentMix" class="fixed inset-x-0 bottom-0 z-40 bg-black text-white">
+  <!--
+    Fixée sur le site, dans le flux à l'intérieur d'un cadre.
+
+    Un cadre de deux cents pixels n'a pas de « bas de fenêtre » distinct du bas
+    du contenu : la barre y est simplement le dernier élément de la colonne, et
+    `App.vue` lui donne la place qu'il faut sans avoir à deviner sa hauteur.
+  -->
+  <div
+    v-if="playerStore.currentMix"
+    class="bg-black text-white"
+    :class="enCadre ? 'shrink-0' : 'fixed inset-x-0 bottom-0 z-40'"
+  >
     <!--
       Exactly one backend is mounted at a time. The Mixcloud widget is an iframe whose
       interior cannot be styled from here, so it is hidden and driven by the controls below.
@@ -586,11 +614,25 @@ function onEnded() {
       allow="autoplay"
       class="pointer-events-none absolute h-px w-px border-0 opacity-0"
     ></iframe>
+    <!--
+      `autoplay` LIÉ à l'état, et non posé en dur.
+
+      C'est lui qui démarre la lecture au premier montage : le watcher sur
+      `isPlaying` court avant que l'élément n'existe, il ne peut donc rien
+      lancer ce coup-là. En dur, en revanche, il lançait AUSSI les cas où
+      personne n'avait demandé à écouter — un lecteur intégré, qui pose son mix
+      avec `load` sans le jouer, se mettait à sonner tout seul chez son hôte, et
+      dans l'aperçu du menu de partage par-dessus le marché.
+
+      Lié, le comportement du site est inchangé — `play()` passe `isPlaying` à
+      vrai avant que l'élément ne se monte — et le silence de l'intégration est
+      garanti par la même expression.
+    -->
     <audio
       v-else-if="audioSrc"
       ref="audioEl"
       :src="audioSrc"
-      autoplay
+      :autoplay="playerStore.isPlaying"
       @timeupdate="onTimeUpdate"
       @loadedmetadata="onLoadedMetadata"
       @ended="onEnded"
@@ -606,15 +648,20 @@ function onEnded() {
     </p>
 
     <div class="mx-auto flex max-w-7xl items-center gap-5 px-4 py-3">
-      <img
-        v-if="playerStore.currentMix.coverUrl"
-        :src="mediaUrl(playerStore.currentMix.coverUrl)"
-        loading="lazy"
-        decoding="async"
-        class="h-12 w-12 shrink-0 rounded-none object-cover"
-        alt=""
-      />
-      <div v-else class="h-12 w-12 shrink-0 rounded-none bg-neutral-700"></div>
+      <!-- Pas de vignette dans une intégration : le lecteur intégré montre déjà
+           la pochette en grand juste au-dessus, et la répéter en 48 pixels ne
+           ferait que prendre la largeur qui manque au titre. -->
+      <template v-if="!enCadre">
+        <img
+          v-if="playerStore.currentMix.coverUrl"
+          :src="mediaUrl(playerStore.currentMix.coverUrl)"
+          loading="lazy"
+          decoding="async"
+          class="h-12 w-12 shrink-0 rounded-none object-cover"
+          alt=""
+        />
+        <div v-else class="h-12 w-12 shrink-0 rounded-none bg-neutral-700"></div>
+      </template>
 
       <!--
         While the Mixcloud widget is still coming up, the button shows a spinner rather
@@ -668,6 +715,8 @@ function onEnded() {
         <div class="flex items-baseline justify-between gap-3">
           <RouterLink
             :to="mixRoute(playerStore.currentMix)"
+            :target="cibleDesLiens"
+            :rel="cibleDesLiens && 'noopener'"
             class="truncate font-display text-sm font-bold text-white hover:underline"
           >
             {{ playerStore.currentMix.title }}
@@ -685,6 +734,8 @@ function onEnded() {
           <span v-if="credit.secondary">{{ credit.primary }} — </span>
           <RouterLink
             :to="{ name: 'profile', params: { username: playerStore.currentMix.user.username } }"
+            :target="cibleDesLiens"
+            :rel="cibleDesLiens && 'noopener'"
             class="hover:underline"
           >
             {{ credit.secondary ?? credit.primary }}
