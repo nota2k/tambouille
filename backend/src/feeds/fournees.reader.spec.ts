@@ -1,4 +1,6 @@
-import { resolve } from 'path';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join, resolve } from 'path';
 import {
   FourneeParseError,
   parseFournee,
@@ -142,6 +144,22 @@ describe('les fichiers de fournée du dépôt', () => {
       expect(fournee.number).toBeGreaterThan(0);
       expect(fournee.title).not.toHaveLength(0);
       expect(fournee.mixRefs.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("laisse les gabarits d'exemple hors des fournées", () => {
+    // Un exemple n'est pas une fournée : son numéro ne désigne rien et ses mix
+    // sont factices. Servi, son flux serait un canal vide — un 404 est plus
+    // honnête.
+    const dossier = mkdtempSync(join(tmpdir(), 'fournees-'));
+    try {
+      writeFileSync(join(dossier, '2026-hiver.md'), fichier(VALIDE));
+      writeFileSync(join(dossier, 'exemple-tall.md'), fichier(VALIDE));
+      writeFileSync(join(dossier, 'exemple-large.md'), fichier(VALIDE));
+
+      expect(readFournees(dossier)).toHaveLength(1);
+    } finally {
+      rmSync(dossier, { recursive: true, force: true });
     }
   });
 
