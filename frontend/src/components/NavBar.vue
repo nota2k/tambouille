@@ -146,7 +146,9 @@ onUnmounted(() => {
 
 <template>
   <header class="sticky top-0 z-[1001] bg-tambouille-accent">
-    <div class="mx-auto flex h-16 max-w-[1280px] min-[1600px]:max-w-[1900px] items-center gap-6 px-4 lg:gap-9">
+    <div
+      class="mx-auto flex h-16 max-w-[1280px] min-[1600px]:max-w-[1900px] items-center gap-6 px-4 lg:gap-9"
+    >
       <RouterLink to="/" class="shrink-0 text-5xl tracking-tight">
         <span class="font-wordmark text-tambouille-ink-on-accent flex items-center gap-4"
           >Tambouille

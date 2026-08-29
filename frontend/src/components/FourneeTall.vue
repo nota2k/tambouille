@@ -92,7 +92,9 @@ const cartesFantomes = computed(() => (props.fournee.mixes.length ? 0 : NOMBRE_D
          somme de ses slides, qui gonflerait le conteneur jusqu'à `max-w` et
          pousserait la colonne de droite hors de l'écran. Une largeur définie
          coupe cette remontée. -->
-    <div class="mx-auto flex w-full max-w-[1280px] min-[1600px]:max-w-[1900px] flex-col gap-10 px-4 py-10 sm:px-8 lg:pt-11">
+    <div
+      class="mx-auto flex w-full max-w-[1280px] min-[1600px]:max-w-[1900px] flex-col gap-10 px-4 py-10 sm:px-8 lg:pt-11"
+    >
       <!-- Le propos : titre géant à gauche, texte et action à droite. En dessous
            de lg les deux colonnes s'empilent, le titre garde la première place. -->
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">

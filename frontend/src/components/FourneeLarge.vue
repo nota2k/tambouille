@@ -65,7 +65,9 @@ const cartesFantomes = computed(() =>
     :style="{ backgroundColor: paper, color: inkOnPaper }"
     :aria-label="`La fournée n°${fournee.number} — ${fournee.title}`"
   >
-    <div class="mx-auto grid max-w-[1280px] min-[1600px]:max-w-[1900px] grid-cols-1 lg:grid-cols-[1fr_1.5fr]">
+    <div
+      class="mx-auto grid max-w-[1280px] min-[1600px]:max-w-[1900px] grid-cols-1 lg:grid-cols-[1fr_1.5fr]"
+    >
       <!-- Le propos. L'action est collée en bas par `mt-auto`, comme au gabarit. -->
       <div class="flex flex-col px-4 py-10 sm:px-8">
         <div class="flex flex-wrap items-center gap-3">
