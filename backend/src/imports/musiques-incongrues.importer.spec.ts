@@ -131,11 +131,13 @@ function discussion(over: Partial<FlarumDiscussion> = {}): FlarumDiscussion {
   };
 }
 
-function importeur(over: {
-  discussion?: FlarumDiscussion;
-  mixcloud?: jest.Mock;
-  soundcloud?: jest.Mock;
-} = {}) {
+function importeur(
+  over: {
+    discussion?: FlarumDiscussion;
+    mixcloud?: jest.Mock;
+    soundcloud?: jest.Mock;
+  } = {},
+) {
   const flarum = {
     getDiscussion: jest.fn().mockResolvedValue(over.discussion ?? discussion()),
     listByAuthor: jest.fn(),
@@ -146,7 +148,9 @@ function importeur(over: {
   const soundcloud = {
     importItem:
       over.soundcloud ??
-      jest.fn().mockResolvedValue({ ...DEPUIS_MIXCLOUD, sourceType: 'soundcloud' }),
+      jest
+        .fn()
+        .mockResolvedValue({ ...DEPUIS_MIXCLOUD, sourceType: 'soundcloud' }),
   };
   const sujet = new MusiquesIncongruesImporter(
     flarum as never,
@@ -179,7 +183,7 @@ describe('MusiquesIncongruesImporter', () => {
 
   // L'assertion qui porte la conception : la page du forum ne bouge pas si
   // Mixcloud réhéberge son audio, et c'est le second critère de findBySource.
-  it("remplace sourcePageUrl par la discussion du forum", async () => {
+  it('remplace sourcePageUrl par la discussion du forum', async () => {
     const { sujet } = importeur();
     const mix = await sujet.importItem('15617');
 
@@ -218,7 +222,9 @@ describe('MusiquesIncongruesImporter', () => {
       discussion: discussion({ contentHtml: BANDCAMP }),
     });
 
-    await expect(sujet.importItem('15617')).rejects.toThrow(BadRequestException);
+    await expect(sujet.importItem('15617')).rejects.toThrow(
+      BadRequestException,
+    );
     await expect(sujet.importItem('15617')).rejects.toThrow(/lecteur/i);
   });
 

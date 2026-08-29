@@ -24,7 +24,10 @@ export interface FlarumDiscussion {
 
 function versQueryString(params: Record<string, string>): string {
   return Object.entries(params)
-    .map(([cle, valeur]) => `${encodeURIComponent(cle)}=${encodeURIComponent(valeur)}`)
+    .map(
+      ([cle, valeur]) =>
+        `${encodeURIComponent(cle)}=${encodeURIComponent(valeur)}`,
+    )
     .join('&');
 }
 

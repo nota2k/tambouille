@@ -75,7 +75,9 @@ describe('FlarumClient.listByAuthor', () => {
       body: Buffer.from('{"data":[]}'),
     });
 
-    await expect(new FlarumClient().listByAuthor('personne')).resolves.toEqual([]);
+    await expect(new FlarumClient().listByAuthor('personne')).resolves.toEqual(
+      [],
+    );
   });
 });
 

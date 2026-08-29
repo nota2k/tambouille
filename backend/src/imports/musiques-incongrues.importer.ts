@@ -93,8 +93,7 @@ function pisteSoundcloud(src: string): string | null {
 export function extractEmbed(contentHtml: string): Embed | null {
   for (const kind of PRIORITE) {
     for (const src of srcsDuService(contentHtml, kind)) {
-      const ref =
-        kind === 'mixcloud' ? cleMixcloud(src) : pisteSoundcloud(src);
+      const ref = kind === 'mixcloud' ? cleMixcloud(src) : pisteSoundcloud(src);
       if (ref) return { kind, ref };
     }
   }
