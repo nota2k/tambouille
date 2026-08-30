@@ -256,13 +256,16 @@ describe('IncongruesSyncService.syncAllRattrapageHoraire', () => {
   // au webhook pour cinquante-neuf minutes, alors que c'est lui qui doit
   // passer devant.
   it('ne bloque pas la sonnerie du webhook', async () => {
-    const { sujet, prisma } = harnais();
+    const { sujet, flarum, prisma } = harnais();
     prisma.user.findMany.mockResolvedValue([
       { id: 'u1', incongruesUsername: 'nota' },
     ]);
+    flarum.listRecentDiscussions.mockResolvedValue([
+      { ...discussion('1'), authorUsername: 'nota' },
+    ]);
 
     await sujet.syncAllRattrapageHoraire();
-    await sujet.syncAllDebounced();
+    await sujet.syncDepuisSonnerie();
 
     expect(prisma.user.findMany).toHaveBeenCalledTimes(2);
   });
@@ -347,43 +350,5 @@ describe('IncongruesSyncService.syncDepuisSonnerie', () => {
     await expect(sujet.syncDepuisSonnerie()).resolves.toBe(1);
     expect(mixes.createFromImport).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalled();
-  });
-});
-
-describe('IncongruesSyncService.syncAllDebounced', () => {
-  it('ne relance rien moins d’une minute après le passage précédent', async () => {
-    const { sujet, prisma } = harnais();
-    prisma.user.findMany.mockResolvedValue([
-      { id: 'u1', incongruesUsername: 'nota' },
-    ]);
-
-    await sujet.syncAllDebounced();
-    await sujet.syncAllDebounced();
-
-    expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
-  });
-
-  it('relance passé le délai', async () => {
-    jest.useFakeTimers();
-    try {
-      const { sujet, prisma } = harnais();
-      prisma.user.findMany.mockResolvedValue([
-        { id: 'u1', incongruesUsername: 'nota' },
-      ]);
-
-      await sujet.syncAllDebounced();
-      jest.advanceTimersByTime(61_000);
-      await sujet.syncAllDebounced();
-
-      expect(prisma.user.findMany).toHaveBeenCalledTimes(2);
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it('ne fait rien quand aucun compte n’est lié', async () => {
-    const { sujet, mixes } = harnais();
-    await expect(sujet.syncAllDebounced()).resolves.toBe(0);
-    expect(mixes.createFromImport).not.toHaveBeenCalled();
   });
 });

@@ -28,13 +28,10 @@ export class IncongruesSyncService {
    *  `findBySource` reste la vraie garantie. */
   private readonly enCours = new Map<string, Promise<number>>();
 
-  // Trois horodatages distincts : partagés, le rattrapage horaire absorberait
+  // Deux horodatages distincts : partagés, le rattrapage horaire absorberait
   // la sonnerie du webhook, qui est justement ce qui doit passer devant.
-  // `dernierPassage` reste à `syncAllDebounced`, que plus rien n'appelle en
-  // production mais que les tests continuent d'exercer isolément.
-  private dernierPassage = 0;
   private dernierRattrapage = 0;
-  private dernierePassageSonnerie = 0;
+  private dernierPassageSonnerie = 0;
 
   constructor(
     private readonly flarum: FlarumClient,
@@ -90,11 +87,11 @@ export class IncongruesSyncService {
    * auteurs.
    */
   async syncDepuisSonnerie(): Promise<number> {
-    // Même anti-rebond que l'ancienne route : c'est la même sonnette
-    // publique, rien de ce que la minute écoulée n'a déjà vu ne peut changer.
+    // La route est publique et déclenche des appels sortants. Une sonnerie de
+    // plus dans la minute ne peut rien apporter que la précédente n'ait déjà vu.
     const maintenant = Date.now();
-    if (maintenant - this.dernierePassageSonnerie < DEBOUNCE_MS) return 0;
-    this.dernierePassageSonnerie = maintenant;
+    if (maintenant - this.dernierPassageSonnerie < DEBOUNCE_MS) return 0;
+    this.dernierPassageSonnerie = maintenant;
 
     const discussions = await this.flarum.listRecentDiscussions();
     if (discussions.length === 0) return 0;
@@ -125,13 +122,6 @@ export class IncongruesSyncService {
       }
     }
     return crees;
-  }
-
-  async syncAllDebounced(): Promise<number> {
-    const maintenant = Date.now();
-    if (maintenant - this.dernierPassage < DEBOUNCE_MS) return 0;
-    this.dernierPassage = maintenant;
-    return this.syncAll();
   }
 
   /** Le filet de rattrapage, à l'heure : ce que le webhook a pu perdre pendant
