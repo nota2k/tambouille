@@ -121,24 +121,45 @@ peut pas l'écraser, et ne peut pas non plus le renseigner. Une variable nouvell
 demande un geste manuel, et son absence ne se voit qu'en empruntant le chemin
 qui la lit.
 
-`INCONGRUES_WEBHOOK_SECRET` est de cette famille, avec une contrainte en plus :
-c'est un secret qui vit dans une URL plutôt que dans un en-tête, parce que FoF
-Webhooks — l'extension du forum Musiques Incongrues qui prévient Tambouille
-quand un mix y est posté — ne laisse configurer qu'une adresse. Le générer :
+`INCONGRUES_WEBHOOK_SECRET` est de cette famille. Il garde la sonnette qui
+prévient Tambouille qu'un mix vient d'être posté sur le forum Musiques
+Incongrues. Le générer :
 
 ```
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-puis le poser dans `backend/.env` en production, sous ce nom. Côté forum,
-administration Flarum → FoF Webhooks → nouvelle entrée, URL
-`https://<api-tambouille>/api/webhooks/musiques-incongrues/<secret>`, événement
-« Discussion Started ». Tant que ces deux gestes n'ont pas été faits, la route
-répond 404 : le dispositif est inactif, ce n'est pas une panne. Et comme le
-secret voyage dans l'URL, il faut aussi s'assurer que les journaux d'accès
-o2switch ne conservent pas les chemins complets des requêtes `POST` — sinon il
-y est lisible par quiconque y accède, et doit être tourné après toute
-consultation partagée.
+puis le poser dans `backend/.env` en production, sous ce nom. Tant qu'il est
+absent, la route répond 404 : le dispositif est inactif, ce n'est pas une
+panne.
+
+**Sonner par en-tête, pas par URL.** La route s'ouvre de deux façons :
+
+```
+POST /api/webhooks/musiques-incongrues        Authorization: Bearer <secret>
+POST /api/webhooks/musiques-incongrues/<secret>
+```
+
+La seconde est historique et n'est gardée que pour ne rien casser. Elle vient
+de FoF Webhooks, qui ne laissait configurer qu'une adresse — extension
+abandonnée depuis, sa validation d'URL exigeant un hôte Discord, Slack ou
+Teams qu'aucune adresse Tambouille ne peut satisfaire.
+
+Préférer l'en-tête n'est pas une élégance : un secret dans un chemin finit
+**en clair dans les journaux d'accès** o2switch, constaté et non supposé, et il
+y reste dans les archives mensuelles compressées. Un secret ayant transité par
+une URL doit être considéré comme lu dès que ces journaux sont partagés.
+
+**Ce qui sonne aujourd'hui**, c'est un workflow n8n à deux nœuds : un
+déclencheur RSS sur `https://www.musiques-incongrues.net/atom`, interrogé
+toutes les minutes, et une requête `POST` vers la route ci-dessus. Il ne
+transporte rien — la route ne lit jamais sa charge utile —, ce qui rend le
+déclencheur interchangeable : un cron, un bouton ou une autre extension
+prendraient sa place sans qu'une ligne de Tambouille ne bouge.
+
+Le filet reste en place derrière : si la sonnette se tait, la synchronisation
+repart à la visite du fil dès que le dernier passage remonte à plus d'une
+heure.
 
 La liaison d'un pseudo forum ne repose sur aucune variable d'environnement :
 l'inscription au forum est ouverte, donc la simple saisie d'un pseudo ne prouve
