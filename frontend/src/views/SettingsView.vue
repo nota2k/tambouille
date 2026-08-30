@@ -129,6 +129,36 @@ async function lierIncongrues() {
   }
 }
 
+// Redemande un jeton pour le pseudo déjà lié, sans repasser par le
+// déliement ni faire retaper le pseudo : le lit dans le store (jamais dans
+// `incongruesUsernameInput`, vidé une fois la première demande acceptée) —
+// c'est la seule source qui survit à un rechargement de la page. Utile aussi
+// bien à un jeton expiré (le serveur ne l'efface pas de lui-même côté base,
+// voir `IncongruesVerificationService.verifier`) qu'à un message publié au
+// mauvais endroit ou perdu : toujours proposé, plutôt que réservé au seul cas
+// de l'expiration, ce qui obligerait à distinguer les raisons d'échec de
+// vérification par leur texte exact — fragile.
+async function redemanderJeton() {
+  const pseudo = authStore.user?.incongruesUsername
+  if (!pseudo) return
+  incongruesLinkError.value = ''
+  incongruesLinking.value = true
+  try {
+    const { data } = await apiClient.post<{ token: string }>('/users/me/incongrues/token', {
+      incongruesUsername: pseudo,
+    })
+    if (authStore.user) {
+      authStore.user.incongruesToken = data.token
+      authStore.user.incongruesVerified = false
+    }
+    incongruesVerifyReason.value = ''
+  } catch (e) {
+    incongruesLinkError.value = apiErrorMessage(e, 'Nouvelle demande impossible.')
+  } finally {
+    incongruesLinking.value = false
+  }
+}
+
 async function verifierIncongrues() {
   incongruesVerifying.value = true
   incongruesVerifyReason.value = ''
@@ -512,16 +542,29 @@ async function submitDelete() {
           >
             {{ authStore.user.incongruesToken }}
           </p>
-          <button
-            type="button"
-            :disabled="incongruesVerifying"
-            class="tb-btn"
-            @click="verifierIncongrues"
-          >
-            {{ incongruesVerifying ? 'Vérification…' : "J'ai publié le jeton" }}
-          </button>
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              :disabled="incongruesVerifying"
+              class="tb-btn"
+              @click="verifierIncongrues"
+            >
+              {{ incongruesVerifying ? 'Vérification…' : "J'ai publié le jeton" }}
+            </button>
+            <button
+              type="button"
+              :disabled="incongruesLinking"
+              class="text-xs text-tambouille-muted hover:underline"
+              @click="redemanderJeton"
+            >
+              {{ incongruesLinking ? '…' : 'Redemander un jeton' }}
+            </button>
+          </div>
           <p v-if="incongruesVerifyReason" class="mt-2 text-sm text-red-500">
             {{ incongruesVerifyReason }}
+          </p>
+          <p v-if="incongruesLinkError" class="mt-2 text-sm text-red-500">
+            {{ incongruesLinkError }}
           </p>
           <p class="mt-4 border-t border-tambouille-border pt-4">
             <button
@@ -530,7 +573,7 @@ async function submitDelete() {
               class="text-xs text-tambouille-muted hover:underline"
               @click="delierIncongrues"
             >
-              Abandonner et délier ce pseudo
+              Délier ce pseudo
             </button>
           </p>
           <p v-if="incongruesUnlinkError" class="mt-2 text-sm text-red-500">
