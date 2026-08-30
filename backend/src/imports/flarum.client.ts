@@ -26,6 +26,18 @@ export interface FlarumDiscussion {
   authorUsername?: string;
 }
 
+/** Un message du forum, avec l'auteur que la réponse a rattaché.
+ *
+ *  `authorUsername` est optionnel parce que le forum peut ne pas rattacher la
+ *  relation (message d'un compte supprimé) : l'appelant qui en fait une
+ *  décision d'autorisation doit alors refuser, jamais supposer. */
+export interface FlarumPost {
+  id: string;
+  contentHtml: string;
+  createdAt: string;
+  authorUsername?: string;
+}
+
 function versQueryString(params: Record<string, string>): string {
   return Object.entries(params)
     .map(
@@ -73,7 +85,7 @@ export class FlarumClient {
   async listPostsByAuthor(
     username: string,
     limit = 20,
-  ): Promise<{ id: string; contentHtml: string; createdAt: string }[]> {
+  ): Promise<FlarumPost[]> {
     const params = versQueryString({
       'filter[author]': username,
       'page[limit]': String(limit),
@@ -81,6 +93,11 @@ export class FlarumClient {
       // paramètre, on lirait les messages les plus anciens de l'auteur et
       // jamais celui qu'il vient de publier pour la preuve.
       sort: '-createdAt',
+      // L'auteur voyage avec chaque message parce que l'appelant en fait une
+      // décision d'autorisation : `filter[author]` accepte une liste séparée
+      // par des virgules, donc le filtre seul ne dit PAS que tous les messages
+      // rendus sont d'un même auteur.
+      include: 'user',
     });
     const { body } = await safeFetch(`${FORUM_ORIGIN}/api/posts?${params}`, {
       maxBytes: API_MAX_BYTES,
@@ -88,18 +105,31 @@ export class FlarumClient {
       accept: 'application/json',
     });
 
-    let document: { data?: JsonApiRessource[] };
+    let document: { data?: JsonApiRessource[]; included?: JsonApiRessource[] };
     try {
       document = JSON.parse(body.toString('utf8')) as typeof document;
     } catch {
       throw new BadGatewayException('Réponse illisible du forum');
     }
 
-    return (document.data ?? []).map((brute) => ({
-      id: brute.id,
-      contentHtml: String(brute.attributes?.contentHtml ?? ''),
-      createdAt: String(brute.attributes?.createdAt ?? ''),
-    }));
+    const inclus = new Map(
+      (document.included ?? []).map((r) => [`${r.type}:${r.id}`, r]),
+    );
+
+    return (document.data ?? []).map((brute) => {
+      const auteurId = (
+        brute.relationships?.user?.data as { id: string } | undefined
+      )?.id;
+      const auteur = auteurId ? inclus.get(`users:${auteurId}`) : undefined;
+      return {
+        id: brute.id,
+        contentHtml: String(brute.attributes?.contentHtml ?? ''),
+        createdAt: String(brute.attributes?.createdAt ?? ''),
+        authorUsername: auteur
+          ? String(auteur.attributes?.username ?? '')
+          : undefined,
+      };
+    });
   }
 
   /**

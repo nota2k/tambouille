@@ -257,9 +257,12 @@ describe('FlarumClient.listPostsByAuthor', () => {
     // paramètre, on lirait les messages de 2012 et jamais celui qui vient
     // d'être publié.
     expect(url).toContain('sort=-createdAt');
+    // L'appelant fait de l'auteur une décision d'autorisation : il doit le
+    // recevoir, pas le déduire du filtre.
+    expect(url).toContain('include=user');
   });
 
-  it('rend le contenu de chaque message', async () => {
+  it('rend le contenu et l’AUTEUR de chaque message', async () => {
     repondAvec({
       data: [
         {
@@ -269,7 +272,11 @@ describe('FlarumClient.listPostsByAuthor', () => {
             contentHtml: '<p>tambouille-7f3a9c</p>',
             createdAt: '2026-08-30T10:00:00+00:00',
           },
+          relationships: { user: { data: { type: 'users', id: '7' } } },
         },
+      ],
+      included: [
+        { type: 'users', id: '7', attributes: { username: 'nota' } },
       ],
     });
     const messages = await new FlarumClient().listPostsByAuthor('nota');
@@ -279,8 +286,55 @@ describe('FlarumClient.listPostsByAuthor', () => {
         id: '1',
         contentHtml: '<p>tambouille-7f3a9c</p>',
         createdAt: '2026-08-30T10:00:00+00:00',
+        authorUsername: 'nota',
       },
     ]);
+  });
+
+  // `filter[author]` accepte plusieurs pseudos séparés par des virgules :
+  // une réponse peut donc mêler les auteurs, et chaque message doit porter
+  // le sien pour que l'appelant puisse trancher.
+  it('rend l’auteur PROPRE à chaque message quand ils diffèrent', async () => {
+    repondAvec({
+      data: [
+        {
+          type: 'posts',
+          id: '1',
+          attributes: { contentHtml: '<p>a</p>', createdAt: '' },
+          relationships: { user: { data: { type: 'users', id: '7' } } },
+        },
+        {
+          type: 'posts',
+          id: '2',
+          attributes: { contentHtml: '<p>b</p>', createdAt: '' },
+          relationships: { user: { data: { type: 'users', id: '9' } } },
+        },
+      ],
+      included: [
+        { type: 'users', id: '7', attributes: { username: 'nota' } },
+        { type: 'users', id: '9', attributes: { username: 'gakona' } },
+      ],
+    });
+    const messages = await new FlarumClient().listPostsByAuthor('nota,gakona');
+
+    expect(messages.map((m) => m.authorUsername)).toEqual(['nota', 'gakona']);
+  });
+
+  // Un message dont le forum ne rattache pas l'auteur (compte supprimé) ne
+  // doit pas se voir prêter celui qu'on cherchait.
+  it('laisse l’auteur indéfini quand la relation manque', async () => {
+    repondAvec({
+      data: [
+        {
+          type: 'posts',
+          id: '1',
+          attributes: { contentHtml: '<p>a</p>', createdAt: '' },
+        },
+      ],
+    });
+    const [message] = await new FlarumClient().listPostsByAuthor('nota');
+
+    expect(message.authorUsername).toBeUndefined();
   });
 
   it('rend une liste vide quand l’auteur n’a aucun message', async () => {

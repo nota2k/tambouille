@@ -22,6 +22,7 @@ function harnais(over: { user?: Record<string, unknown> } = {}) {
     user: {
       findUniqueOrThrow: jest.fn().mockResolvedValue(userRow(over.user ?? {})),
       update: jest.fn().mockResolvedValue(userRow(over.user ?? {})),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
   };
   const sujet = new IncongruesVerificationService(
@@ -36,7 +37,7 @@ describe('IncongruesVerificationService.demanderJeton', () => {
     const { sujet, prisma } = harnais();
     const { token } = await sujet.demanderJeton('u1', '  Nota  ');
 
-    expect(token).toMatch(/^tambouille-[0-9a-f]{6}$/);
+    expect(token).toMatch(/^tambouille-[0-9a-f]{12}$/);
     expect(prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -63,6 +64,57 @@ describe('IncongruesVerificationService.demanderJeton', () => {
       ConflictException,
     );
   });
+
+  // Une revendication jamais prouvée ne verrouille pas un pseudo à vie :
+  // passé le TTL du jeton, le vrai titulaire peut la reprendre.
+  it('reprend une revendication périmée jamais vérifiée', async () => {
+    const { sujet, prisma } = harnais();
+    prisma.user.update.mockRejectedValueOnce({ code: 'P2002' });
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+    const { token } = await sujet.demanderJeton('u1', 'nota');
+
+    expect(token).toMatch(/^tambouille-[0-9a-f]{12}$/);
+    // La libération porte sur les DEUX colonnes à la fois : conditionnée
+    // ainsi, elle reste juste même si un autre appel passe entre-temps.
+    expect(prisma.user.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          incongruesUsername: 'nota',
+          incongruesVerifiedAt: null,
+          incongruesTokenAt: { lt: expect.any(Date) },
+        },
+      }),
+    );
+    expect(prisma.user.update).toHaveBeenCalledTimes(2);
+  });
+
+  // Un lien PROUVÉ n'est jamais repris : c'est tout ce que la preuve achète.
+  it('ne reprend jamais une revendication vérifiée', async () => {
+    const { sujet, prisma } = harnais();
+    prisma.user.update.mockRejectedValue({ code: 'P2002' });
+    // La condition `incongruesVerifiedAt: null` ne trouve rien.
+    prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(sujet.demanderJeton('u1', 'nota')).rejects.toThrow(
+      ConflictException,
+    );
+    expect(prisma.user.update).toHaveBeenCalledTimes(1);
+  });
+
+  // Non vérifiée mais récente : le titulaire est peut-être en train de
+  // publier son jeton, on ne lui coupe pas l'herbe sous le pied.
+  it('ne reprend pas une revendication non vérifiée mais récente', async () => {
+    const { sujet, prisma } = harnais();
+    prisma.user.update.mockRejectedValue({ code: 'P2002' });
+    // La condition sur `incongruesTokenAt` ne trouve rien.
+    prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(sujet.demanderJeton('u1', 'nota')).rejects.toThrow(
+      ConflictException,
+    );
+    expect(prisma.user.update).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('IncongruesVerificationService.verifier', () => {
@@ -79,6 +131,7 @@ describe('IncongruesVerificationService.verifier', () => {
         id: '1',
         contentHtml: '<p>coucou tambouille-7f3a9c</p>',
         createdAt: '',
+        authorUsername: 'nota',
       },
     ]);
 
@@ -103,7 +156,12 @@ describe('IncongruesVerificationService.verifier', () => {
       },
     });
     flarum.listPostsByAuthor.mockResolvedValue([
-      { id: '1', contentHtml: '<p>rien ici</p>', createdAt: '' },
+      {
+        id: '1',
+        contentHtml: '<p>rien ici</p>',
+        createdAt: '',
+        authorUsername: 'nota',
+      },
     ]);
 
     await expect(sujet.verifier('u1')).resolves.toEqual({
@@ -156,10 +214,151 @@ describe('IncongruesVerificationService.verifier', () => {
         id: '1',
         contentHtml: '<p><strong>tambouille-7f3a9c</strong></p>',
         createdAt: '',
+        authorUsername: 'nota',
       },
     ]);
 
     await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
+  });
+});
+
+describe('IncongruesVerificationService.verifier — garde d’autorisation', () => {
+  // LE test de cette vague. `filter[author]` accepte une liste séparée par
+  // des virgules : revendiquer « attaquant,victime » faisait remonter les
+  // messages de la victime, et publier le jeton sous son PROPRE compte
+  // suffisait à se faire passer pour elle. L'auteur de chaque message est
+  // donc contrôlé ici, pas délégué au forum.
+  it('refuse un message portant le bon jeton mais écrit par un AUTRE', async () => {
+    const { sujet, flarum, prisma } = harnais({
+      user: {
+        incongruesUsername: 'gakona',
+        incongruesToken: 'tambouille-7f3a9c1b2d4e',
+        incongruesTokenAt: new Date(),
+      },
+    });
+    flarum.listPostsByAuthor.mockResolvedValue([
+      {
+        id: '1',
+        contentHtml: '<p>tambouille-7f3a9c1b2d4e</p>',
+        createdAt: '',
+        authorUsername: 'attaquant',
+      },
+    ]);
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({
+      verifie: false,
+      raison: expect.stringContaining('pas trouvé'),
+    });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  // Le forum peut rendre « Nota » quand la base porte « nota ».
+  it('accepte l’auteur revendiqué à la casse près', async () => {
+    const { sujet, flarum } = harnais({
+      user: {
+        incongruesUsername: 'nota',
+        incongruesToken: 'tambouille-7f3a9c',
+        incongruesTokenAt: new Date(),
+      },
+    });
+    flarum.listPostsByAuthor.mockResolvedValue([
+      {
+        id: '1',
+        contentHtml: '<p>tambouille-7f3a9c</p>',
+        createdAt: '',
+        authorUsername: 'Nota',
+      },
+    ]);
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
+  });
+
+  // Un message sans auteur rattaché ne prouve rien : on refuse, on ne
+  // suppose pas que c'est celui qu'on cherchait.
+  it('refuse un message dont l’auteur est absent', async () => {
+    const { sujet, flarum } = harnais({
+      user: {
+        incongruesUsername: 'nota',
+        incongruesToken: 'tambouille-7f3a9c',
+        incongruesTokenAt: new Date(),
+      },
+    });
+    flarum.listPostsByAuthor.mockResolvedValue([
+      { id: '1', contentHtml: '<p>tambouille-7f3a9c</p>', createdAt: '' },
+    ]);
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({
+      verifie: false,
+      raison: expect.stringContaining('pas trouvé'),
+    });
+  });
+
+  // Flarum recopie le texte cité dans le `contentHtml` du citateur : sans
+  // cette coupe, citer la preuve d'un autre reviendrait à en porter une.
+  it('ignore un jeton présent seulement dans une citation', async () => {
+    const { sujet, flarum, prisma } = harnais({
+      user: {
+        incongruesUsername: 'nota',
+        incongruesToken: 'tambouille-7f3a9c',
+        incongruesTokenAt: new Date(),
+      },
+    });
+    flarum.listPostsByAuthor.mockResolvedValue([
+      {
+        id: '1',
+        contentHtml:
+          '<blockquote><p>tambouille-7f3a9c</p></blockquote><p>joli jeton</p>',
+        createdAt: '',
+        authorUsername: 'nota',
+      },
+    ]);
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({
+      verifie: false,
+      raison: expect.stringContaining('pas trouvé'),
+    });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('IncongruesVerificationService.verifier — anti-rebond', () => {
+  // Seul chemin sortant du dispositif qu'un membre déclenche à volonté :
+  // sans délai, boucler dessus ferait bannir l'IP de Tambouille par le forum.
+  it('refuse un second essai immédiat sans rappeler le forum', async () => {
+    const { sujet, flarum } = harnais({
+      user: {
+        incongruesUsername: 'nota',
+        incongruesToken: 'tambouille-7f3a9c',
+        incongruesTokenAt: new Date(),
+      },
+    });
+
+    await sujet.verifier('u1');
+    const refus = await sujet.verifier('u1');
+
+    expect(refus).toEqual({
+      verifie: false,
+      raison: expect.stringContaining('patientez'),
+    });
+    expect(flarum.listPostsByAuthor).toHaveBeenCalledTimes(1);
+  });
+
+  // Le délai est PAR compte : un membre qui martèle ne doit pas empêcher
+  // les autres de se vérifier.
+  it('ne bloque pas un autre compte', async () => {
+    const { sujet, flarum, prisma } = harnais({
+      user: {
+        incongruesUsername: 'nota',
+        incongruesToken: 'tambouille-7f3a9c',
+        incongruesTokenAt: new Date(),
+      },
+    });
+
+    await sujet.verifier('u1');
+    await sujet.verifier('u2');
+
+    expect(flarum.listPostsByAuthor).toHaveBeenCalledTimes(2);
+    expect(prisma.user.findUniqueOrThrow).toHaveBeenCalledTimes(2);
   });
 });
 
