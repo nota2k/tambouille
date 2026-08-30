@@ -533,8 +533,8 @@ async function submitDelete() {
         <!-- En attente de preuve -->
         <template v-else-if="!authStore.user.incongruesVerified">
           <p class="mb-3 text-sm text-tambouille-muted">
-            Pour prouver que ce pseudo vous appartient, copiez le jeton ci-dessous dans le champ
-            « Tambouille » de votre profil sur le forum, puis revenez cliquer sur « J'ai déposé le
+            Pour prouver que ce pseudo vous appartient, copiez le jeton ci-dessous dans le champ «
+            Tambouille » de votre profil sur le forum, puis revenez cliquer sur « J'ai déposé le
             jeton ». Personne d'autre que vous ne peut modifier votre profil : c'est ce qui fait
             preuve.
           </p>
