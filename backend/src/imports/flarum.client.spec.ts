@@ -275,9 +275,7 @@ describe('FlarumClient.listPostsByAuthor', () => {
           relationships: { user: { data: { type: 'users', id: '7' } } },
         },
       ],
-      included: [
-        { type: 'users', id: '7', attributes: { username: 'nota' } },
-      ],
+      included: [{ type: 'users', id: '7', attributes: { username: 'nota' } }],
     });
     const messages = await new FlarumClient().listPostsByAuthor('nota');
 

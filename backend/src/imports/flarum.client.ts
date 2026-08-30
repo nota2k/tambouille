@@ -82,10 +82,7 @@ export class FlarumClient {
    * vérifier dans la seconde qui suit sa publication, assez peu pour que la
    * requête reste légère.
    */
-  async listPostsByAuthor(
-    username: string,
-    limit = 20,
-  ): Promise<FlarumPost[]> {
+  async listPostsByAuthor(username: string, limit = 20): Promise<FlarumPost[]> {
     const params = versQueryString({
       'filter[author]': username,
       'page[limit]': String(limit),
