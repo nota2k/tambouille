@@ -139,9 +139,27 @@ export class IncongruesSyncService {
     incongruesUsername: string,
   ): Promise<number> {
     const discussions = await this.flarum.listByAuthor(incongruesUsername);
+    const revendique = incongruesUsername.toLowerCase();
     let crees = 0;
 
     for (const discussion of discussions) {
+      // L'auteur est contrôlé ICI, pas délégué à `filter[author]`.
+      //
+      // Constaté en production : quatre discussions ouvertes par un autre
+      // membre sont arrivées dans une réponse filtrée sur ce pseudo, et ont
+      // été publiées sous le mauvais compte. Peu importe pourquoi le forum a
+      // répondu ça — une décision d'attribution ne doit pas reposer sur la
+      // sémantique d'un filtre distant.
+      //
+      // Un auteur absent REFUSE, il ne suppose pas : un `undefined` qui
+      // passerait rouvrirait le trou en grand.
+      if (discussion.authorUsername?.toLowerCase() !== revendique) {
+        this.logger.warn(
+          `${discussion.pageUrl} écartée : ouverte par ${discussion.authorUsername ?? 'un auteur inconnu'}, pas par ${incongruesUsername}`,
+        );
+        continue;
+      }
+
       // Chaque discussion dans son propre `try` : un cloudcast supprimé chez
       // Mixcloud ne doit pas empêcher les treize autres de paraître.
       try {

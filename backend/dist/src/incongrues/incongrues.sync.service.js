@@ -96,8 +96,13 @@ let IncongruesSyncService = IncongruesSyncService_1 = class IncongruesSyncServic
     }
     async faire(userId, incongruesUsername) {
         const discussions = await this.flarum.listByAuthor(incongruesUsername);
+        const revendique = incongruesUsername.toLowerCase();
         let crees = 0;
         for (const discussion of discussions) {
+            if (discussion.authorUsername?.toLowerCase() !== revendique) {
+                this.logger.warn(`${discussion.pageUrl} écartée : ouverte par ${discussion.authorUsername ?? 'un auteur inconnu'}, pas par ${incongruesUsername}`);
+                continue;
+            }
             try {
                 if (await this.mixes.findBySource(undefined, discussion.pageUrl)) {
                     continue;

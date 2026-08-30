@@ -78,6 +78,23 @@ let IncongruesVerificationService = class IncongruesVerificationService {
             },
         });
     }
+    async dansLeProfil(pseudo, jeton) {
+        try {
+            const id = await this.flarum.findUserId(pseudo);
+            if (!id)
+                return false;
+            const reponses = await this.flarum.readProfileAnswers(id);
+            return reponses.some((r) => r.trim().toLowerCase() === jeton);
+        }
+        catch {
+            return false;
+        }
+    }
+    async dansLesMessages(pseudo, revendique, jeton) {
+        const messages = await this.flarum.listPostsByAuthor(pseudo);
+        return messages.some((message) => message.authorUsername?.toLowerCase() === revendique &&
+            texteRendu(message.contentHtml).includes(jeton));
+    }
     async verifier(userId) {
         const user = await this.prisma.user.findUniqueOrThrow({
             where: { id: userId },
@@ -104,15 +121,14 @@ let IncongruesVerificationService = class IncongruesVerificationService {
             };
         }
         this.dernierEssai.set(userId, maintenant);
-        const messages = await this.flarum.listPostsByAuthor(user.incongruesUsername);
         const jeton = user.incongruesToken.toLowerCase();
         const revendique = user.incongruesUsername.toLowerCase();
-        const trouve = messages.some((message) => message.authorUsername?.toLowerCase() === revendique &&
-            texteRendu(message.contentHtml).includes(jeton));
+        const trouve = (await this.dansLeProfil(user.incongruesUsername, jeton)) ||
+            (await this.dansLesMessages(user.incongruesUsername, revendique, jeton));
         if (!trouve) {
             return {
                 verifie: false,
-                raison: 'Jeton pas trouvé dans vos messages récents sur le forum',
+                raison: 'Jeton pas trouvé, ni dans votre profil ni dans vos messages récents sur le forum',
             };
         }
         await this.prisma.user.update({

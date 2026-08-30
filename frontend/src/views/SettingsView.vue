@@ -533,10 +533,15 @@ async function submitDelete() {
         <!-- En attente de preuve -->
         <template v-else-if="!authStore.user.incongruesVerified">
           <p class="mb-3 text-sm text-tambouille-muted">
-            Pour prouver que ce pseudo vous appartient, publiez le jeton ci-dessous dans un message
-            n'importe où sur le forum, puis revenez cliquer sur « J'ai publié le jeton ». Vous
-            pourrez ensuite supprimer ce message : il n'aura plus à rester en ligne une fois la
-            vérification faite.
+            Pour prouver que ce pseudo vous appartient, copiez le jeton ci-dessous dans le champ «
+            Tambouille » de votre profil sur le forum, puis revenez cliquer sur « J'ai déposé le
+            jeton ». Personne d'autre que vous ne peut modifier votre profil : c'est ce qui fait
+            preuve.
+          </p>
+          <p class="mb-3 text-sm text-tambouille-muted">
+            Si vous ne trouvez pas ce champ, publiez plutôt le jeton dans un message n'importe où
+            sur le forum — les deux marchent. Vous pourrez supprimer ce message ensuite : seule la
+            vérification compte, pas sa trace.
           </p>
           <p
             class="mb-4 select-all break-all rounded-none border border-tambouille-border bg-tambouille-bg px-3 py-2 font-mono text-sm"
@@ -555,7 +560,7 @@ async function submitDelete() {
               class="tb-btn"
               @click="verifierIncongrues"
             >
-              {{ incongruesVerifying ? 'Vérification…' : "J'ai publié le jeton" }}
+              {{ incongruesVerifying ? 'Vérification…' : "J'ai déposé le jeton" }}
             </button>
             <button
               type="button"

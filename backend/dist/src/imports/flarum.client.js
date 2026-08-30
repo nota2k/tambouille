@@ -22,7 +22,7 @@ let FlarumClient = class FlarumClient {
         const params = versQueryString({
             'filter[author]': username,
             'page[limit]': '50',
-            include: 'firstPost,taxonomyTerms',
+            include: 'firstPost,taxonomyTerms,user',
         });
         return this.lire(`${exports.FORUM_ORIGIN}/api/discussions?${params}`);
     }
@@ -59,6 +59,29 @@ let FlarumClient = class FlarumClient {
             };
         });
     }
+    async findUserId(username) {
+        const params = versQueryString({
+            'filter[author]': username,
+            'page[limit]': '1',
+            include: 'user',
+        });
+        const document = await this.lireJson(`${exports.FORUM_ORIGIN}/api/posts?${params}`);
+        const recherche = username.trim().toLowerCase();
+        for (const r of document.included ?? []) {
+            if (r.type === 'users' &&
+                String(r.attributes?.username ?? '').toLowerCase() === recherche) {
+                return r.id;
+            }
+        }
+        return null;
+    }
+    async readProfileAnswers(userId) {
+        const params = versQueryString({ include: 'masqueradeAnswers' });
+        const document = await this.lireJson(`${exports.FORUM_ORIGIN}/api/users/${encodeURIComponent(userId)}?${params}`);
+        return (document.included ?? [])
+            .filter((r) => r.type === 'masquerade-answer')
+            .map((r) => String(r.attributes?.content ?? ''));
+    }
     async listRecentDiscussions(limit = 10) {
         const params = versQueryString({
             sort: '-createdAt',
@@ -75,19 +98,21 @@ let FlarumClient = class FlarumClient {
         }
         return discussion;
     }
-    async lire(endpoint) {
+    async lireJson(endpoint) {
         const { body } = await (0, safe_fetch_1.safeFetch)(endpoint, {
             maxBytes: API_MAX_BYTES,
             timeoutMs: FETCH_TIMEOUT_MS,
             accept: 'application/json',
         });
-        let document;
         try {
-            document = JSON.parse(body.toString('utf8'));
+            return JSON.parse(body.toString('utf8'));
         }
         catch {
             throw new common_1.BadGatewayException('Réponse illisible du forum');
         }
+    }
+    async lire(endpoint) {
+        const document = await this.lireJson(endpoint);
         const brutes = Array.isArray(document.data)
             ? document.data
             : document.data

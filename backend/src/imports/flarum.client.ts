@@ -68,7 +68,10 @@ export class FlarumClient {
     const params = versQueryString({
       'filter[author]': username,
       'page[limit]': '50',
-      include: 'firstPost,taxonomyTerms',
+      // `user` est demandé pour que l'appelant puisse contrôler l'auteur
+      // lui-même. Le filtre dit ce qu'il rend ; seule la relation dit ce que
+      // c'est vraiment, et c'est elle qui décide de l'attribution.
+      include: 'firstPost,taxonomyTerms,user',
     });
     return this.lire(`${FORUM_ORIGIN}/api/discussions?${params}`);
   }
@@ -130,6 +133,64 @@ export class FlarumClient {
   }
 
   /**
+   * L'identifiant numérique d'un membre, à partir de son pseudo.
+   *
+   * Détour obligé : en anonyme, `/api/users` en liste répond 403 et
+   * `/api/users/<pseudo>` répond 404 — seul `/api/users/<id>` est ouvert. Un
+   * message de l'auteur porte la relation `user`, donc son identifiant.
+   *
+   * Le pseudo rendu est comparé à celui demandé plutôt que fait confiance au
+   * filtre : `filter[author]` accepte une liste séparée par des virgules, et
+   * prendre l'identifiant d'un autre membre pour celui demandé donnerait la
+   * preuve d'autrui.
+   *
+   * `null` quand l'auteur n'a aucun message — ce n'est pas une panne, juste
+   * un membre dont on ne peut pas atteindre le profil par ce chemin.
+   */
+  async findUserId(username: string): Promise<string | null> {
+    const params = versQueryString({
+      'filter[author]': username,
+      'page[limit]': '1',
+      include: 'user',
+    });
+    const document = await this.lireJson(`${FORUM_ORIGIN}/api/posts?${params}`);
+
+    const recherche = username.trim().toLowerCase();
+    for (const r of document.included ?? []) {
+      if (
+        r.type === 'users' &&
+        String(r.attributes?.username ?? '').toLowerCase() === recherche
+      ) {
+        return r.id;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Le contenu des champs de profil d'un membre, tels que l'extension
+   * Masquerade les expose.
+   *
+   * Rendus bruts et sans distinction de champ : l'appelant y cherche son
+   * jeton. Viser un identifiant de champ précis casserait le jour où les
+   * champs sont réordonnés ou recréés, et ne servirait pas un membre qui se
+   * tromperait de case.
+   *
+   * Une liste vide couvre trois cas qui ne sont pas des pannes : aucun champ
+   * rempli, champ non public, extension absente.
+   */
+  async readProfileAnswers(userId: string): Promise<string[]> {
+    const params = versQueryString({ include: 'masqueradeAnswers' });
+    const document = await this.lireJson(
+      `${FORUM_ORIGIN}/api/users/${encodeURIComponent(userId)}?${params}`,
+    );
+
+    return (document.included ?? [])
+      .filter((r) => r.type === 'masquerade-answer')
+      .map((r) => String(r.attributes?.content ?? ''));
+  }
+
+  /**
    * Les discussions les plus récentes du forum, toutes tous auteurs
    * confondus — la sonnerie du webhook s'en sert pour ne lire le forum
    * qu'une fois, quel que soit le nombre de comptes liés, puis croise
@@ -158,19 +219,31 @@ export class FlarumClient {
     return discussion;
   }
 
-  private async lire(endpoint: string): Promise<FlarumDiscussion[]> {
+  /** Une réponse JSON:API du forum, lue et analysée. Factorisée parce que
+   *  quatre points d'entrée en ont besoin, et qu'une copie de plus serait une
+   *  copie de plus où la gestion d'erreur peut diverger. */
+  private async lireJson(endpoint: string): Promise<{
+    data?: unknown;
+    included?: JsonApiRessource[];
+  }> {
     const { body } = await safeFetch(endpoint, {
       maxBytes: API_MAX_BYTES,
       timeoutMs: FETCH_TIMEOUT_MS,
       accept: 'application/json',
     });
 
-    let document: { data?: unknown; included?: JsonApiRessource[] };
     try {
-      document = JSON.parse(body.toString('utf8')) as typeof document;
+      return JSON.parse(body.toString('utf8')) as {
+        data?: unknown;
+        included?: JsonApiRessource[];
+      };
     } catch {
       throw new BadGatewayException('Réponse illisible du forum');
     }
+  }
+
+  private async lire(endpoint: string): Promise<FlarumDiscussion[]> {
+    const document = await this.lireJson(endpoint);
 
     // `/api/discussions` rend un tableau, `/api/discussions/<id>` un objet.
     // Les deux passent par ici pour que le rattachement du premier message ne

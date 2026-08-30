@@ -17,8 +17,11 @@ export interface FlarumPost {
 export declare class FlarumClient {
     listByAuthor(username: string): Promise<FlarumDiscussion[]>;
     listPostsByAuthor(username: string, limit?: number): Promise<FlarumPost[]>;
+    findUserId(username: string): Promise<string | null>;
+    readProfileAnswers(userId: string): Promise<string[]>;
     listRecentDiscussions(limit?: number): Promise<FlarumDiscussion[]>;
     getDiscussion(id: string): Promise<FlarumDiscussion>;
+    private lireJson;
     private lire;
     private assembler;
 }

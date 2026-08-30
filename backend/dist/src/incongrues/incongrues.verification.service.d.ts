@@ -11,6 +11,8 @@ export declare class IncongruesVerificationService {
         token: string;
     }>;
     private poser;
+    private dansLeProfil;
+    private dansLesMessages;
     verifier(userId: string): Promise<{
         verifie: boolean;
         raison?: string;
