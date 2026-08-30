@@ -21,20 +21,42 @@ function memeSecret(fourni, attendu) {
     const b = Buffer.from(attendu, 'utf8');
     return a.length === b.length && (0, node_crypto_1.timingSafeEqual)(a, b);
 }
+function secretDeLEnTete(entete) {
+    if (!entete)
+        return null;
+    const [schema, ...reste] = entete.split(' ');
+    if (schema.toLowerCase() !== 'bearer')
+        return null;
+    const secret = reste.join(' ');
+    return secret.length > 0 ? secret : null;
+}
 let IncongruesWebhookController = class IncongruesWebhookController {
     sync;
     constructor(sync) {
         this.sync = sync;
     }
+    async sonnerParEnTete(entete) {
+        return this.sonnerSi(secretDeLEnTete(entete));
+    }
     async sonner(secret) {
+        return this.sonnerSi(secret);
+    }
+    async sonnerSi(fourni) {
         const attendu = process.env.INCONGRUES_WEBHOOK_SECRET;
-        if (!attendu || !memeSecret(secret, attendu)) {
+        if (!attendu || !fourni || !memeSecret(fourni, attendu)) {
             throw new common_1.NotFoundException();
         }
         return { crees: await this.sync.syncDepuisSonnerie() };
     }
 };
 exports.IncongruesWebhookController = IncongruesWebhookController;
+__decorate([
+    (0, common_1.Post)(),
+    __param(0, (0, common_1.Headers)('authorization')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], IncongruesWebhookController.prototype, "sonnerParEnTete", null);
 __decorate([
     (0, common_1.Post)(':secret'),
     __param(0, (0, common_1.Param)('secret')),
