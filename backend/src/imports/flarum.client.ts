@@ -209,7 +209,13 @@ export class FlarumClient {
   }
 
   async getDiscussion(id: string): Promise<FlarumDiscussion> {
-    const params = versQueryString({ include: 'firstPost,taxonomyTerms' });
+    // `user` est demandé parce que cette lecture sert de source INDÉPENDANTE
+    // pour confirmer l'attribution : une liste filtrée peut rendre les
+    // discussions d'un autre en les attribuant au pseudo demandé, la lecture
+    // par identifiant non.
+    const params = versQueryString({
+      include: 'firstPost,taxonomyTerms,user',
+    });
     const [discussion] = await this.lire(
       `${FORUM_ORIGIN}/api/discussions/${encodeURIComponent(id)}?${params}`,
     );
