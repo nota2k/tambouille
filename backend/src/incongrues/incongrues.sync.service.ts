@@ -134,6 +134,29 @@ export class IncongruesSyncService {
     return this.syncAll();
   }
 
+  /**
+   * La discussion est-elle bien de ce membre, d'après une relecture par son
+   * identifiant ?
+   *
+   * Un échec REFUSE. Sans confirmation indépendante on n'attribue le travail
+   * de personne : rater un import se rattrape au passage suivant, publier le
+   * mix d'autrui sous un compte ne se rattrape qu'à la main.
+   */
+  private async estBienDe(
+    discussionId: string,
+    revendique: string,
+  ): Promise<boolean> {
+    try {
+      const relue = await this.flarum.getDiscussion(discussionId);
+      return relue.authorUsername?.toLowerCase() === revendique;
+    } catch (erreur) {
+      this.logger.warn(
+        `Relecture de la discussion ${discussionId} impossible : ${(erreur as Error).message}`,
+      );
+      return false;
+    }
+  }
+
   private async faire(
     userId: string,
     incongruesUsername: string,
@@ -143,23 +166,6 @@ export class IncongruesSyncService {
     let crees = 0;
 
     for (const discussion of discussions) {
-      // L'auteur est contrôlé ICI, pas délégué à `filter[author]`.
-      //
-      // Constaté en production : quatre discussions ouvertes par un autre
-      // membre sont arrivées dans une réponse filtrée sur ce pseudo, et ont
-      // été publiées sous le mauvais compte. Peu importe pourquoi le forum a
-      // répondu ça — une décision d'attribution ne doit pas reposer sur la
-      // sémantique d'un filtre distant.
-      //
-      // Un auteur absent REFUSE, il ne suppose pas : un `undefined` qui
-      // passerait rouvrirait le trou en grand.
-      if (discussion.authorUsername?.toLowerCase() !== revendique) {
-        this.logger.warn(
-          `${discussion.pageUrl} écartée : ouverte par ${discussion.authorUsername ?? 'un auteur inconnu'}, pas par ${incongruesUsername}`,
-        );
-        continue;
-      }
-
       // Chaque discussion dans son propre `try` : un cloudcast supprimé chez
       // Mixcloud ne doit pas empêcher les treize autres de paraître.
       try {
@@ -168,6 +174,24 @@ export class IncongruesSyncService {
         // porte : en régime établi, les mix déjà là sont écartés sans qu'un
         // seul oEmbed soit payé pour être jeté.
         if (await this.mixes.findBySource(undefined, discussion.pageUrl)) {
+          continue;
+        }
+
+        // L'attribution se confirme sur une source INDÉPENDANTE.
+        //
+        // Constaté en production : le forum a rendu, dans une réponse à
+        // `filter[author]=nota`, quatre discussions d'un autre membre EN LES
+        // LUI ATTRIBUANT. Contrôler l'auteur dans cette réponse-là ne servait
+        // à rien — on vérifiait un filtre avec la réponse de ce filtre. La
+        // relecture par identifiant, elle, est cohérente.
+        //
+        // Elle est placée APRÈS le contrôle de doublon : en régime établi
+        // rien n'est nouveau, donc elle ne coûte aucune requête. Elle n'est
+        // payée que pour un mix qu'on s'apprête réellement à créer.
+        if (!(await this.estBienDe(discussion.id, revendique))) {
+          this.logger.warn(
+            `${discussion.pageUrl} écartée : la relecture ne la donne pas à ${incongruesUsername}`,
+          );
           continue;
         }
 
