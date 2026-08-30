@@ -170,12 +170,28 @@ donc une preuve de possession avant d'autoriser la synchronisation :
 1. Le membre saisit son pseudo forum (`POST /users/me/incongrues/token`) ;
    Tambouille enregistre le lien comme non vérifié et rend un jeton court, du
    genre `tambouille-7f3a9c`.
-2. Le membre publie ce jeton dans un message n'importe où sur le forum, puis
-   revient cliquer sur « vérifier » (`POST /users/me/incongrues/verify`).
-3. Tambouille relit les messages récents de ce pseudo par l'API publique de
-   Flarum, y cherche le jeton, et ne marque le lien vérifié qu'en le trouvant.
-   Le message peut alors être supprimé : seule la vérification compte, pas sa
-   trace.
+2. Le membre dépose ce jeton **dans le champ « Tambouille » de son profil**
+   (extension Masquerade), ou à défaut le publie dans un message n'importe où
+   sur le forum. Puis il revient cliquer sur « vérifier »
+   (`POST /users/me/incongrues/verify`).
+3. Tambouille cherche le jeton par l'API publique de Flarum, et ne marque le
+   lien vérifié qu'en le trouvant.
+
+Les deux chemins tiennent la même promesse — ni un champ de profil ni un
+message ne peuvent être écrits par quelqu'un d'autre que le titulaire du
+compte. Le profil est essayé **en premier** : rien à publier, rien à
+supprimer, rien qui traîne sur le forum ensuite.
+
+Le message reste en second recours, et il a sa raison d'être. `/api/users` en
+liste répond `403` en anonyme et `/api/users/<pseudo>` répond `404` : seul
+`/api/users/<id>` est ouvert, et l'identifiant ne se résout que par un message
+de l'auteur. Un membre qui n'a jamais rien publié n'a donc pas de profil
+atteignable — et si Masquerade est un jour désinstallée, le dispositif ne
+meurt pas avec elle.
+
+Un échec de lecture du profil n'est jamais remonté au membre : profil vide,
+champ non public, extension absente ou forum en panne ne sont pas des erreurs,
+ce sont des « pas de preuve ici », et l'autre chemin garde sa chance.
 
 Le jeton expire au bout de 24 h — passé ce délai, une vérification en attente
 échoue et le membre doit en redemander un. Seuls les liens vérifiés sont

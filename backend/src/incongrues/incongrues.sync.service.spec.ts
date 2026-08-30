@@ -24,7 +24,7 @@ const MIX: MixImport = {
   sourcePageUrl: 'https://www.musiques-incongrues.net/d/15617-x',
 };
 
-function discussion(id: string): FlarumDiscussion {
+function discussion(id: string, auteur = 'nota'): FlarumDiscussion {
   return {
     id,
     title: `Discussion ${id}`,
@@ -32,6 +32,7 @@ function discussion(id: string): FlarumDiscussion {
     pageUrl: `https://www.musiques-incongrues.net/d/${id}-x`,
     contentHtml: '',
     termNames: [],
+    authorUsername: auteur,
   };
 }
 
@@ -62,6 +63,60 @@ function harnais(over: { discussions?: FlarumDiscussion[] } = {}) {
   );
   return { sujet, flarum, importeur, mixes, prisma };
 }
+
+/**
+ * Constaté en production, pas imaginé : quatre discussions ouvertes par
+ * `mbertier` ont été importées sous le compte lié à `nota`. Le forum avait
+ * répondu à une requête filtrée sur `nota` par des discussions d'un autre.
+ *
+ * C'est le même défaut que celui trouvé sur la vérification par jeton :
+ * faire reposer une décision d'attribution sur la sémantique d'un filtre
+ * distant. La réponse est la même — contrôler l'auteur soi-même.
+ */
+describe('IncongruesSyncService — attribution', () => {
+  it("n'importe pas une discussion ouverte par quelqu'un d'autre", async () => {
+    const { sujet, importeur, mixes } = harnais({
+      discussions: [discussion('1', 'mbertier')],
+    });
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(0);
+    expect(importeur.importDiscussion).not.toHaveBeenCalled();
+    expect(mixes.createFromImport).not.toHaveBeenCalled();
+  });
+
+  it('ignore la casse entre le forum et la base', async () => {
+    const { sujet, mixes } = harnais({
+      discussions: [discussion('1', 'Nota')],
+    });
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(1);
+    expect(mixes.createFromImport).toHaveBeenCalledTimes(1);
+  });
+
+  // Un auteur absent doit REFUSER, jamais supposer : un `undefined` qui
+  // passerait rouvrirait exactement le trou qu'on ferme.
+  it("n'importe pas une discussion sans auteur identifiable", async () => {
+    const { sujet, mixes } = harnais({
+      discussions: [{ ...discussion('1'), authorUsername: undefined }],
+    });
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(0);
+    expect(mixes.createFromImport).not.toHaveBeenCalled();
+  });
+
+  it('importe les siennes et écarte les autres dans la même réponse', async () => {
+    const { sujet, mixes } = harnais({
+      discussions: [
+        discussion('1', 'nota'),
+        discussion('2', 'mbertier'),
+        discussion('3', 'nota'),
+      ],
+    });
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(2);
+    expect(mixes.createFromImport).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe('IncongruesSyncService.syncUser', () => {
   it('crée le mix d’une discussion inconnue', async () => {
@@ -342,7 +397,10 @@ describe('IncongruesSyncService.syncDepuisSonnerie', () => {
     ]);
     flarum.listByAuthor
       .mockRejectedValueOnce(new Error('forum injoignable'))
-      .mockResolvedValueOnce([discussion('3')]);
+      // La discussion rendue pour `gakona` porte son nom : depuis le
+      // contrôle d'attribution, une réponse incohérente n'importe rien, et
+      // ce test parle de résilience, pas d'attribution.
+      .mockResolvedValueOnce([discussion('3', 'gakona')]);
     const warn = jest
       .spyOn(sujet['logger'], 'warn')
       .mockImplementation(() => undefined);

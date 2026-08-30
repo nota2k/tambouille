@@ -342,3 +342,131 @@ describe('FlarumClient.listPostsByAuthor', () => {
     ).resolves.toEqual([]);
   });
 });
+
+/**
+ * La preuve par champ de profil, avec l'extension Masquerade : le membre
+ * enregistre son jeton dans un champ de son profil au lieu de le publier dans
+ * un message. Rien à supprimer ensuite, et rien qui traîne sur le forum.
+ */
+describe('FlarumClient.readProfileAnswers', () => {
+  beforeEach(() => mockSafeFetch.mockReset());
+
+  it('demande les réponses de profil de cet identifiant', async () => {
+    repondAvec({ data: { type: 'users', id: '1363', attributes: {} } });
+    await new FlarumClient().readProfileAnswers('1363');
+
+    const [url] = mockSafeFetch.mock.calls[0];
+    expect(url).toContain('/api/users/1363');
+    expect(url).toContain('include=masqueradeAnswers');
+  });
+
+  it('rend le contenu de chaque réponse', async () => {
+    repondAvec({
+      data: { type: 'users', id: '1363', attributes: {} },
+      included: [
+        {
+          type: 'masquerade-answer',
+          id: '1',
+          attributes: { content: '', fieldId: 1 },
+        },
+        {
+          type: 'masquerade-answer',
+          id: '4',
+          attributes: { content: 'tambouille-482aae088c40', fieldId: 4 },
+        },
+      ],
+    });
+
+    await expect(
+      new FlarumClient().readProfileAnswers('1363'),
+    ).resolves.toEqual(['', 'tambouille-482aae088c40']);
+  });
+
+  // Le champ peut ne pas exister, être vide, ou l'extension être désinstallée :
+  // aucun de ces cas n'est une panne, ce sont des « pas de preuve ici ».
+  it('rend une liste vide quand le profil ne porte aucune réponse', async () => {
+    repondAvec({ data: { type: 'users', id: '1363', attributes: {} } });
+    await expect(
+      new FlarumClient().readProfileAnswers('1363'),
+    ).resolves.toEqual([]);
+  });
+
+  it('ignore les ressources incluses qui ne sont pas des réponses', async () => {
+    repondAvec({
+      data: { type: 'users', id: '1363', attributes: {} },
+      included: [
+        { type: 'groups', id: '3', attributes: { nameSingular: 'Membre' } },
+      ],
+    });
+    await expect(
+      new FlarumClient().readProfileAnswers('1363'),
+    ).resolves.toEqual([]);
+  });
+});
+
+describe('FlarumClient.findUserId', () => {
+  beforeEach(() => mockSafeFetch.mockReset());
+
+  // `/api/users` en liste répond 403 en anonyme et `/api/users/<pseudo>` 404 :
+  // le seul chemin anonyme vers l'identifiant passe par un message de l'auteur.
+  it("rend l'identifiant de l'auteur dont le pseudo correspond", async () => {
+    repondAvec({
+      data: [
+        {
+          type: 'posts',
+          id: '9',
+          attributes: {},
+          relationships: { user: { data: { id: '1363' } } },
+        },
+      ],
+      included: [
+        { type: 'users', id: '1363', attributes: { username: 'nota' } },
+      ],
+    });
+
+    await expect(new FlarumClient().findUserId('nota')).resolves.toBe('1363');
+  });
+
+  it('ignore la casse du pseudo', async () => {
+    repondAvec({
+      data: [
+        {
+          type: 'posts',
+          id: '9',
+          attributes: {},
+          relationships: { user: { data: { id: '1363' } } },
+        },
+      ],
+      included: [
+        { type: 'users', id: '1363', attributes: { username: 'Nota' } },
+      ],
+    });
+
+    await expect(new FlarumClient().findUserId('nota')).resolves.toBe('1363');
+  });
+
+  // Le filtre accepte une liste séparée par des virgules : un identifiant
+  // rendu pour un AUTRE pseudo ne doit jamais être pris pour celui demandé.
+  it('ne rend rien quand aucun auteur ne porte ce pseudo', async () => {
+    repondAvec({
+      data: [
+        {
+          type: 'posts',
+          id: '9',
+          attributes: {},
+          relationships: { user: { data: { id: '2' } } },
+        },
+      ],
+      included: [
+        { type: 'users', id: '2', attributes: { username: 'mbertier' } },
+      ],
+    });
+
+    await expect(new FlarumClient().findUserId('nota')).resolves.toBeNull();
+  });
+
+  it("rend null quand l'auteur n'a aucun message", async () => {
+    repondAvec({ data: [] });
+    await expect(new FlarumClient().findUserId('nota')).resolves.toBeNull();
+  });
+});

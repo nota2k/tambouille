@@ -127,6 +127,51 @@ export class IncongruesVerificationService {
     });
   }
 
+  /**
+   * Le jeton dans un champ du profil, via l'extension Masquerade.
+   *
+   * Cherché EN PREMIER : ce chemin ne demande au membre ni de publier ni de
+   * supprimer quoi que ce soit, et ne laisse rien traîner sur le forum. Un
+   * champ de profil n'étant modifiable que par son titulaire, il prouve
+   * autant qu'un message.
+   *
+   * Tout échec rend `false` plutôt que de lever : Masquerade désinstallée,
+   * champ non public, profil inatteignable ou forum en panne ne sont pas des
+   * erreurs à remonter au membre — ce sont des « pas de preuve ici », et
+   * l'autre chemin doit garder sa chance.
+   */
+  private async dansLeProfil(pseudo: string, jeton: string): Promise<boolean> {
+    try {
+      const id = await this.flarum.findUserId(pseudo);
+      if (!id) return false;
+
+      const reponses = await this.flarum.readProfileAnswers(id);
+      return reponses.some((r) => r.trim().toLowerCase() === jeton);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Le jeton dans un message récent — le chemin d'origine, gardé en second
+   *  recours : un membre sans aucun message n'a pas d'identifiant atteignable
+   *  en anonyme, et désinstaller Masquerade ne doit pas tuer le dispositif. */
+  private async dansLesMessages(
+    pseudo: string,
+    revendique: string,
+    jeton: string,
+  ): Promise<boolean> {
+    const messages = await this.flarum.listPostsByAuthor(pseudo);
+    return messages.some(
+      (message) =>
+        // L'auteur est contrôlé ICI, pas délégué à `filter[author]` : ce
+        // filtre accepte une liste séparée par des virgules, et la décision
+        // d'autorisation ne doit pas reposer sur la sémantique d'un filtre
+        // distant que le forum peut changer.
+        message.authorUsername?.toLowerCase() === revendique &&
+        texteRendu(message.contentHtml).includes(jeton),
+    );
+  }
+
   async verifier(
     userId: string,
   ): Promise<{ verifie: boolean; raison?: string }> {
@@ -165,25 +210,18 @@ export class IncongruesVerificationService {
     }
     this.dernierEssai.set(userId, maintenant);
 
-    const messages = await this.flarum.listPostsByAuthor(
-      user.incongruesUsername,
-    );
     const jeton = user.incongruesToken.toLowerCase();
     const revendique = user.incongruesUsername.toLowerCase();
-    const trouve = messages.some(
-      (message) =>
-        // L'auteur est contrôlé ICI, pas délégué à `filter[author]` : ce
-        // filtre accepte une liste séparée par des virgules, et la décision
-        // d'autorisation ne doit pas reposer sur la sémantique d'un filtre
-        // distant que le forum peut changer.
-        message.authorUsername?.toLowerCase() === revendique &&
-        texteRendu(message.contentHtml).includes(jeton),
-    );
+
+    const trouve =
+      (await this.dansLeProfil(user.incongruesUsername, jeton)) ||
+      (await this.dansLesMessages(user.incongruesUsername, revendique, jeton));
 
     if (!trouve) {
       return {
         verifie: false,
-        raison: 'Jeton pas trouvé dans vos messages récents sur le forum',
+        raison:
+          'Jeton pas trouvé, ni dans votre profil ni dans vos messages récents sur le forum',
       };
     }
 
