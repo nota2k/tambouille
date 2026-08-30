@@ -130,9 +130,10 @@ async function lierIncongrues() {
 }
 
 // Redemande un jeton pour le pseudo déjà lié, sans repasser par le
-// déliement ni faire retaper le pseudo : le lit dans le store (jamais dans
-// `incongruesUsernameInput`, vidé une fois la première demande acceptée) —
-// c'est la seule source qui survit à un rechargement de la page. Utile aussi
+// déliement ni faire retaper le pseudo : le lit dans le store, jamais dans
+// `incongruesUsernameInput` — c'est la seule source qui survit à un
+// rechargement de la page, et la seule qui reste juste quand le champ a été
+// retouché depuis la demande sans être réenvoyé. Utile aussi
 // bien à un jeton expiré (le serveur ne l'efface pas de lui-même côté base,
 // voir `IncongruesVerificationService.verifier`) qu'à un message publié au
 // mauvais endroit ou perdu : toujours proposé, plutôt que réservé au seul cas
@@ -543,9 +544,14 @@ async function submitDelete() {
             {{ authStore.user.incongruesToken }}
           </p>
           <div class="flex flex-wrap items-center gap-3">
+            <!-- Chacun désactivé pendant que l'autre travaille : redemander
+                 ÉCRASE le jeton en base, donc cliquer pendant qu'une
+                 vérification est en vol la ferait échouer pour une raison
+                 sans rapport, et l'écran afficherait le nouveau jeton sous un
+                 message d'échec portant sur l'ancien. -->
             <button
               type="button"
-              :disabled="incongruesVerifying"
+              :disabled="incongruesVerifying || incongruesLinking"
               class="tb-btn"
               @click="verifierIncongrues"
             >
@@ -553,7 +559,7 @@ async function submitDelete() {
             </button>
             <button
               type="button"
-              :disabled="incongruesLinking"
+              :disabled="incongruesLinking || incongruesVerifying"
               class="text-xs text-tambouille-muted hover:underline"
               @click="redemanderJeton"
             >
