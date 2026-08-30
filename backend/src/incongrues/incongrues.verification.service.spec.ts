@@ -162,3 +162,30 @@ describe('IncongruesVerificationService.verifier', () => {
     await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
   });
 });
+
+describe('IncongruesVerificationService.delier', () => {
+  // Un membre ne doit jamais rester prisonnier d'un lien qu'il ne peut plus
+  // retirer : les quatre colonnes reviennent à `null`, vérifié ou non.
+  it('remet les quatre colonnes à null', async () => {
+    const { sujet, prisma } = harnais({
+      user: {
+        incongruesUsername: 'nota',
+        incongruesToken: 'tambouille-7f3a9c',
+        incongruesTokenAt: new Date(),
+        incongruesVerifiedAt: new Date(),
+      },
+    });
+
+    await sujet.delier('u1');
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: {
+        incongruesUsername: null,
+        incongruesToken: null,
+        incongruesTokenAt: null,
+        incongruesVerifiedAt: null,
+      },
+    });
+  });
+});

@@ -126,4 +126,20 @@ export class IncongruesVerificationService {
 
     return { verifie: true };
   }
+
+  /** Vide le lien, vérifié ou non. Sans ce chemin, un membre resterait
+   *  prisonnier d'un pseudo mal saisi ou d'une vérification qu'il ne veut
+   *  plus maintenir — se délier n'est jamais une revendication, donc rien
+   *  ici ne repasse par la garde de `demanderJeton`. */
+  async delier(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        incongruesUsername: null,
+        incongruesToken: null,
+        incongruesTokenAt: null,
+        incongruesVerifiedAt: null,
+      },
+    });
+  }
 }
