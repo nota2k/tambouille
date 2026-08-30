@@ -23,7 +23,6 @@ const authStore = useAuthStore()
 
 const editDisplayName = ref(authStore.user?.displayName ?? '')
 const editBio = ref(authStore.user?.bio ?? '')
-const editIncongrues = ref(authStore.user?.incongruesUsername ?? '')
 const savingProfile = ref(false)
 const profileError = ref('')
 const avatarInput = ref<HTMLInputElement | null>(null)
@@ -35,16 +34,10 @@ async function saveProfile() {
     const { data } = await apiClient.patch<UserProfile>('/users/me', {
       displayName: editDisplayName.value,
       bio: editBio.value,
-      incongruesUsername: editIncongrues.value,
     })
     if (authStore.user) {
       authStore.user.displayName = data.displayName
       authStore.user.bio = data.bio
-      // Absent de la réponse : `PATCH /users/me` rend le profil PUBLIC, que
-      // `incongruesUsername` évite délibérément (il ne regarde que le
-      // titulaire). On reflète donc localement ce que le serveur vient
-      // d'accepter, avec la même normalisation que lui.
-      authStore.user.incongruesUsername = editIncongrues.value.trim() || null
     }
   } catch (e) {
     // Le serveur refuse en 409 un pseudo déjà lié à un autre compte : sans ce
@@ -95,6 +88,87 @@ async function onGoogleCredential(credential: string) {
     googleError.value = apiErrorMessage(e, 'Association impossible.')
   } finally {
     linkingGoogle.value = false
+  }
+}
+
+// Compte Musiques Incongrues : trois états (non lié / en attente de preuve /
+// vérifié). Le pseudo seul ne suffit jamais à synchroniser quoi que ce soit —
+// voir `IncongruesVerificationService` côté serveur, qui exige la preuve
+// avant de faire passer `incongruesVerified` à `true`.
+const incongruesUsernameInput = ref('')
+const incongruesLinking = ref(false)
+const incongruesLinkError = ref('')
+const incongruesVerifying = ref(false)
+const incongruesVerifyReason = ref('')
+const incongruesUnlinking = ref(false)
+const incongruesUnlinkError = ref('')
+
+async function lierIncongrues() {
+  const pseudo = incongruesUsernameInput.value.trim()
+  if (!pseudo) return
+  incongruesLinkError.value = ''
+  incongruesLinking.value = true
+  try {
+    const { data } = await apiClient.post<{ token: string }>('/users/me/incongrues/token', {
+      incongruesUsername: pseudo,
+    })
+    if (authStore.user) {
+      authStore.user.incongruesUsername = pseudo
+      authStore.user.incongruesToken = data.token
+      authStore.user.incongruesVerified = false
+    }
+    // Une nouvelle demande de jeton remplace toute vérification passée : le
+    // dire ici plutôt qu'attendre le prochain essai de vérification.
+    incongruesVerifyReason.value = ''
+  } catch (e) {
+    // Le serveur refuse en 409 un pseudo déjà lié à un autre compte : sans ce
+    // message, l'échec passait inaperçu et le champ semblait enregistré.
+    incongruesLinkError.value = apiErrorMessage(e, 'Association impossible.')
+  } finally {
+    incongruesLinking.value = false
+  }
+}
+
+async function verifierIncongrues() {
+  incongruesVerifying.value = true
+  incongruesVerifyReason.value = ''
+  try {
+    const { data } = await apiClient.post<{ verifie: boolean; raison?: string }>(
+      '/users/me/incongrues/verify',
+    )
+    if (data.verifie) {
+      if (authStore.user) {
+        authStore.user.incongruesVerified = true
+        // Consommé côté serveur : le vider ici aussi, sinon l'écran resterait
+        // bloqué sur l'état "en attente" jusqu'au prochain rechargement.
+        authStore.user.incongruesToken = null
+      }
+    } else {
+      incongruesVerifyReason.value = data.raison ?? 'Jeton pas retrouvé sur le forum.'
+    }
+  } catch (e) {
+    incongruesVerifyReason.value = apiErrorMessage(e, 'Vérification impossible.')
+  } finally {
+    incongruesVerifying.value = false
+  }
+}
+
+async function delierIncongrues() {
+  incongruesUnlinkError.value = ''
+  incongruesUnlinking.value = true
+  try {
+    await apiClient.delete('/users/me/incongrues')
+    if (authStore.user) {
+      authStore.user.incongruesUsername = null
+      authStore.user.incongruesToken = null
+      authStore.user.incongruesVerified = false
+    }
+    incongruesUsernameInput.value = ''
+    incongruesVerifyReason.value = ''
+  } catch (e) {
+    incongruesUnlinkError.value = apiErrorMessage(e, 'Impossible de délier ce compte.')
+  } finally {
+    incongruesUnlinking.value = false
   }
 }
 
@@ -264,17 +338,6 @@ async function submitDelete() {
               {{ editBio.length }}/280
             </span>
           </label>
-          <label class="block">
-            <span
-              class="mb-1 block text-xs font-medium uppercase tracking-wide text-tambouille-muted"
-            >
-              Pseudo Musiques Incongrues
-            </span>
-            <input v-model="editIncongrues" type="text" class="w-full tb-field" />
-            <span class="mt-1 block text-xs text-tambouille-muted">
-              Les mix que vous postez sur musiques-incongrues.net paraîtront ici automatiquement.
-            </span>
-          </label>
           <button type="submit" :disabled="savingProfile" class="tb-btn">Enregistrer</button>
           <p v-if="profileError" class="text-sm text-red-500">{{ profileError }}</p>
         </form>
@@ -403,6 +466,101 @@ async function submitDelete() {
           </svg>
           <span class="text-sm text-tambouille-muted">Ta carte de membre est associée.</span>
         </div>
+      </div>
+    </section>
+
+    <!-- Compte Musiques Incongrues -->
+    <section v-if="authStore.user" class="mb-10">
+      <h2 class="mb-4 text-lg font-semibold">Compte Musiques Incongrues</h2>
+      <div class="rounded-none border border-tambouille-border bg-tambouille-surface p-6">
+        <!-- Non lié -->
+        <template v-if="!authStore.user.incongruesUsername">
+          <p class="mb-4 text-sm text-tambouille-muted">
+            Liez votre pseudo du forum musiques-incongrues.net pour que les mix que vous y postez
+            paraissent ici automatiquement.
+          </p>
+          <form class="flex items-stretch" @submit.prevent="lierIncongrues">
+            <input
+              v-model="incongruesUsernameInput"
+              type="text"
+              placeholder="Votre pseudo sur le forum"
+              class="tb-field min-w-0 flex-1 border-r-0"
+            />
+            <button
+              type="submit"
+              :disabled="incongruesLinking || !incongruesUsernameInput.trim()"
+              class="tb-btn shrink-0"
+            >
+              {{ incongruesLinking ? '…' : 'Lier mon compte' }}
+            </button>
+          </form>
+          <p v-if="incongruesLinkError" class="mt-2 text-sm text-red-500">
+            {{ incongruesLinkError }}
+          </p>
+        </template>
+
+        <!-- En attente de preuve -->
+        <template v-else-if="!authStore.user.incongruesVerified">
+          <p class="mb-3 text-sm text-tambouille-muted">
+            Pour prouver que ce pseudo vous appartient, publiez le jeton ci-dessous dans un message
+            n'importe où sur le forum, puis revenez cliquer sur « J'ai publié le jeton ». Vous
+            pourrez ensuite supprimer ce message : il n'aura plus à rester en ligne une fois la
+            vérification faite.
+          </p>
+          <p
+            class="mb-4 select-all break-all rounded-none border border-tambouille-border bg-tambouille-bg px-3 py-2 font-mono text-sm"
+          >
+            {{ authStore.user.incongruesToken }}
+          </p>
+          <button
+            type="button"
+            :disabled="incongruesVerifying"
+            class="tb-btn"
+            @click="verifierIncongrues"
+          >
+            {{ incongruesVerifying ? 'Vérification…' : "J'ai publié le jeton" }}
+          </button>
+          <p v-if="incongruesVerifyReason" class="mt-2 text-sm text-red-500">
+            {{ incongruesVerifyReason }}
+          </p>
+          <p class="mt-4 border-t border-tambouille-border pt-4">
+            <button
+              type="button"
+              :disabled="incongruesUnlinking"
+              class="text-xs text-tambouille-muted hover:underline"
+              @click="delierIncongrues"
+            >
+              Abandonner et délier ce pseudo
+            </button>
+          </p>
+          <p v-if="incongruesUnlinkError" class="mt-2 text-sm text-red-500">
+            {{ incongruesUnlinkError }}
+          </p>
+        </template>
+
+        <!-- Vérifié -->
+        <template v-else>
+          <div class="flex items-center gap-3">
+            <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0 fill-green-500">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+            </svg>
+            <span class="text-sm text-tambouille-muted">
+              Compte lié et vérifié : <strong>{{ authStore.user.incongruesUsername }}</strong
+              >. Les mix que vous postez sur le forum paraissent ici automatiquement.
+            </span>
+          </div>
+          <button
+            type="button"
+            :disabled="incongruesUnlinking"
+            class="mt-4 text-xs text-tambouille-muted hover:underline"
+            @click="delierIncongrues"
+          >
+            {{ incongruesUnlinking ? '…' : 'Délier ce compte' }}
+          </button>
+          <p v-if="incongruesUnlinkError" class="mt-2 text-sm text-red-500">
+            {{ incongruesUnlinkError }}
+          </p>
+        </template>
       </div>
     </section>
 
