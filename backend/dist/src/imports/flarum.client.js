@@ -91,7 +91,9 @@ let FlarumClient = class FlarumClient {
         return this.lire(`${exports.FORUM_ORIGIN}/api/discussions?${params}`);
     }
     async getDiscussion(id) {
-        const params = versQueryString({ include: 'firstPost,taxonomyTerms' });
+        const params = versQueryString({
+            include: 'firstPost,taxonomyTerms,user',
+        });
         const [discussion] = await this.lire(`${exports.FORUM_ORIGIN}/api/discussions/${encodeURIComponent(id)}?${params}`);
         if (!discussion) {
             throw new common_1.BadGatewayException('Discussion introuvable sur le forum');

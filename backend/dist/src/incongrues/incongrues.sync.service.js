@@ -94,17 +94,27 @@ let IncongruesSyncService = IncongruesSyncService_1 = class IncongruesSyncServic
         this.dernierRattrapage = maintenant;
         return this.syncAll();
     }
+    async estBienDe(discussionId, revendique) {
+        try {
+            const relue = await this.flarum.getDiscussion(discussionId);
+            return relue.authorUsername?.toLowerCase() === revendique;
+        }
+        catch (erreur) {
+            this.logger.warn(`Relecture de la discussion ${discussionId} impossible : ${erreur.message}`);
+            return false;
+        }
+    }
     async faire(userId, incongruesUsername) {
         const discussions = await this.flarum.listByAuthor(incongruesUsername);
         const revendique = incongruesUsername.toLowerCase();
         let crees = 0;
         for (const discussion of discussions) {
-            if (discussion.authorUsername?.toLowerCase() !== revendique) {
-                this.logger.warn(`${discussion.pageUrl} écartée : ouverte par ${discussion.authorUsername ?? 'un auteur inconnu'}, pas par ${incongruesUsername}`);
-                continue;
-            }
             try {
                 if (await this.mixes.findBySource(undefined, discussion.pageUrl)) {
+                    continue;
+                }
+                if (!(await this.estBienDe(discussion.id, revendique))) {
+                    this.logger.warn(`${discussion.pageUrl} écartée : la relecture ne la donne pas à ${incongruesUsername}`);
                     continue;
                 }
                 const mix = await this.importeur.importDiscussion(discussion);

@@ -37,11 +37,17 @@ function discussion(id: string, auteur = 'nota'): FlarumDiscussion {
 }
 
 function harnais(over: { discussions?: FlarumDiscussion[] } = {}) {
+  const listees = over.discussions ?? [discussion('1')];
   const flarum = {
-    listByAuthor: jest
+    listByAuthor: jest.fn().mockResolvedValue(listees),
+    // Par défaut la relecture CONFIRME la liste : c'est le cas normal, et les
+    // tests qui portent sur autre chose n'ont pas à s'en occuper. Ceux qui
+    // testent la contradiction la remplacent explicitement.
+    getDiscussion: jest
       .fn()
-      .mockResolvedValue(over.discussions ?? [discussion('1')]),
-    getDiscussion: jest.fn(),
+      .mockImplementation((id: string) =>
+        Promise.resolve(listees.find((d) => d.id === id) ?? discussion(id)),
+      ),
     listRecentDiscussions: jest.fn().mockResolvedValue([]),
   };
   const importeur = {
@@ -81,6 +87,62 @@ describe('IncongruesSyncService — attribution', () => {
 
     await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(0);
     expect(importeur.importDiscussion).not.toHaveBeenCalled();
+    expect(mixes.createFromImport).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Le cas qui a réellement mordu, et que le premier correctif ne voyait pas.
+   *
+   * Le forum a rendu, dans une réponse à `filter[author]=nota`, quatre
+   * discussions de `mbertier` EN LES ATTRIBUANT à `nota`. Contrôler l'auteur
+   * dans cette réponse-là ne servait à rien : on vérifiait un filtre avec la
+   * réponse de ce filtre. Il faut une source indépendante — la discussion
+   * relue par son identifiant, qui elle est cohérente.
+   */
+  it("n'importe pas quand la relecture par identifiant contredit la liste", async () => {
+    const { sujet, flarum, importeur, mixes } = harnais({
+      // La liste prétend que la discussion est de `nota`…
+      discussions: [discussion('15633', 'nota')],
+    });
+    // …mais la relecture par identifiant dit `mbertier`.
+    flarum.getDiscussion.mockResolvedValue(discussion('15633', 'mbertier'));
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(0);
+    expect(importeur.importDiscussion).not.toHaveBeenCalled();
+    expect(mixes.createFromImport).not.toHaveBeenCalled();
+  });
+
+  it('importe quand la relecture confirme la liste', async () => {
+    const { sujet, flarum, mixes } = harnais({
+      discussions: [discussion('15653', 'nota')],
+    });
+    flarum.getDiscussion.mockResolvedValue(discussion('15653', 'nota'));
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(1);
+    expect(mixes.createFromImport).toHaveBeenCalledTimes(1);
+  });
+
+  // La relecture est payée APRÈS le contrôle de doublon : en régime établi,
+  // rien de nouveau, donc aucune requête supplémentaire.
+  it('ne relit rien pour une discussion déjà importée', async () => {
+    const { sujet, flarum, mixes } = harnais({
+      discussions: [discussion('15653', 'nota')],
+    });
+    mixes.findBySource.mockResolvedValue({ id: 'deja-la' });
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(0);
+    expect(flarum.getDiscussion).not.toHaveBeenCalled();
+  });
+
+  // Une relecture en échec REFUSE : sans confirmation indépendante, on
+  // n'attribue pas le travail de quelqu'un à un autre compte.
+  it("n'importe pas quand la relecture échoue", async () => {
+    const { sujet, flarum, mixes } = harnais({
+      discussions: [discussion('15653', 'nota')],
+    });
+    flarum.getDiscussion.mockRejectedValue(new Error('forum injoignable'));
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(0);
     expect(mixes.createFromImport).not.toHaveBeenCalled();
   });
 
@@ -401,6 +463,10 @@ describe('IncongruesSyncService.syncDepuisSonnerie', () => {
       // contrôle d'attribution, une réponse incohérente n'importe rien, et
       // ce test parle de résilience, pas d'attribution.
       .mockResolvedValueOnce([discussion('3', 'gakona')]);
+    // Elle n'est pas dans les discussions du harnais, donc sa relecture est à
+    // fournir aussi — sinon l'attribution la refuse et le test parlerait
+    // d'autre chose que de ce qu'il annonce.
+    flarum.getDiscussion.mockResolvedValue(discussion('3', 'gakona'));
     const warn = jest
       .spyOn(sujet['logger'], 'warn')
       .mockImplementation(() => undefined);

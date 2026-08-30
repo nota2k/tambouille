@@ -18,5 +18,6 @@ export declare class IncongruesSyncService {
     syncAll(): Promise<number>;
     syncDepuisSonnerie(): Promise<number>;
     syncAllRattrapageHoraire(): Promise<number>;
+    private estBienDe;
     private faire;
 }
