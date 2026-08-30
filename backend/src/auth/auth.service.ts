@@ -113,6 +113,8 @@ export class AuthService {
     googleId: string | null;
     keycloakId: string | null;
     incongruesUsername: string | null;
+    incongruesToken: string | null;
+    incongruesVerifiedAt: Date | null;
   }) {
     return {
       id: user.id,
@@ -128,6 +130,15 @@ export class AuthService {
       // chemin-là est aussi ce que voient les autres visiteurs du profil : ce
       // paquet-ci ne part jamais que vers le titulaire de la session.
       incongruesUsername: user.incongruesUsername,
+      // Le jeton en attente, pour que le profil puisse l'afficher à recopier
+      // sur le forum sans un second aller-retour. Servi ici et non par
+      // `UsersService.getPublicProfile` pour la même raison que le pseudo :
+      // ce paquet-ci ne part jamais que vers le titulaire de la session.
+      incongruesToken: user.incongruesToken,
+      // Distinct de la simple présence d'un pseudo : c'est cette valeur, et
+      // elle seule, qui dit si la synchronisation publie déjà les mix du
+      // titulaire (voir `IncongruesSyncService.syncAll`).
+      incongruesVerified: user.incongruesVerifiedAt !== null,
       // Whether a Google identity is attached — never the identity itself.
       // `googleId` is Google's `sub`, the key this account is found by in
       // `loginWithGoogle`; publishing it would hand anyone reading a profile

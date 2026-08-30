@@ -140,22 +140,26 @@ o2switch ne conservent pas les chemins complets des requêtes `POST` — sinon i
 y est lisible par quiconque y accède, et doit être tourné après toute
 consultation partagée.
 
-`INCONGRUES_ALLOWED_USERNAMES` est de la même famille, et de la même prudence :
-c'est la liste des pseudos du forum qu'un compte Tambouille a le droit de
-revendiquer, séparés par des virgules, comparés sans tenir compte de la casse ni
-des espaces autour. L'inscription est ouverte : sans cette liste, quelqu'un
-saisirait le pseudo d'un membre prolifique du forum et ferait paraître ses mix
-sous son propre compte. Absente ou vide, elle n'autorise aucun pseudo — la
-liaison est fermée sur cette instance, ce n'est pas une panne. Se délier, en
-vidant le champ, reste possible en toutes circonstances.
+La liaison d'un pseudo forum ne repose sur aucune variable d'environnement :
+l'inscription au forum est ouverte, donc la simple saisie d'un pseudo ne prouve
+rien — n'importe qui pourrait saisir celui d'un membre prolifique et faire
+paraître ses mix sous son propre compte. `IncongruesVerificationService` exige
+donc une preuve de possession avant d'autoriser la synchronisation :
 
-Elle est consultée à deux endroits, et c'est ce qui lui permet de **reprendre**
-un droit et pas seulement d'en accorder : à la saisie du pseudo, qui refuse une
-revendication, et à chaque passage de synchronisation, qui cesse de publier
-pour un pseudo que la liste ne couvre plus. Retirer un pseudo suffit donc à
-arrêter sa synchronisation, sans avoir à toucher la base — le compte garde son
-lien, il n'est simplement plus servi, et le journal le dit en `warn` à chaque
-passage.
+1. Le membre saisit son pseudo forum (`POST /users/me/incongrues/token`) ;
+   Tambouille enregistre le lien comme non vérifié et rend un jeton court, du
+   genre `tambouille-7f3a9c`.
+2. Le membre publie ce jeton dans un message n'importe où sur le forum, puis
+   revient cliquer sur « vérifier » (`POST /users/me/incongrues/verify`).
+3. Tambouille relit les messages récents de ce pseudo par l'API publique de
+   Flarum, y cherche le jeton, et ne marque le lien vérifié qu'en le trouvant.
+   Le message peut alors être supprimé : seule la vérification compte, pas sa
+   trace.
+
+Le jeton expire au bout de 24 h — passé ce délai, une vérification en attente
+échoue et le membre doit en redemander un. Seuls les liens vérifiés sont
+synchronisés ; `DELETE /users/me/incongrues` délie et remet tout à zéro, à
+tout moment, vérifié ou non.
 
 ## Les fournées, côté backend
 
@@ -248,5 +252,3 @@ binaire de la plateforme au déploiement, comme pour toute autre dépendance.
 - Tout ce qui touche à cPanel : l'enregistrement du dépôt, le jeton, le pare-feu.
 - Générer `INCONGRUES_WEBHOOK_SECRET` et déclarer le webhook côté Flarum, voir
   la section Secrets.
-- Renseigner `INCONGRUES_ALLOWED_USERNAMES` pour chaque pseudo du forum autorisé
-  à être lié, voir la section Secrets.

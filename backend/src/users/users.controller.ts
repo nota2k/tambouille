@@ -20,6 +20,8 @@ import { PlaylistsService } from '../playlists/playlists.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PaginationDto } from './dto/pagination.dto';
 import { SearchUsersDto } from './dto/search-users.dto';
+import { IncongruesVerificationService } from '../incongrues/incongrues.verification.service';
+import { DemandeJetonDto } from '../incongrues/dto/demande-jeton.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import {
@@ -38,6 +40,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly playlistsService: PlaylistsService,
+    private readonly verification: IncongruesVerificationService,
   ) {}
 
   @Get('search')
@@ -109,6 +112,31 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteAccount(@CurrentUserId() userId: string) {
     return this.usersService.deleteAccount(userId);
+  }
+
+  // La saisie du pseudo Musiques Incongrues ne passe plus par `PATCH /users/me` :
+  // c'est cette route, et elle seule, qui remet `incongruesVerifiedAt` à `null`
+  // (voir `IncongruesVerificationService.demanderJeton`).
+  @Post('me/incongrues/token')
+  @UseGuards(JwtAuthGuard)
+  demanderJeton(@CurrentUserId() userId: string, @Body() dto: DemandeJetonDto) {
+    return this.verification.demanderJeton(userId, dto.incongruesUsername);
+  }
+
+  @Post('me/incongrues/verify')
+  @UseGuards(JwtAuthGuard)
+  verifier(@CurrentUserId() userId: string) {
+    return this.verification.verifier(userId);
+  }
+
+  // Le seul chemin pour vider le lien : sans lui, un membre resterait
+  // prisonnier d'un pseudo mal saisi ou d'une vérification qu'il ne veut plus
+  // maintenir, faute d'y toucher via `updateProfile`.
+  @Delete('me/incongrues')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  delierIncongrues(@CurrentUserId() userId: string) {
+    return this.verification.delier(userId);
   }
 
   @Post('me/avatar')

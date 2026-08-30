@@ -66,7 +66,7 @@ function createServiceMock() {
  */
 function createIncongruesMock() {
   return {
-    syncAllDebounced: jest.fn().mockResolvedValue(0),
+    syncDepuisSonnerie: jest.fn().mockResolvedValue(0),
     syncAllRattrapageHoraire: jest.fn().mockResolvedValue(0),
   };
 }
@@ -270,11 +270,11 @@ describe('MixesController', () => {
     });
 
     // La route publique la plus visitée du site : elle prend le seuil horaire,
-    // pas l'anti-rebond à la minute du webhook.
+    // pas la sonnerie ciblée du webhook.
     it('prend le seuil horaire, jamais celui du webhook', async () => {
       await controller.findAll(QUERY_PAR_DEFAUT, undefined);
 
-      expect(incongrues.syncAllDebounced).not.toHaveBeenCalled();
+      expect(incongrues.syncDepuisSonnerie).not.toHaveBeenCalled();
     });
 
     // Le fil doit s'afficher même si le forum est injoignable : c'est tout

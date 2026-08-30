@@ -4,7 +4,6 @@ import { MusiquesIncongruesImporter } from '../imports/musiques-incongrues.impor
 import { MixesService } from '../mixes/mixes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CACHE_TTL_MS } from '../veille/veille.types';
-import { pseudoAutorise } from './allowed-usernames';
 
 /** La route est publique et déclenche des appels sortants. Une sonnerie de
  *  plus dans la minute ne peut rien apporter que la précédente n'ait déjà vu. */
@@ -31,8 +30,8 @@ export class IncongruesSyncService {
 
   // Deux horodatages distincts : partagés, le rattrapage horaire absorberait
   // la sonnerie du webhook, qui est justement ce qui doit passer devant.
-  private dernierPassage = 0;
   private dernierRattrapage = 0;
+  private dernierPassageSonnerie = 0;
 
   constructor(
     private readonly flarum: FlarumClient,
@@ -56,28 +55,16 @@ export class IncongruesSyncService {
   }
 
   async syncAll(): Promise<number> {
+    // Seule la preuve de possession (Task 1) ouvre la synchronisation : la
+    // simple saisie d'un pseudo ne suffit plus, sans quoi n'importe quel
+    // compte pourrait faire paraître les mix d'un membre prolifique sous lui.
     const lies = await this.prisma.user.findMany({
-      where: { incongruesUsername: { not: null } },
+      where: { incongruesVerifiedAt: { not: null } },
       select: { id: true, incongruesUsername: true },
     });
 
     let crees = 0;
     for (const user of lies) {
-      // La garde posée à la saisie du pseudo empêche une NOUVELLE revendication ;
-      // elle ne dit rien des liens déjà en base. Sans ce second contrôle,
-      // retirer un pseudo de la liste ne retirerait rien — le compte
-      // continuerait d'être servi à chaque passage, et la liste ne saurait
-      // qu'ajouter des droits, jamais en reprendre.
-      if (!pseudoAutorise(user.incongruesUsername!)) {
-        // `warn` et non `debug` : un lien devenu hors liste est une anomalie de
-        // configuration qu'on veut voir passer, pas un rejet de routine comme
-        // un post sans lecteur exploitable.
-        this.logger.warn(
-          `Compte ${user.incongruesUsername!} ignoré : absent de INCONGRUES_ALLOWED_USERNAMES`,
-        );
-        continue;
-      }
-
       // Chaque compte dans son propre `try` : `listByAuthor` est HORS du `try`
       // de `faire`, donc un forum injoignable ou un pseudo inexistant sortirait
       // de la boucle, et le webhook rendrait 502 au lieu de son compte de mix.
@@ -92,11 +79,49 @@ export class IncongruesSyncService {
     return crees;
   }
 
-  async syncAllDebounced(): Promise<number> {
+  /**
+   * La sonnerie du webhook : une seule lecture du forum, quel que soit le
+   * nombre de comptes liés, au lieu d'une requête `listByAuthor` par compte
+   * (Task 3). On lit les discussions récentes une fois, puis on ne
+   * synchronise que les comptes vérifiés dont le pseudo apparaît parmi leurs
+   * auteurs.
+   */
+  async syncDepuisSonnerie(): Promise<number> {
+    // La route est publique et déclenche des appels sortants. Une sonnerie de
+    // plus dans la minute ne peut rien apporter que la précédente n'ait déjà vu.
     const maintenant = Date.now();
-    if (maintenant - this.dernierPassage < DEBOUNCE_MS) return 0;
-    this.dernierPassage = maintenant;
-    return this.syncAll();
+    if (maintenant - this.dernierPassageSonnerie < DEBOUNCE_MS) return 0;
+    this.dernierPassageSonnerie = maintenant;
+
+    const discussions = await this.flarum.listRecentDiscussions();
+    if (discussions.length === 0) return 0;
+
+    const lies = await this.prisma.user.findMany({
+      where: { incongruesVerifiedAt: { not: null } },
+      select: { id: true, incongruesUsername: true },
+    });
+
+    let crees = 0;
+    for (const user of lies) {
+      // Comparaison insensible à la casse : le forum peut rendre « Nota »
+      // quand la base porte « nota ». C'est la valeur de la BASE qu'on passe
+      // à `syncUser` ensuite — c'est elle que le reste du dispositif connaît.
+      const aPoste = discussions.some(
+        (d) =>
+          d.authorUsername?.toLowerCase() ===
+          user.incongruesUsername!.toLowerCase(),
+      );
+      if (!aPoste) continue;
+
+      try {
+        crees += await this.syncUser(user.id, user.incongruesUsername!);
+      } catch (erreur) {
+        this.logger.warn(
+          `Compte ${user.incongruesUsername!} en échec : ${(erreur as Error).message}`,
+        );
+      }
+    }
+    return crees;
   }
 
   /** Le filet de rattrapage, à l'heure : ce que le webhook a pu perdre pendant

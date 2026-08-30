@@ -142,6 +142,20 @@ export interface AuthUser {
    * de la session.
    */
   incongruesUsername: string | null
+  /**
+   * Le jeton en attente de vérification, à recopier dans un message du
+   * forum. Absent (`undefined`) tant qu'aucune demande n'a été faite ; remis
+   * à `null` par le serveur une fois la preuve trouvée, pour qu'un jeton
+   * déjà consommé ne reste pas affiché comme s'il attendait toujours d'être
+   * publié.
+   */
+  incongruesToken?: string | null
+  /**
+   * Distinct de la simple présence d'un pseudo : seule cette valeur dit si
+   * la preuve de possession a été apportée, et donc si la synchronisation
+   * publie déjà les mix du titulaire.
+   */
+  incongruesVerified?: boolean
 }
 
 export interface AuthResponse {
