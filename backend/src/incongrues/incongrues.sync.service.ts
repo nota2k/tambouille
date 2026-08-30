@@ -28,10 +28,13 @@ export class IncongruesSyncService {
    *  `findBySource` reste la vraie garantie. */
   private readonly enCours = new Map<string, Promise<number>>();
 
-  // Deux horodatages distincts : partagés, le rattrapage horaire absorberait
+  // Trois horodatages distincts : partagés, le rattrapage horaire absorberait
   // la sonnerie du webhook, qui est justement ce qui doit passer devant.
+  // `dernierPassage` reste à `syncAllDebounced`, que plus rien n'appelle en
+  // production mais que les tests continuent d'exercer isolément.
   private dernierPassage = 0;
   private dernierRattrapage = 0;
+  private dernierePassageSonnerie = 0;
 
   constructor(
     private readonly flarum: FlarumClient,
@@ -68,6 +71,51 @@ export class IncongruesSyncService {
       // Chaque compte dans son propre `try` : `listByAuthor` est HORS du `try`
       // de `faire`, donc un forum injoignable ou un pseudo inexistant sortirait
       // de la boucle, et le webhook rendrait 502 au lieu de son compte de mix.
+      try {
+        crees += await this.syncUser(user.id, user.incongruesUsername!);
+      } catch (erreur) {
+        this.logger.warn(
+          `Compte ${user.incongruesUsername!} en échec : ${(erreur as Error).message}`,
+        );
+      }
+    }
+    return crees;
+  }
+
+  /**
+   * La sonnerie du webhook : une seule lecture du forum, quel que soit le
+   * nombre de comptes liés, au lieu d'une requête `listByAuthor` par compte
+   * (Task 3). On lit les discussions récentes une fois, puis on ne
+   * synchronise que les comptes vérifiés dont le pseudo apparaît parmi leurs
+   * auteurs.
+   */
+  async syncDepuisSonnerie(): Promise<number> {
+    // Même anti-rebond que l'ancienne route : c'est la même sonnette
+    // publique, rien de ce que la minute écoulée n'a déjà vu ne peut changer.
+    const maintenant = Date.now();
+    if (maintenant - this.dernierePassageSonnerie < DEBOUNCE_MS) return 0;
+    this.dernierePassageSonnerie = maintenant;
+
+    const discussions = await this.flarum.listRecentDiscussions();
+    if (discussions.length === 0) return 0;
+
+    const lies = await this.prisma.user.findMany({
+      where: { incongruesVerifiedAt: { not: null } },
+      select: { id: true, incongruesUsername: true },
+    });
+
+    let crees = 0;
+    for (const user of lies) {
+      // Comparaison insensible à la casse : le forum peut rendre « Nota »
+      // quand la base porte « nota ». C'est la valeur de la BASE qu'on passe
+      // à `syncUser` ensuite — c'est elle que le reste du dispositif connaît.
+      const aPoste = discussions.some(
+        (d) =>
+          d.authorUsername?.toLowerCase() ===
+          user.incongruesUsername!.toLowerCase(),
+      );
+      if (!aPoste) continue;
+
       try {
         crees += await this.syncUser(user.id, user.incongruesUsername!);
       } catch (erreur) {

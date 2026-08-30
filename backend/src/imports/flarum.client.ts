@@ -20,6 +20,10 @@ export interface FlarumDiscussion {
    *  bruts : l'appelant les verse dans les tags, où un nom d'émission et un nom
    *  de personne ont la même valeur. */
   termNames: string[];
+  /** Absent des réponses qui n'incluent pas la relation `user` (`listByAuthor`,
+   *  `getDiscussion`) — seule `listRecentDiscussions` la demande, pour croiser
+   *  l'auteur avec les comptes vérifiés sans requête supplémentaire. */
+  authorUsername?: string;
 }
 
 function versQueryString(params: Record<string, string>): string {
@@ -98,6 +102,24 @@ export class FlarumClient {
     }));
   }
 
+  /**
+   * Les discussions les plus récentes du forum, toutes tous auteurs
+   * confondus — la sonnerie du webhook s'en sert pour ne lire le forum
+   * qu'une fois, quel que soit le nombre de comptes liés, puis croise
+   * `authorUsername` avec ses comptes vérifiés côté appelant.
+   *
+   * `limit` par défaut à 10 : la sonnerie se déclenche à chaque post, il n'y
+   * a donc jamais besoin de remonter plus loin que ce qui vient de paraître.
+   */
+  async listRecentDiscussions(limit = 10): Promise<FlarumDiscussion[]> {
+    const params = versQueryString({
+      sort: '-createdAt',
+      'page[limit]': String(limit),
+      include: 'firstPost,user',
+    });
+    return this.lire(`${FORUM_ORIGIN}/api/discussions?${params}`);
+  }
+
   async getDiscussion(id: string): Promise<FlarumDiscussion> {
     const params = versQueryString({ include: 'firstPost,taxonomyTerms' });
     const [discussion] = await this.lire(
@@ -153,6 +175,13 @@ export class FlarumClient {
       id: string;
     }[];
 
+    // Absent quand la réponse n'inclut pas la relation `user` (`listByAuthor`,
+    // `getDiscussion`) : seule `listRecentDiscussions` la demande.
+    const auteurId = (
+      brute.relationships?.user?.data as { id: string } | undefined
+    )?.id;
+    const auteur = auteurId ? inclus.get(`users:${auteurId}`) : undefined;
+
     return {
       id: brute.id,
       title: String(attrs.title ?? ''),
@@ -165,6 +194,9 @@ export class FlarumClient {
         .map((t) => inclus.get(`flamarkt-taxonomy-terms:${t.id}`))
         .map((r) => String(r?.attributes?.name ?? ''))
         .filter(Boolean),
+      authorUsername: auteur
+        ? String(auteur.attributes?.username ?? '')
+        : undefined,
     };
   }
 }

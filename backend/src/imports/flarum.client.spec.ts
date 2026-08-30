@@ -162,6 +162,88 @@ describe('FlarumClient.getDiscussion', () => {
   });
 });
 
+describe('FlarumClient.listRecentDiscussions', () => {
+  beforeEach(() => mockSafeFetch.mockReset());
+
+  function reponds(document: unknown) {
+    mockSafeFetch.mockResolvedValue({
+      url: new URL('https://www.musiques-incongrues.net/api/discussions'),
+      contentType: 'application/json',
+      body: Buffer.from(JSON.stringify(document)),
+    });
+  }
+
+  it('trie par date décroissante et limite à 10 par défaut', async () => {
+    reponds({ data: [] });
+    await new FlarumClient().listRecentDiscussions();
+
+    const [url] = mockSafeFetch.mock.calls[0];
+    expect(url).toContain('sort=-createdAt');
+    expect(url).toContain('page%5Blimit%5D=10');
+    expect(url).toContain('include=firstPost%2Cuser');
+  });
+
+  it('respecte une limite explicite', async () => {
+    reponds({ data: [] });
+    await new FlarumClient().listRecentDiscussions(3);
+
+    const [url] = mockSafeFetch.mock.calls[0];
+    expect(url).toContain('page%5Blimit%5D=3');
+  });
+
+  it("rattache le pseudo de l'auteur depuis la relation `user` incluse", async () => {
+    reponds({
+      data: [
+        {
+          type: 'discussions',
+          id: '1',
+          attributes: {
+            title: 'Un titre',
+            createdAt: '2026-08-30T00:00:00Z',
+            slug: '1-un-titre',
+          },
+          relationships: {
+            firstPost: { data: { id: '9' } },
+            user: { data: { id: '5' } },
+          },
+        },
+      ],
+      included: [
+        { type: 'posts', id: '9', attributes: { contentHtml: '<p>x</p>' } },
+        { type: 'users', id: '5', attributes: { username: 'Nota' } },
+      ],
+    });
+
+    const [discussion] = await new FlarumClient().listRecentDiscussions();
+
+    expect(discussion.authorUsername).toBe('Nota');
+  });
+
+  it("laisse authorUsername absent quand la relation `user` n'est pas incluse", async () => {
+    reponds({
+      data: [
+        {
+          type: 'discussions',
+          id: '1',
+          attributes: {
+            title: 'Un titre',
+            createdAt: '2026-08-30T00:00:00Z',
+            slug: '1-un-titre',
+          },
+          relationships: { firstPost: { data: { id: '9' } } },
+        },
+      ],
+      included: [
+        { type: 'posts', id: '9', attributes: { contentHtml: '<p>x</p>' } },
+      ],
+    });
+
+    const [discussion] = await new FlarumClient().listRecentDiscussions();
+
+    expect(discussion.authorUsername).toBeUndefined();
+  });
+});
+
 describe('FlarumClient.listPostsByAuthor', () => {
   beforeEach(() => mockSafeFetch.mockReset());
 

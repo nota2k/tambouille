@@ -41,6 +41,7 @@ function harnais(over: { discussions?: FlarumDiscussion[] } = {}) {
       .fn()
       .mockResolvedValue(over.discussions ?? [discussion('1')]),
     getDiscussion: jest.fn(),
+    listRecentDiscussions: jest.fn().mockResolvedValue([]),
   };
   const importeur = {
     importItem: jest.fn(),
@@ -264,6 +265,88 @@ describe('IncongruesSyncService.syncAllRattrapageHoraire', () => {
     await sujet.syncAllDebounced();
 
     expect(prisma.user.findMany).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('IncongruesSyncService.syncDepuisSonnerie', () => {
+  it('ne lit QU’UNE fois le forum, quel que soit le nombre de comptes liés', async () => {
+    const { sujet, flarum, prisma } = harnais();
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'u1', incongruesUsername: 'nota' },
+      { id: 'u2', incongruesUsername: 'gakona' },
+      { id: 'u3', incongruesUsername: 'autre' },
+    ]);
+    flarum.listRecentDiscussions.mockResolvedValue([]);
+
+    await sujet.syncDepuisSonnerie();
+
+    expect(flarum.listRecentDiscussions).toHaveBeenCalledTimes(1);
+    expect(flarum.listByAuthor).not.toHaveBeenCalled();
+  });
+
+  it('ne synchronise que les auteurs vérifiés parmi les discussions récentes', async () => {
+    const { sujet, flarum, prisma } = harnais();
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'u1', incongruesUsername: 'nota' },
+      { id: 'u2', incongruesUsername: 'gakona' },
+    ]);
+    flarum.listRecentDiscussions.mockResolvedValue([
+      { ...discussion('1'), authorUsername: 'gakona' },
+      { ...discussion('2'), authorUsername: 'inconnu' },
+    ]);
+
+    await sujet.syncDepuisSonnerie();
+
+    expect(flarum.listByAuthor).toHaveBeenCalledTimes(1);
+    expect(flarum.listByAuthor).toHaveBeenCalledWith('gakona');
+  });
+
+  it('ignore la casse du pseudo entre le forum et la base', async () => {
+    const { sujet, flarum, prisma } = harnais();
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'u1', incongruesUsername: 'Nota' },
+    ]);
+    flarum.listRecentDiscussions.mockResolvedValue([
+      { ...discussion('1'), authorUsername: 'nota' },
+    ]);
+
+    await sujet.syncDepuisSonnerie();
+    expect(flarum.listByAuthor).toHaveBeenCalledWith('Nota');
+  });
+
+  // Même sonnette publique que l'ancienne route : une sonnerie de plus dans
+  // la minute ne peut rien apporter que la précédente n'ait déjà vu.
+  it('ne relance rien moins d’une minute après le passage précédent', async () => {
+    const { sujet, flarum } = harnais();
+
+    await sujet.syncDepuisSonnerie();
+    await sujet.syncDepuisSonnerie();
+
+    expect(flarum.listRecentDiscussions).toHaveBeenCalledTimes(1);
+  });
+
+  // Un forum injoignable sur le premier compte concerné ne doit pas priver
+  // les autres comptes trouvés dans les mêmes discussions récentes.
+  it('poursuit les comptes suivants quand la synchronisation de l’un lève', async () => {
+    const { sujet, flarum, prisma, mixes } = harnais();
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'u1', incongruesUsername: 'nota' },
+      { id: 'u2', incongruesUsername: 'gakona' },
+    ]);
+    flarum.listRecentDiscussions.mockResolvedValue([
+      { ...discussion('1'), authorUsername: 'nota' },
+      { ...discussion('2'), authorUsername: 'gakona' },
+    ]);
+    flarum.listByAuthor
+      .mockRejectedValueOnce(new Error('forum injoignable'))
+      .mockResolvedValueOnce([discussion('3')]);
+    const warn = jest
+      .spyOn(sujet['logger'], 'warn')
+      .mockImplementation(() => undefined);
+
+    await expect(sujet.syncDepuisSonnerie()).resolves.toBe(1);
+    expect(mixes.createFromImport).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalled();
   });
 });
 

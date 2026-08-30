@@ -12,7 +12,7 @@ import { NotFoundException } from '@nestjs/common';
 import { IncongruesWebhookController } from './incongrues.webhook.controller';
 
 function harnais(secret?: string) {
-  const sync = { syncAllDebounced: jest.fn().mockResolvedValue(2) };
+  const sync = { syncDepuisSonnerie: jest.fn().mockResolvedValue(2) };
   const precedent = process.env.INCONGRUES_WEBHOOK_SECRET;
   if (secret === undefined) delete process.env.INCONGRUES_WEBHOOK_SECRET;
   else process.env.INCONGRUES_WEBHOOK_SECRET = secret;
@@ -32,7 +32,7 @@ describe('IncongruesWebhookController', () => {
     const { controleur, sync, restaurer } = harnais('s3cr3t');
     try {
       await expect(controleur.sonner('s3cr3t')).resolves.toEqual({ crees: 2 });
-      expect(sync.syncAllDebounced).toHaveBeenCalledTimes(1);
+      expect(sync.syncDepuisSonnerie).toHaveBeenCalledTimes(1);
     } finally {
       restaurer();
     }
@@ -45,7 +45,7 @@ describe('IncongruesWebhookController', () => {
       await expect(controleur.sonner('faux')).rejects.toThrow(
         NotFoundException,
       );
-      expect(sync.syncAllDebounced).not.toHaveBeenCalled();
+      expect(sync.syncDepuisSonnerie).not.toHaveBeenCalled();
     } finally {
       restaurer();
     }
@@ -58,7 +58,7 @@ describe('IncongruesWebhookController', () => {
       await expect(controleur.sonner('nimporte')).rejects.toThrow(
         NotFoundException,
       );
-      expect(sync.syncAllDebounced).not.toHaveBeenCalled();
+      expect(sync.syncDepuisSonnerie).not.toHaveBeenCalled();
     } finally {
       restaurer();
     }

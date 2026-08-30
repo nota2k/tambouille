@@ -34,6 +34,6 @@ export class IncongruesWebhookController {
     if (!attendu || !memeSecret(secret, attendu)) {
       throw new NotFoundException();
     }
-    return { crees: await this.sync.syncAllDebounced() };
+    return { crees: await this.sync.syncDepuisSonnerie() };
   }
 }
