@@ -90,8 +90,16 @@ if [ -n "$manquantes" ]; then
   echo "" >&2
   echo "  Prisma 7 ne tient pas dans la limite mémoire des processus cPanel." >&2
   echo "  À lancer en SSH, où elle fonctionne :" >&2
-  echo "    cd ~/tambouille/backend && source ~/nodevenv/tambouille/backend/22/bin/activate \\" >&2
-  echo "      && npx --yes prisma@7 migrate deploy" >&2
+  echo "    cd $SOURCE/backend \\" >&2
+  echo "      && source $NODEVENV \\" >&2
+  echo "      && DATABASE_URL=\"\$(grep -E '^DATABASE_URL=' $BACKEND/.env | cut -d= -f2- | tr -d \"\\\"'\")\" \\" >&2
+  echo "         npx --yes prisma@7 migrate deploy" >&2
+  echo "" >&2
+  echo "  Depuis le DÉPÔT et non depuis le répertoire servi : le contrôle" >&2
+  echo "  ci-dessus s'exécute AVANT la recopie, donc $BACKEND/prisma" >&2
+  echo "  porte encore l'ancien jeu de migrations et Prisma n'y verrait rien à" >&2
+  echo "  appliquer. Et comme le dépôt n'a pas de .env, l'adresse de la base est" >&2
+  echo "  reprise de celui du répertoire servi." >&2
   echo "" >&2
   echo "  Si une reprise de données doit s'intercaler — une colonne à remplir" >&2
   echo "  avant qu'un NOT NULL ne la ferme — son script est déjà construit dans" >&2
