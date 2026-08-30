@@ -32,6 +32,9 @@ export type UserMinAggregateOutputType = {
   googleId: string | null
   keycloakId: string | null
   incongruesUsername: string | null
+  incongruesToken: string | null
+  incongruesTokenAt: Date | null
+  incongruesVerifiedAt: Date | null
   displayName: string | null
   bio: string | null
   avatarUrl: string | null
@@ -48,6 +51,9 @@ export type UserMaxAggregateOutputType = {
   googleId: string | null
   keycloakId: string | null
   incongruesUsername: string | null
+  incongruesToken: string | null
+  incongruesTokenAt: Date | null
+  incongruesVerifiedAt: Date | null
   displayName: string | null
   bio: string | null
   avatarUrl: string | null
@@ -64,6 +70,9 @@ export type UserCountAggregateOutputType = {
   googleId: number
   keycloakId: number
   incongruesUsername: number
+  incongruesToken: number
+  incongruesTokenAt: number
+  incongruesVerifiedAt: number
   displayName: number
   bio: number
   avatarUrl: number
@@ -82,6 +91,9 @@ export type UserMinAggregateInputType = {
   googleId?: true
   keycloakId?: true
   incongruesUsername?: true
+  incongruesToken?: true
+  incongruesTokenAt?: true
+  incongruesVerifiedAt?: true
   displayName?: true
   bio?: true
   avatarUrl?: true
@@ -98,6 +110,9 @@ export type UserMaxAggregateInputType = {
   googleId?: true
   keycloakId?: true
   incongruesUsername?: true
+  incongruesToken?: true
+  incongruesTokenAt?: true
+  incongruesVerifiedAt?: true
   displayName?: true
   bio?: true
   avatarUrl?: true
@@ -114,6 +129,9 @@ export type UserCountAggregateInputType = {
   googleId?: true
   keycloakId?: true
   incongruesUsername?: true
+  incongruesToken?: true
+  incongruesTokenAt?: true
+  incongruesVerifiedAt?: true
   displayName?: true
   bio?: true
   avatarUrl?: true
@@ -203,6 +221,9 @@ export type UserGroupByOutputType = {
   googleId: string | null
   keycloakId: string | null
   incongruesUsername: string | null
+  incongruesToken: string | null
+  incongruesTokenAt: Date | null
+  incongruesVerifiedAt: Date | null
   displayName: string
   bio: string | null
   avatarUrl: string | null
@@ -240,6 +261,9 @@ export type UserWhereInput = {
   googleId?: Prisma.StringNullableFilter<"User"> | string | null
   keycloakId?: Prisma.StringNullableFilter<"User"> | string | null
   incongruesUsername?: Prisma.StringNullableFilter<"User"> | string | null
+  incongruesToken?: Prisma.StringNullableFilter<"User"> | string | null
+  incongruesTokenAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  incongruesVerifiedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   displayName?: Prisma.StringFilter<"User"> | string
   bio?: Prisma.StringNullableFilter<"User"> | string | null
   avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
@@ -265,6 +289,9 @@ export type UserOrderByWithRelationInput = {
   googleId?: Prisma.SortOrderInput | Prisma.SortOrder
   keycloakId?: Prisma.SortOrderInput | Prisma.SortOrder
   incongruesUsername?: Prisma.SortOrderInput | Prisma.SortOrder
+  incongruesToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  incongruesTokenAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  incongruesVerifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   displayName?: Prisma.SortOrder
   bio?: Prisma.SortOrderInput | Prisma.SortOrder
   avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -293,6 +320,9 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   password?: Prisma.StringNullableFilter<"User"> | string | null
+  incongruesToken?: Prisma.StringNullableFilter<"User"> | string | null
+  incongruesTokenAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  incongruesVerifiedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   displayName?: Prisma.StringFilter<"User"> | string
   bio?: Prisma.StringNullableFilter<"User"> | string | null
   avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
@@ -318,6 +348,9 @@ export type UserOrderByWithAggregationInput = {
   googleId?: Prisma.SortOrderInput | Prisma.SortOrder
   keycloakId?: Prisma.SortOrderInput | Prisma.SortOrder
   incongruesUsername?: Prisma.SortOrderInput | Prisma.SortOrder
+  incongruesToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  incongruesTokenAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  incongruesVerifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   displayName?: Prisma.SortOrder
   bio?: Prisma.SortOrderInput | Prisma.SortOrder
   avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -340,6 +373,9 @@ export type UserScalarWhereWithAggregatesInput = {
   googleId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   keycloakId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   incongruesUsername?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  incongruesToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  incongruesTokenAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  incongruesVerifiedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   displayName?: Prisma.StringWithAggregatesFilter<"User"> | string
   bio?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   avatarUrl?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
@@ -356,6 +392,9 @@ export type UserCreateInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -381,6 +420,9 @@ export type UserUncheckedCreateInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -406,6 +448,9 @@ export type UserUpdateInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -431,6 +476,9 @@ export type UserUncheckedUpdateInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -456,6 +504,9 @@ export type UserCreateManyInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -472,6 +523,9 @@ export type UserUpdateManyMutationInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -488,6 +542,9 @@ export type UserUncheckedUpdateManyInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -504,6 +561,9 @@ export type UserCountOrderByAggregateInput = {
   googleId?: Prisma.SortOrder
   keycloakId?: Prisma.SortOrder
   incongruesUsername?: Prisma.SortOrder
+  incongruesToken?: Prisma.SortOrder
+  incongruesTokenAt?: Prisma.SortOrder
+  incongruesVerifiedAt?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   bio?: Prisma.SortOrder
   avatarUrl?: Prisma.SortOrder
@@ -520,6 +580,9 @@ export type UserMaxOrderByAggregateInput = {
   googleId?: Prisma.SortOrder
   keycloakId?: Prisma.SortOrder
   incongruesUsername?: Prisma.SortOrder
+  incongruesToken?: Prisma.SortOrder
+  incongruesTokenAt?: Prisma.SortOrder
+  incongruesVerifiedAt?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   bio?: Prisma.SortOrder
   avatarUrl?: Prisma.SortOrder
@@ -536,6 +599,9 @@ export type UserMinOrderByAggregateInput = {
   googleId?: Prisma.SortOrder
   keycloakId?: Prisma.SortOrder
   incongruesUsername?: Prisma.SortOrder
+  incongruesToken?: Prisma.SortOrder
+  incongruesTokenAt?: Prisma.SortOrder
+  incongruesVerifiedAt?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   bio?: Prisma.SortOrder
   avatarUrl?: Prisma.SortOrder
@@ -555,6 +621,10 @@ export type StringFieldUpdateOperationsInput = {
 
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
+}
+
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
 }
 
 export type DateTimeFieldUpdateOperationsInput = {
@@ -695,6 +765,9 @@ export type UserCreateWithoutPasswordResetTokensInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -719,6 +792,9 @@ export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -759,6 +835,9 @@ export type UserUpdateWithoutPasswordResetTokensInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -783,6 +862,9 @@ export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -807,6 +889,9 @@ export type UserCreateWithoutMixesInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -831,6 +916,9 @@ export type UserUncheckedCreateWithoutMixesInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -871,6 +959,9 @@ export type UserUpdateWithoutMixesInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -895,6 +986,9 @@ export type UserUncheckedUpdateWithoutMixesInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -919,6 +1013,9 @@ export type UserCreateWithoutPlaylistsInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -943,6 +1040,9 @@ export type UserUncheckedCreateWithoutPlaylistsInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -983,6 +1083,9 @@ export type UserUpdateWithoutPlaylistsInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1007,6 +1110,9 @@ export type UserUncheckedUpdateWithoutPlaylistsInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1031,6 +1137,9 @@ export type UserCreateWithoutFavoritesInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1055,6 +1164,9 @@ export type UserUncheckedCreateWithoutFavoritesInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1095,6 +1207,9 @@ export type UserUpdateWithoutFavoritesInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1119,6 +1234,9 @@ export type UserUncheckedUpdateWithoutFavoritesInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1143,6 +1261,9 @@ export type UserCreateWithoutFollowingInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1167,6 +1288,9 @@ export type UserUncheckedCreateWithoutFollowingInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1196,6 +1320,9 @@ export type UserCreateWithoutFollowedByInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1220,6 +1347,9 @@ export type UserUncheckedCreateWithoutFollowedByInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1260,6 +1390,9 @@ export type UserUpdateWithoutFollowingInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1284,6 +1417,9 @@ export type UserUncheckedUpdateWithoutFollowingInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1319,6 +1455,9 @@ export type UserUpdateWithoutFollowedByInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1343,6 +1482,9 @@ export type UserUncheckedUpdateWithoutFollowedByInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1367,6 +1509,9 @@ export type UserCreateWithoutPlayHistoryInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1391,6 +1536,9 @@ export type UserUncheckedCreateWithoutPlayHistoryInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1431,6 +1579,9 @@ export type UserUpdateWithoutPlayHistoryInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1455,6 +1606,9 @@ export type UserUncheckedUpdateWithoutPlayHistoryInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1479,6 +1633,9 @@ export type UserCreateWithoutCommentsInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1503,6 +1660,9 @@ export type UserUncheckedCreateWithoutCommentsInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1543,6 +1703,9 @@ export type UserUpdateWithoutCommentsInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1567,6 +1730,9 @@ export type UserUncheckedUpdateWithoutCommentsInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1591,6 +1757,9 @@ export type UserCreateWithoutWatchedSourcesInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1615,6 +1784,9 @@ export type UserUncheckedCreateWithoutWatchedSourcesInput = {
   googleId?: string | null
   keycloakId?: string | null
   incongruesUsername?: string | null
+  incongruesToken?: string | null
+  incongruesTokenAt?: Date | string | null
+  incongruesVerifiedAt?: Date | string | null
   displayName: string
   bio?: string | null
   avatarUrl?: string | null
@@ -1655,6 +1827,9 @@ export type UserUpdateWithoutWatchedSourcesInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1679,6 +1854,9 @@ export type UserUncheckedUpdateWithoutWatchedSourcesInput = {
   googleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keycloakId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   incongruesUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  incongruesTokenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  incongruesVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1806,6 +1984,9 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   googleId?: boolean
   keycloakId?: boolean
   incongruesUsername?: boolean
+  incongruesToken?: boolean
+  incongruesTokenAt?: boolean
+  incongruesVerifiedAt?: boolean
   displayName?: boolean
   bio?: boolean
   avatarUrl?: boolean
@@ -1832,6 +2013,9 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   googleId?: boolean
   keycloakId?: boolean
   incongruesUsername?: boolean
+  incongruesToken?: boolean
+  incongruesTokenAt?: boolean
+  incongruesVerifiedAt?: boolean
   displayName?: boolean
   bio?: boolean
   avatarUrl?: boolean
@@ -1848,6 +2032,9 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   googleId?: boolean
   keycloakId?: boolean
   incongruesUsername?: boolean
+  incongruesToken?: boolean
+  incongruesTokenAt?: boolean
+  incongruesVerifiedAt?: boolean
   displayName?: boolean
   bio?: boolean
   avatarUrl?: boolean
@@ -1864,6 +2051,9 @@ export type UserSelectScalar = {
   googleId?: boolean
   keycloakId?: boolean
   incongruesUsername?: boolean
+  incongruesToken?: boolean
+  incongruesTokenAt?: boolean
+  incongruesVerifiedAt?: boolean
   displayName?: boolean
   bio?: boolean
   avatarUrl?: boolean
@@ -1872,7 +2062,7 @@ export type UserSelectScalar = {
   updatedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "username" | "password" | "googleId" | "keycloakId" | "incongruesUsername" | "displayName" | "bio" | "avatarUrl" | "coverUrl" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "username" | "password" | "googleId" | "keycloakId" | "incongruesUsername" | "incongruesToken" | "incongruesTokenAt" | "incongruesVerifiedAt" | "displayName" | "bio" | "avatarUrl" | "coverUrl" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   mixes?: boolean | Prisma.User$mixesArgs<ExtArgs>
   favorites?: boolean | Prisma.User$favoritesArgs<ExtArgs>
@@ -1918,6 +2108,23 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
      * propre.
      */
     incongruesUsername: string | null
+    /**
+     * Le jeton que le membre doit publier sur le forum pour prouver qu'il tient
+     * ce compte. Null une fois la preuve faite — il n'a plus rien à prouver, et
+     * le garder ferait croire à une vérification en attente.
+     */
+    incongruesToken: string | null
+    /**
+     * Quand le jeton ci-dessus a été émis. Sans cette date, l'expiration du
+     * jeton ne peut pas être calculée.
+     */
+    incongruesTokenAt: Date | null
+    /**
+     * Quand la preuve a été faite. Null tant qu'elle ne l'est pas : c'est CETTE
+     * colonne, et non `incongruesUsername`, qui autorise la synchronisation.
+     * Un pseudo saisi ne prouve rien ; seul un jeton retrouvé sur le forum prouve.
+     */
+    incongruesVerifiedAt: Date | null
     displayName: string
     bio: string | null
     avatarUrl: string | null
@@ -2363,6 +2570,9 @@ export interface UserFieldRefs {
   readonly googleId: Prisma.FieldRef<"User", 'String'>
   readonly keycloakId: Prisma.FieldRef<"User", 'String'>
   readonly incongruesUsername: Prisma.FieldRef<"User", 'String'>
+  readonly incongruesToken: Prisma.FieldRef<"User", 'String'>
+  readonly incongruesTokenAt: Prisma.FieldRef<"User", 'DateTime'>
+  readonly incongruesVerifiedAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly displayName: Prisma.FieldRef<"User", 'String'>
   readonly bio: Prisma.FieldRef<"User", 'String'>
   readonly avatarUrl: Prisma.FieldRef<"User", 'String'>

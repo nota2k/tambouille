@@ -26,6 +26,47 @@ let FlarumClient = class FlarumClient {
         });
         return this.lire(`${exports.FORUM_ORIGIN}/api/discussions?${params}`);
     }
+    async listPostsByAuthor(username, limit = 20) {
+        const params = versQueryString({
+            'filter[author]': username,
+            'page[limit]': String(limit),
+            sort: '-createdAt',
+            include: 'user',
+        });
+        const { body } = await (0, safe_fetch_1.safeFetch)(`${exports.FORUM_ORIGIN}/api/posts?${params}`, {
+            maxBytes: API_MAX_BYTES,
+            timeoutMs: FETCH_TIMEOUT_MS,
+            accept: 'application/json',
+        });
+        let document;
+        try {
+            document = JSON.parse(body.toString('utf8'));
+        }
+        catch {
+            throw new common_1.BadGatewayException('Réponse illisible du forum');
+        }
+        const inclus = new Map((document.included ?? []).map((r) => [`${r.type}:${r.id}`, r]));
+        return (document.data ?? []).map((brute) => {
+            const auteurId = brute.relationships?.user?.data?.id;
+            const auteur = auteurId ? inclus.get(`users:${auteurId}`) : undefined;
+            return {
+                id: brute.id,
+                contentHtml: String(brute.attributes?.contentHtml ?? ''),
+                createdAt: String(brute.attributes?.createdAt ?? ''),
+                authorUsername: auteur
+                    ? String(auteur.attributes?.username ?? '')
+                    : undefined,
+            };
+        });
+    }
+    async listRecentDiscussions(limit = 10) {
+        const params = versQueryString({
+            sort: '-createdAt',
+            'page[limit]': String(limit),
+            include: 'firstPost,user',
+        });
+        return this.lire(`${exports.FORUM_ORIGIN}/api/discussions?${params}`);
+    }
     async getDiscussion(id) {
         const params = versQueryString({ include: 'firstPost,taxonomyTerms' });
         const [discussion] = await this.lire(`${exports.FORUM_ORIGIN}/api/discussions/${encodeURIComponent(id)}?${params}`);
@@ -60,6 +101,8 @@ let FlarumClient = class FlarumClient {
         const premierId = brute.relationships?.firstPost?.data?.id;
         const premier = premierId ? inclus.get(`posts:${premierId}`) : undefined;
         const termes = (brute.relationships?.taxonomyTerms?.data ?? []);
+        const auteurId = brute.relationships?.user?.data?.id;
+        const auteur = auteurId ? inclus.get(`users:${auteurId}`) : undefined;
         return {
             id: brute.id,
             title: String(attrs.title ?? ''),
@@ -70,6 +113,9 @@ let FlarumClient = class FlarumClient {
                 .map((t) => inclus.get(`flamarkt-taxonomy-terms:${t.id}`))
                 .map((r) => String(r?.attributes?.name ?? ''))
                 .filter(Boolean),
+            authorUsername: auteur
+                ? String(auteur.attributes?.username ?? '')
+                : undefined,
         };
     }
 };

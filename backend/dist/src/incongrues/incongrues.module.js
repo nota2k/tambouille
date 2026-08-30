@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const imports_module_1 = require("../imports/imports.module");
 const mixes_module_1 = require("../mixes/mixes.module");
 const incongrues_sync_service_1 = require("./incongrues.sync.service");
+const incongrues_verification_service_1 = require("./incongrues.verification.service");
 const incongrues_webhook_controller_1 = require("./incongrues.webhook.controller");
 let IncongruesModule = class IncongruesModule {
 };
@@ -19,8 +20,8 @@ exports.IncongruesModule = IncongruesModule = __decorate([
     (0, common_1.Module)({
         imports: [imports_module_1.ImportsModule, (0, common_1.forwardRef)(() => mixes_module_1.MixesModule)],
         controllers: [incongrues_webhook_controller_1.IncongruesWebhookController],
-        providers: [incongrues_sync_service_1.IncongruesSyncService],
-        exports: [incongrues_sync_service_1.IncongruesSyncService],
+        providers: [incongrues_sync_service_1.IncongruesSyncService, incongrues_verification_service_1.IncongruesVerificationService],
+        exports: [incongrues_sync_service_1.IncongruesSyncService, incongrues_verification_service_1.IncongruesVerificationService],
     })
 ], IncongruesModule);
 //# sourceMappingURL=incongrues.module.js.map

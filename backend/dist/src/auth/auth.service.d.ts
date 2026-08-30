@@ -26,6 +26,8 @@ export declare class AuthService {
             createdAt: Date;
             hasPassword: boolean;
             incongruesUsername: string | null;
+            incongruesToken: string | null;
+            incongruesVerified: boolean;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -42,6 +44,8 @@ export declare class AuthService {
             createdAt: Date;
             hasPassword: boolean;
             incongruesUsername: string | null;
+            incongruesToken: string | null;
+            incongruesVerified: boolean;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -58,6 +62,8 @@ export declare class AuthService {
             createdAt: Date;
             hasPassword: boolean;
             incongruesUsername: string | null;
+            incongruesToken: string | null;
+            incongruesVerified: boolean;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -72,6 +78,8 @@ export declare class AuthService {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -87,6 +95,8 @@ export declare class AuthService {
             createdAt: Date;
             hasPassword: boolean;
             incongruesUsername: string | null;
+            incongruesToken: string | null;
+            incongruesVerified: boolean;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -101,6 +111,8 @@ export declare class AuthService {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -114,6 +126,8 @@ export declare class AuthService {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -127,6 +141,8 @@ export declare class AuthService {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -140,6 +156,8 @@ export declare class AuthService {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;

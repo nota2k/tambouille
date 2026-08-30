@@ -20,6 +20,22 @@ export interface FlarumDiscussion {
    *  bruts : l'appelant les verse dans les tags, où un nom d'émission et un nom
    *  de personne ont la même valeur. */
   termNames: string[];
+  /** Absent des réponses qui n'incluent pas la relation `user` (`listByAuthor`,
+   *  `getDiscussion`) — seule `listRecentDiscussions` la demande, pour croiser
+   *  l'auteur avec les comptes vérifiés sans requête supplémentaire. */
+  authorUsername?: string;
+}
+
+/** Un message du forum, avec l'auteur que la réponse a rattaché.
+ *
+ *  `authorUsername` est optionnel parce que le forum peut ne pas rattacher la
+ *  relation (message d'un compte supprimé) : l'appelant qui en fait une
+ *  décision d'autorisation doit alors refuser, jamais supposer. */
+export interface FlarumPost {
+  id: string;
+  contentHtml: string;
+  createdAt: string;
+  authorUsername?: string;
 }
 
 function versQueryString(params: Record<string, string>): string {
@@ -53,6 +69,80 @@ export class FlarumClient {
       'filter[author]': username,
       'page[limit]': '50',
       include: 'firstPost,taxonomyTerms',
+    });
+    return this.lire(`${FORUM_ORIGIN}/api/discussions?${params}`);
+  }
+
+  /**
+   * Les messages les plus récents d'un auteur, pour la vérification de
+   * possession de compte : le membre publie un jeton quelque part sur le
+   * forum, et c'est parmi ces messages qu'on le cherche.
+   *
+   * `limit` par défaut à 20 : assez pour que le membre ne soit pas obligé de
+   * vérifier dans la seconde qui suit sa publication, assez peu pour que la
+   * requête reste légère.
+   */
+  async listPostsByAuthor(username: string, limit = 20): Promise<FlarumPost[]> {
+    const params = versQueryString({
+      'filter[author]': username,
+      'page[limit]': String(limit),
+      // Le tri par défaut de Flarum est chronologique CROISSANT : sans ce
+      // paramètre, on lirait les messages les plus anciens de l'auteur et
+      // jamais celui qu'il vient de publier pour la preuve.
+      sort: '-createdAt',
+      // L'auteur voyage avec chaque message parce que l'appelant en fait une
+      // décision d'autorisation : `filter[author]` accepte une liste séparée
+      // par des virgules, donc le filtre seul ne dit PAS que tous les messages
+      // rendus sont d'un même auteur.
+      include: 'user',
+    });
+    const { body } = await safeFetch(`${FORUM_ORIGIN}/api/posts?${params}`, {
+      maxBytes: API_MAX_BYTES,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      accept: 'application/json',
+    });
+
+    let document: { data?: JsonApiRessource[]; included?: JsonApiRessource[] };
+    try {
+      document = JSON.parse(body.toString('utf8')) as typeof document;
+    } catch {
+      throw new BadGatewayException('Réponse illisible du forum');
+    }
+
+    const inclus = new Map(
+      (document.included ?? []).map((r) => [`${r.type}:${r.id}`, r]),
+    );
+
+    return (document.data ?? []).map((brute) => {
+      const auteurId = (
+        brute.relationships?.user?.data as { id: string } | undefined
+      )?.id;
+      const auteur = auteurId ? inclus.get(`users:${auteurId}`) : undefined;
+      return {
+        id: brute.id,
+        contentHtml: String(brute.attributes?.contentHtml ?? ''),
+        createdAt: String(brute.attributes?.createdAt ?? ''),
+        authorUsername: auteur
+          ? String(auteur.attributes?.username ?? '')
+          : undefined,
+      };
+    });
+  }
+
+  /**
+   * Les discussions les plus récentes du forum, toutes tous auteurs
+   * confondus — la sonnerie du webhook s'en sert pour ne lire le forum
+   * qu'une fois, quel que soit le nombre de comptes liés, puis croise
+   * `authorUsername` avec ses comptes vérifiés côté appelant.
+   *
+   * `limit` par défaut à 10 : la sonnerie se déclenche à chaque post, il n'y
+   * a donc jamais besoin de remonter plus loin que ce qui vient de paraître.
+   */
+  async listRecentDiscussions(limit = 10): Promise<FlarumDiscussion[]> {
+    const params = versQueryString({
+      sort: '-createdAt',
+      'page[limit]': String(limit),
+      include: 'firstPost,user',
     });
     return this.lire(`${FORUM_ORIGIN}/api/discussions?${params}`);
   }
@@ -112,6 +202,13 @@ export class FlarumClient {
       id: string;
     }[];
 
+    // Absent quand la réponse n'inclut pas la relation `user` (`listByAuthor`,
+    // `getDiscussion`) : seule `listRecentDiscussions` la demande.
+    const auteurId = (
+      brute.relationships?.user?.data as { id: string } | undefined
+    )?.id;
+    const auteur = auteurId ? inclus.get(`users:${auteurId}`) : undefined;
+
     return {
       id: brute.id,
       title: String(attrs.title ?? ''),
@@ -124,6 +221,9 @@ export class FlarumClient {
         .map((t) => inclus.get(`flamarkt-taxonomy-terms:${t.id}`))
         .map((r) => String(r?.attributes?.name ?? ''))
         .filter(Boolean),
+      authorUsername: auteur
+        ? String(auteur.attributes?.username ?? '')
+        : undefined,
     };
   }
 }

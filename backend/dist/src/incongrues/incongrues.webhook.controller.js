@@ -31,7 +31,7 @@ let IncongruesWebhookController = class IncongruesWebhookController {
         if (!attendu || !memeSecret(secret, attendu)) {
             throw new common_1.NotFoundException();
         }
-        return { crees: await this.sync.syncAllDebounced() };
+        return { crees: await this.sync.syncDepuisSonnerie() };
     }
 };
 exports.IncongruesWebhookController = IncongruesWebhookController;

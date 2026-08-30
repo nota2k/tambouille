@@ -3,11 +3,14 @@ import { PlaylistsService } from '../playlists/playlists.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PaginationDto } from './dto/pagination.dto';
 import { SearchUsersDto } from './dto/search-users.dto';
+import { IncongruesVerificationService } from '../incongrues/incongrues.verification.service';
+import { DemandeJetonDto } from '../incongrues/dto/demande-jeton.dto';
 import { type UploadedFile as R2File } from '../common/upload.utils';
 export declare class UsersController {
     private readonly usersService;
     private readonly playlistsService;
-    constructor(usersService: UsersService, playlistsService: PlaylistsService);
+    private readonly verification;
+    constructor(usersService: UsersService, playlistsService: PlaylistsService, verification: IncongruesVerificationService);
     searchUsers(query: SearchUsersDto): Promise<{
         items: {
             id: string;
@@ -76,6 +79,14 @@ export declare class UsersController {
         isFollowing: boolean;
     }>;
     deleteAccount(userId: string): Promise<void>;
+    demanderJeton(userId: string, dto: DemandeJetonDto): Promise<{
+        token: string;
+    }>;
+    verifier(userId: string): Promise<{
+        verifie: boolean;
+        raison?: string;
+    }>;
+    delierIncongrues(userId: string): Promise<void>;
     uploadAvatar(userId: string, file?: R2File): Promise<{
         id: string;
         username: string | null;

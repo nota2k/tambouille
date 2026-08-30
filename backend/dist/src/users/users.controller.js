@@ -20,6 +20,8 @@ const playlists_service_1 = require("../playlists/playlists.service");
 const update_profile_dto_1 = require("./dto/update-profile.dto");
 const pagination_dto_1 = require("./dto/pagination.dto");
 const search_users_dto_1 = require("./dto/search-users.dto");
+const incongrues_verification_service_1 = require("../incongrues/incongrues.verification.service");
+const demande_jeton_dto_1 = require("../incongrues/dto/demande-jeton.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const optional_jwt_auth_guard_1 = require("../auth/guards/optional-jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
@@ -27,9 +29,11 @@ const upload_utils_1 = require("../common/upload.utils");
 let UsersController = class UsersController {
     usersService;
     playlistsService;
-    constructor(usersService, playlistsService) {
+    verification;
+    constructor(usersService, playlistsService, verification) {
         this.usersService = usersService;
         this.playlistsService = playlistsService;
+        this.verification = verification;
     }
     searchUsers(query) {
         return this.usersService.search(query);
@@ -57,6 +61,15 @@ let UsersController = class UsersController {
     }
     deleteAccount(userId) {
         return this.usersService.deleteAccount(userId);
+    }
+    demanderJeton(userId, dto) {
+        return this.verification.demanderJeton(userId, dto.incongruesUsername);
+    }
+    verifier(userId) {
+        return this.verification.verifier(userId);
+    }
+    delierIncongrues(userId) {
+        return this.verification.delier(userId);
     }
     uploadAvatar(userId, file) {
         if (!file) {
@@ -151,6 +164,32 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "deleteAccount", null);
 __decorate([
+    (0, common_1.Post)('me/incongrues/token'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, current_user_decorator_1.CurrentUserId)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, demande_jeton_dto_1.DemandeJetonDto]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "demanderJeton", null);
+__decorate([
+    (0, common_1.Post)('me/incongrues/verify'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, current_user_decorator_1.CurrentUserId)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "verifier", null);
+__decorate([
+    (0, common_1.Delete)('me/incongrues'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),
+    __param(0, (0, current_user_decorator_1.CurrentUserId)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "delierIncongrues", null);
+__decorate([
     (0, common_1.Post)('me/avatar'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('avatar', {
@@ -181,6 +220,7 @@ __decorate([
 exports.UsersController = UsersController = __decorate([
     (0, common_1.Controller)('users'),
     __metadata("design:paramtypes", [users_service_1.UsersService,
-        playlists_service_1.PlaylistsService])
+        playlists_service_1.PlaylistsService,
+        incongrues_verification_service_1.IncongruesVerificationService])
 ], UsersController);
 //# sourceMappingURL=users.controller.js.map

@@ -11,12 +11,12 @@ export declare class IncongruesSyncService {
     private readonly prisma;
     private readonly logger;
     private readonly enCours;
-    private dernierPassage;
     private dernierRattrapage;
+    private dernierPassageSonnerie;
     constructor(flarum: FlarumClient, importeur: MusiquesIncongruesImporter, mixes: MixesService, prisma: PrismaService);
     syncUser(userId: string, incongruesUsername: string): Promise<number>;
     syncAll(): Promise<number>;
-    syncAllDebounced(): Promise<number>;
+    syncDepuisSonnerie(): Promise<number>;
     syncAllRattrapageHoraire(): Promise<number>;
     private faire;
 }

@@ -41,6 +41,7 @@ function harnais(over: { discussions?: FlarumDiscussion[] } = {}) {
       .fn()
       .mockResolvedValue(over.discussions ?? [discussion('1')]),
     getDiscussion: jest.fn(),
+    listRecentDiscussions: jest.fn().mockResolvedValue([]),
   };
   const importeur = {
     importItem: jest.fn(),
@@ -61,23 +62,6 @@ function harnais(over: { discussions?: FlarumDiscussion[] } = {}) {
   );
   return { sujet, flarum, importeur, mixes, prisma };
 }
-
-/**
- * `syncAll` ne synchronise que les pseudos couverts par la liste
- * d'autorisation, et la liste est vide par défaut. Les tests qui portent sur
- * autre chose la renseignent donc avec les pseudos qu'ils emploient, plutôt
- * que d'avoir à parler d'autorisation pour parler de journalisation ou
- * d'anti-rebond.
- */
-const PSEUDOS_DES_TESTS = 'nota,inconnu';
-
-beforeEach(() => {
-  process.env.INCONGRUES_ALLOWED_USERNAMES = PSEUDOS_DES_TESTS;
-});
-
-afterEach(() => {
-  delete process.env.INCONGRUES_ALLOWED_USERNAMES;
-});
 
 describe('IncongruesSyncService.syncUser', () => {
   it('crée le mix d’une discussion inconnue', async () => {
@@ -214,53 +198,18 @@ describe('IncongruesSyncService.syncAll', () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  // La garde à la saisie du pseudo empêche une NOUVELLE revendication ; elle ne
-  // dit rien des liens déjà en base. Sans ce filtre, retirer un pseudo de la
-  // liste ne retirerait rien : le compte continuerait d'être servi à chaque
-  // passage.
-  it('ignore un compte dont le pseudo ne figure plus dans la liste', async () => {
-    const { sujet, flarum, mixes, prisma } = harnais();
-    process.env.INCONGRUES_ALLOWED_USERNAMES = 'nota';
-    prisma.user.findMany.mockResolvedValue([
-      { id: 'u1', incongruesUsername: 'retire' },
-      { id: 'u2', incongruesUsername: 'nota' },
-    ]);
-    const warn = jest
-      .spyOn(sujet['logger'], 'warn')
-      .mockImplementation(() => undefined);
-
-    await expect(sujet.syncAll()).resolves.toBe(1);
-    expect(flarum.listByAuthor).toHaveBeenCalledTimes(1);
-    expect(flarum.listByAuthor).toHaveBeenCalledWith('nota');
-    expect(mixes.createFromImport).toHaveBeenCalledTimes(1);
-    // Un lien devenu hors liste est une anomalie de configuration qu'on veut
-    // voir passer, pas un rejet de routine comme un post sans lecteur.
-    expect(warn).toHaveBeenCalled();
-  });
-
-  it('ignore la casse et les espaces, comme la garde à la saisie', async () => {
+  // Seule la preuve de possession ouvre la synchronisation : un pseudo saisi
+  // sans jeton retrouvé sur le forum ne doit jamais publier de mix.
+  it('ne synchronise que les comptes vérifiés', async () => {
     const { sujet, flarum, prisma } = harnais();
-    process.env.INCONGRUES_ALLOWED_USERNAMES = ' Nota ';
-    prisma.user.findMany.mockResolvedValue([
-      { id: 'u1', incongruesUsername: 'nota' },
-    ]);
+    await sujet.syncAll();
 
-    await expect(sujet.syncAll()).resolves.toBe(1);
-    expect(flarum.listByAuthor).toHaveBeenCalledWith('nota');
-  });
-
-  // Même règle que le webhook, où un secret absent ferme la route plutôt que
-  // de l'ouvrir à tous.
-  it('ne synchronise rien quand la liste est absente', async () => {
-    const { sujet, flarum, mixes, prisma } = harnais();
-    delete process.env.INCONGRUES_ALLOWED_USERNAMES;
-    prisma.user.findMany.mockResolvedValue([
-      { id: 'u1', incongruesUsername: 'nota' },
-    ]);
-
-    await expect(sujet.syncAll()).resolves.toBe(0);
-    expect(flarum.listByAuthor).not.toHaveBeenCalled();
-    expect(mixes.createFromImport).not.toHaveBeenCalled();
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ incongruesVerifiedAt: { not: null } }),
+      }),
+    );
+    void flarum;
   });
 });
 
@@ -307,52 +256,99 @@ describe('IncongruesSyncService.syncAllRattrapageHoraire', () => {
   // au webhook pour cinquante-neuf minutes, alors que c'est lui qui doit
   // passer devant.
   it('ne bloque pas la sonnerie du webhook', async () => {
-    const { sujet, prisma } = harnais();
+    const { sujet, flarum, prisma } = harnais();
     prisma.user.findMany.mockResolvedValue([
       { id: 'u1', incongruesUsername: 'nota' },
     ]);
+    flarum.listRecentDiscussions.mockResolvedValue([
+      { ...discussion('1'), authorUsername: 'nota' },
+    ]);
 
     await sujet.syncAllRattrapageHoraire();
-    await sujet.syncAllDebounced();
+    await sujet.syncDepuisSonnerie();
 
     expect(prisma.user.findMany).toHaveBeenCalledTimes(2);
   });
 });
 
-describe('IncongruesSyncService.syncAllDebounced', () => {
-  it('ne relance rien moins d’une minute après le passage précédent', async () => {
-    const { sujet, prisma } = harnais();
+describe('IncongruesSyncService.syncDepuisSonnerie', () => {
+  it('ne lit QU’UNE fois le forum, quel que soit le nombre de comptes liés', async () => {
+    const { sujet, flarum, prisma } = harnais();
     prisma.user.findMany.mockResolvedValue([
       { id: 'u1', incongruesUsername: 'nota' },
+      { id: 'u2', incongruesUsername: 'gakona' },
+      { id: 'u3', incongruesUsername: 'autre' },
+    ]);
+    flarum.listRecentDiscussions.mockResolvedValue([]);
+
+    await sujet.syncDepuisSonnerie();
+
+    expect(flarum.listRecentDiscussions).toHaveBeenCalledTimes(1);
+    expect(flarum.listByAuthor).not.toHaveBeenCalled();
+  });
+
+  it('ne synchronise que les auteurs vérifiés parmi les discussions récentes', async () => {
+    const { sujet, flarum, prisma } = harnais();
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'u1', incongruesUsername: 'nota' },
+      { id: 'u2', incongruesUsername: 'gakona' },
+    ]);
+    flarum.listRecentDiscussions.mockResolvedValue([
+      { ...discussion('1'), authorUsername: 'gakona' },
+      { ...discussion('2'), authorUsername: 'inconnu' },
     ]);
 
-    await sujet.syncAllDebounced();
-    await sujet.syncAllDebounced();
+    await sujet.syncDepuisSonnerie();
 
-    expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+    expect(flarum.listByAuthor).toHaveBeenCalledTimes(1);
+    expect(flarum.listByAuthor).toHaveBeenCalledWith('gakona');
   });
 
-  it('relance passé le délai', async () => {
-    jest.useFakeTimers();
-    try {
-      const { sujet, prisma } = harnais();
-      prisma.user.findMany.mockResolvedValue([
-        { id: 'u1', incongruesUsername: 'nota' },
-      ]);
+  it('ignore la casse du pseudo entre le forum et la base', async () => {
+    const { sujet, flarum, prisma } = harnais();
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'u1', incongruesUsername: 'Nota' },
+    ]);
+    flarum.listRecentDiscussions.mockResolvedValue([
+      { ...discussion('1'), authorUsername: 'nota' },
+    ]);
 
-      await sujet.syncAllDebounced();
-      jest.advanceTimersByTime(61_000);
-      await sujet.syncAllDebounced();
-
-      expect(prisma.user.findMany).toHaveBeenCalledTimes(2);
-    } finally {
-      jest.useRealTimers();
-    }
+    await sujet.syncDepuisSonnerie();
+    expect(flarum.listByAuthor).toHaveBeenCalledWith('Nota');
   });
 
-  it('ne fait rien quand aucun compte n’est lié', async () => {
-    const { sujet, mixes } = harnais();
-    await expect(sujet.syncAllDebounced()).resolves.toBe(0);
-    expect(mixes.createFromImport).not.toHaveBeenCalled();
+  // Même sonnette publique que l'ancienne route : une sonnerie de plus dans
+  // la minute ne peut rien apporter que la précédente n'ait déjà vu.
+  it('ne relance rien moins d’une minute après le passage précédent', async () => {
+    const { sujet, flarum } = harnais();
+
+    await sujet.syncDepuisSonnerie();
+    await sujet.syncDepuisSonnerie();
+
+    expect(flarum.listRecentDiscussions).toHaveBeenCalledTimes(1);
+  });
+
+  // Un forum injoignable sur le premier compte concerné ne doit pas priver
+  // les autres comptes trouvés dans les mêmes discussions récentes.
+  it('poursuit les comptes suivants quand la synchronisation de l’un lève', async () => {
+    const { sujet, flarum, prisma, mixes } = harnais();
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'u1', incongruesUsername: 'nota' },
+      { id: 'u2', incongruesUsername: 'gakona' },
+    ]);
+    flarum.listRecentDiscussions.mockResolvedValue([
+      { ...discussion('1'), authorUsername: 'nota' },
+      { ...discussion('2'), authorUsername: 'gakona' },
+    ]);
+    flarum.listByAuthor
+      .mockRejectedValueOnce(new Error('forum injoignable'))
+      .mockResolvedValueOnce([discussion('3')]);
+    const warn = jest
+      .spyOn(sujet['logger'], 'warn')
+      .mockImplementation(() => undefined);
+
+    await expect(sujet.syncDepuisSonnerie()).resolves.toBe(1);
+    expect(mixes.createFromImport).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalled();
   });
 });

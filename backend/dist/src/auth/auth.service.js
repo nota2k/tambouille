@@ -88,6 +88,8 @@ let AuthService = class AuthService {
             createdAt: user.createdAt,
             hasPassword: user.password !== null,
             incongruesUsername: user.incongruesUsername,
+            incongruesToken: user.incongruesToken,
+            incongruesVerified: user.incongruesVerifiedAt !== null,
             hasGoogle: user.googleId !== null,
             hasKeycloak: user.keycloakId !== null,
         };

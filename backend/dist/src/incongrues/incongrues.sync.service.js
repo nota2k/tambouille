@@ -17,7 +17,6 @@ const musiques_incongrues_importer_1 = require("../imports/musiques-incongrues.i
 const mixes_service_1 = require("../mixes/mixes.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const veille_types_1 = require("../veille/veille.types");
-const allowed_usernames_1 = require("./allowed-usernames");
 exports.DEBOUNCE_MS = 60_000;
 exports.RATTRAPAGE_MS = veille_types_1.CACHE_TTL_MS;
 let IncongruesSyncService = IncongruesSyncService_1 = class IncongruesSyncService {
@@ -27,8 +26,8 @@ let IncongruesSyncService = IncongruesSyncService_1 = class IncongruesSyncServic
     prisma;
     logger = new common_1.Logger(IncongruesSyncService_1.name);
     enCours = new Map();
-    dernierPassage = 0;
     dernierRattrapage = 0;
+    dernierPassageSonnerie = 0;
     constructor(flarum, importeur, mixes, prisma) {
         this.flarum = flarum;
         this.importeur = importeur;
@@ -47,15 +46,11 @@ let IncongruesSyncService = IncongruesSyncService_1 = class IncongruesSyncServic
     }
     async syncAll() {
         const lies = await this.prisma.user.findMany({
-            where: { incongruesUsername: { not: null } },
+            where: { incongruesVerifiedAt: { not: null } },
             select: { id: true, incongruesUsername: true },
         });
         let crees = 0;
         for (const user of lies) {
-            if (!(0, allowed_usernames_1.pseudoAutorise)(user.incongruesUsername)) {
-                this.logger.warn(`Compte ${user.incongruesUsername} ignoré : absent de INCONGRUES_ALLOWED_USERNAMES`);
-                continue;
-            }
             try {
                 crees += await this.syncUser(user.id, user.incongruesUsername);
             }
@@ -65,12 +60,32 @@ let IncongruesSyncService = IncongruesSyncService_1 = class IncongruesSyncServic
         }
         return crees;
     }
-    async syncAllDebounced() {
+    async syncDepuisSonnerie() {
         const maintenant = Date.now();
-        if (maintenant - this.dernierPassage < exports.DEBOUNCE_MS)
+        if (maintenant - this.dernierPassageSonnerie < exports.DEBOUNCE_MS)
             return 0;
-        this.dernierPassage = maintenant;
-        return this.syncAll();
+        this.dernierPassageSonnerie = maintenant;
+        const discussions = await this.flarum.listRecentDiscussions();
+        if (discussions.length === 0)
+            return 0;
+        const lies = await this.prisma.user.findMany({
+            where: { incongruesVerifiedAt: { not: null } },
+            select: { id: true, incongruesUsername: true },
+        });
+        let crees = 0;
+        for (const user of lies) {
+            const aPoste = discussions.some((d) => d.authorUsername?.toLowerCase() ===
+                user.incongruesUsername.toLowerCase());
+            if (!aPoste)
+                continue;
+            try {
+                crees += await this.syncUser(user.id, user.incongruesUsername);
+            }
+            catch (erreur) {
+                this.logger.warn(`Compte ${user.incongruesUsername} en échec : ${erreur.message}`);
+            }
+        }
+        return crees;
     }
     async syncAllRattrapageHoraire() {
         const maintenant = Date.now();

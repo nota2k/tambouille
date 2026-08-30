@@ -24,6 +24,8 @@ export declare class AuthController {
             createdAt: Date;
             hasPassword: boolean;
             incongruesUsername: string | null;
+            incongruesToken: string | null;
+            incongruesVerified: boolean;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -40,6 +42,8 @@ export declare class AuthController {
             createdAt: Date;
             hasPassword: boolean;
             incongruesUsername: string | null;
+            incongruesToken: string | null;
+            incongruesVerified: boolean;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -56,6 +60,8 @@ export declare class AuthController {
             createdAt: Date;
             hasPassword: boolean;
             incongruesUsername: string | null;
+            incongruesToken: string | null;
+            incongruesVerified: boolean;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -70,6 +76,8 @@ export declare class AuthController {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -85,6 +93,8 @@ export declare class AuthController {
             createdAt: Date;
             hasPassword: boolean;
             incongruesUsername: string | null;
+            incongruesToken: string | null;
+            incongruesVerified: boolean;
             hasGoogle: boolean;
             hasKeycloak: boolean;
         };
@@ -99,6 +109,8 @@ export declare class AuthController {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -112,6 +124,8 @@ export declare class AuthController {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -125,6 +139,8 @@ export declare class AuthController {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;
@@ -138,6 +154,8 @@ export declare class AuthController {
         createdAt: Date;
         hasPassword: boolean;
         incongruesUsername: string | null;
+        incongruesToken: string | null;
+        incongruesVerified: boolean;
         hasGoogle: boolean;
         hasKeycloak: boolean;
     }>;

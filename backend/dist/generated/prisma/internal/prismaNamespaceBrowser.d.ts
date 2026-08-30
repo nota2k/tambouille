@@ -39,6 +39,9 @@ export declare const UserScalarFieldEnum: {
     readonly googleId: "googleId";
     readonly keycloakId: "keycloakId";
     readonly incongruesUsername: "incongruesUsername";
+    readonly incongruesToken: "incongruesToken";
+    readonly incongruesTokenAt: "incongruesTokenAt";
+    readonly incongruesVerifiedAt: "incongruesVerifiedAt";
     readonly displayName: "displayName";
     readonly bio: "bio";
     readonly avatarUrl: "avatarUrl";
