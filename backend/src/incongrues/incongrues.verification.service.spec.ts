@@ -17,6 +17,8 @@ function userRow(overrides: Record<string, unknown> = {}) {
 function harnais(over: { user?: Record<string, unknown> } = {}) {
   const flarum = {
     listPostsByAuthor: jest.fn().mockResolvedValue([]),
+    findUserId: jest.fn().mockResolvedValue(null),
+    readProfileAnswers: jest.fn().mockResolvedValue([]),
   };
   const prisma = {
     user: {
@@ -386,5 +388,139 @@ describe('IncongruesVerificationService.delier', () => {
         incongruesVerifiedAt: null,
       },
     });
+  });
+});
+
+/**
+ * La preuve par champ de profil, avec l'extension Masquerade. Elle est
+ * cherchée AVANT les messages : elle ne demande au membre ni de publier ni de
+ * supprimer quoi que ce soit, et rien ne traîne sur le forum ensuite.
+ *
+ * Les messages restent en second recours — un membre sans aucun message n'a
+ * pas d'identifiant atteignable en anonyme, et désinstaller Masquerade ne doit
+ * pas tuer le dispositif.
+ */
+describe('IncongruesVerificationService — preuve par le profil', () => {
+  function enAttente() {
+    return {
+      incongruesUsername: 'nota',
+      incongruesToken: 'tambouille-482aae088c40',
+      incongruesTokenAt: new Date(),
+    };
+  }
+
+  function messagePorteur() {
+    return [
+      {
+        id: '1',
+        contentHtml: '<p>tambouille-482aae088c40</p>',
+        createdAt: '',
+        authorUsername: 'nota',
+      },
+    ];
+  }
+
+  it('valide quand le jeton est dans un champ du profil', async () => {
+    const { sujet, flarum, prisma } = harnais({ user: enAttente() });
+    flarum.findUserId.mockResolvedValue('1363');
+    flarum.readProfileAnswers.mockResolvedValue([
+      '',
+      'tambouille-482aae088c40',
+    ]);
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          incongruesVerifiedAt: expect.any(Date),
+          incongruesToken: null,
+        }),
+      }),
+    );
+  });
+
+  // Le profil suffit : payer les messages en plus serait une requête sortante
+  // pour rien, sur le seul chemin qu'un membre déclenche à volonté.
+  it('ne lit pas les messages quand le profil a suffi', async () => {
+    const { sujet, flarum } = harnais({ user: enAttente() });
+    flarum.findUserId.mockResolvedValue('1363');
+    flarum.readProfileAnswers.mockResolvedValue(['tambouille-482aae088c40']);
+
+    await sujet.verifier('u1');
+    expect(flarum.listPostsByAuthor).not.toHaveBeenCalled();
+  });
+
+  it('ignore la casse, le membre peut recopier en majuscules', async () => {
+    const { sujet, flarum } = harnais({ user: enAttente() });
+    flarum.findUserId.mockResolvedValue('1363');
+    flarum.readProfileAnswers.mockResolvedValue(['TAMBOUILLE-482AAE088C40']);
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
+  });
+
+  it('tolère les espaces autour de la valeur saisie', async () => {
+    const { sujet, flarum } = harnais({ user: enAttente() });
+    flarum.findUserId.mockResolvedValue('1363');
+    flarum.readProfileAnswers.mockResolvedValue([
+      '  tambouille-482aae088c40  ',
+    ]);
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
+  });
+
+  it('retombe sur les messages quand le profil ne porte pas le jeton', async () => {
+    const { sujet, flarum } = harnais({ user: enAttente() });
+    flarum.findUserId.mockResolvedValue('1363');
+    flarum.readProfileAnswers.mockResolvedValue(['autre chose']);
+    flarum.listPostsByAuthor.mockResolvedValue(messagePorteur());
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
+    expect(flarum.listPostsByAuthor).toHaveBeenCalled();
+  });
+
+  // Un membre sans message n'a pas d'identifiant atteignable en anonyme :
+  // `/api/users` en liste répond 403 et par pseudo 404.
+  it("retombe sur les messages quand l'identifiant est introuvable", async () => {
+    const { sujet, flarum } = harnais({ user: enAttente() });
+    flarum.findUserId.mockResolvedValue(null);
+    flarum.listPostsByAuthor.mockResolvedValue(messagePorteur());
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
+    expect(flarum.readProfileAnswers).not.toHaveBeenCalled();
+  });
+
+  // Masquerade désinstallée, champ non public, champ vide : trois cas qui ne
+  // sont pas des pannes et ne doivent pas empêcher l'autre chemin.
+  it('retombe sur les messages quand le profil ne rend aucune réponse', async () => {
+    const { sujet, flarum } = harnais({ user: enAttente() });
+    flarum.findUserId.mockResolvedValue('1363');
+    flarum.readProfileAnswers.mockResolvedValue([]);
+    flarum.listPostsByAuthor.mockResolvedValue(messagePorteur());
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
+  });
+
+  it('refuse quand ni le profil ni les messages ne portent le jeton', async () => {
+    const { sujet, flarum, prisma } = harnais({ user: enAttente() });
+    flarum.findUserId.mockResolvedValue('1363');
+    flarum.readProfileAnswers.mockResolvedValue(['rien ici']);
+    flarum.listPostsByAuthor.mockResolvedValue([]);
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({
+      verifie: false,
+      raison: expect.any(String),
+    });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  // Une panne du forum sur le profil ne doit pas priver le membre de l'autre
+  // chemin : la preuve par message reste valable.
+  it('retombe sur les messages quand la lecture du profil échoue', async () => {
+    const { sujet, flarum } = harnais({ user: enAttente() });
+    flarum.findUserId.mockResolvedValue('1363');
+    flarum.readProfileAnswers.mockRejectedValue(new Error('forum injoignable'));
+    flarum.listPostsByAuthor.mockResolvedValue(messagePorteur());
+
+    await expect(sujet.verifier('u1')).resolves.toEqual({ verifie: true });
   });
 });
