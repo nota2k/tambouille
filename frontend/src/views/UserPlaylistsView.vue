@@ -79,6 +79,11 @@ watch(
       <PlaylistCard v-for="playlist in playlists" :key="playlist.id" :playlist="playlist" />
     </div>
 
-    <PaginationBar :page="page" :total-pages="totalPages" :disabled="loading" @update:page="allerA" />
+    <PaginationBar
+      :page="page"
+      :total-pages="totalPages"
+      :disabled="loading"
+      @update:page="allerA"
+    />
   </div>
 </template>
