@@ -43,8 +43,8 @@ jobs:
       - uses: actions/checkout@v7
 
       # Node 22 : la seule version qui satisfasse à la fois le `engines` du
-      # frontend et la production, qui tourne sur le node 22 du nodevenv
-      # o2switch. Vérifier sur une version que le serveur n'exécute pas
+      # frontend et la production, qui tourne sur le node 22 de Plesk
+      # (`/opt/plesk/node/22`). Vérifier sur une version que le serveur n'exécute pas
       # reviendrait à vérifier autre chose que ce qui est déployé.
       - uses: actions/setup-node@v7
         with:
@@ -171,7 +171,7 @@ jobs:
           DATABASE_URL: postgresql://tambouille:tambouille@localhost:5432/tambouille?schema=public
 
   # ─────────────────────────────────────────────────────────────────────────
-  # Déploiement vers o2switch, par le déploiement git de cPanel.
+  # Déploiement vers le serveur Plesk, par SSH.
   #
   # `needs` sur les trois vérifications : déployer sans qu'elles soient vertes
   # est impossible, et c'est une propriété du graphe des tâches. La condition
@@ -183,13 +183,10 @@ jobs:
   # sur `github.ref` n'est pas décoratif : sans lui, une poussée sur n'importe
   # quelle branche déploierait en production.
   #
-  # POURQUOI PAS SSH : le port 22 est filtré depuis un runner, et la liste
-  # blanche du mutualisé compte cinq emplacements quand les runners GitHub
-  # sortent de milliers de blocs CIDR. Mesuré le 17 août 2026.
-  # POURQUOI PAS FTP : il a fonctionné, mais sans listage récursif la seule
-  # comparaison coûtait 141 s sur 248, et demandait un cron hors du dépôt.
-  # Le port 2083 répond, et un déploiement déclenché par l'API exécute
-  # réellement `.cpanel.yml`. Mesuré aussi.
+  # Chez o2switch, SSH était filtré depuis les runners et le déploiement passait
+  # par l'API cPanel. Le serveur Plesk accepte SSH : la CI y envoie une archive
+  # et lit le code de sortie du script, donc elle sait si le déploiement a
+  # réussi. Voir backend/README.md, « Déploiement ».
   # ─────────────────────────────────────────────────────────────────────────
   deploy:
     name: deploy
@@ -204,23 +201,11 @@ jobs:
     concurrency:
       group: deploy-production
       cancel-in-progress: false
-    # Élargi pour cette tâche SEULE : elle pousse la branche `deploy`. Les trois
-    # tâches de vérification restent en lecture seule, ce que leur spécification
-    # exige.
-    permissions:
-      contents: write
-
-    env:
-      CP_HOST: ${{ secrets.O2SWITCH_CPANEL_HOST }}
-      REPO_ROOT: /home/bane2718/repositories/tambouille
 
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
-          # L'historique complet : la branche `deploy` est construite par
-          # plomberie git, qui a besoin de savoir d'où elle vient.
-          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -234,132 +219,44 @@ jobs:
         working-directory: frontend
         run: npm ci && npm run build
 
-      # ── La branche `deploy` ──────────────────────────────────────────────
+      # ── Envoi ────────────────────────────────────────────────────────────
       #
-      # cPanel déploie le CONTENU du dépôt, pas des artefacts produits ailleurs.
-      # Les constructions sont donc commitées sur une branche dédiée, jamais sur
-      # `main`.
+      # Le serveur est un Plesk mutualisé : on s'y connecte en `nellybabtb`,
+      # qui a les droits sur le dossier de Tambouille. La clé est BRIDÉE par
+      # une commande forcée (`restrict,command=…` dans authorized_keys) : elle
+      # ne peut que lancer deploy/plesk-entry.sh, qui déballe l'archive lue sur
+      # l'entrée standard et exécute le plesk-deploy.sh qu'elle contient. La
+      # commande demandée par ssh ci-dessous est donc ignorée — il n'y en a pas.
       #
-      # Elle s'appelle `production` et non `deploy` : le dépôt porte un
-      # répertoire `deploy/`, et `git checkout deploy` devient alors ambigu —
-      # « could be both a local file and a tracking branch ». Le nom dit aussi
-      # mieux ce qu'elle contient : non pas le déploiement, mais ce qui est en
-      # production.
-      #
-      # Le commit est fabriqué par `commit-tree` plutôt que par une gymnastique
-      # de checkout : l'arbre est celui de l'index (sources + artefacts), le
-      # parent est la pointe précédente de `deploy`. L'historique reste donc
-      # linéaire et la poussée reste en avance rapide — ce qui compte, car
-      # cPanel met à jour par un `git pull` qu'une réécriture ferait échouer.
-      - name: Publier les artefacts sur la branche production
-        id: publier
+      # `StrictHostKeyChecking=yes` avec l'empreinte fournie par un secret :
+      # accepter l'hôte à la volée enverrait la production à quiconque se
+      # place entre GitHub et le serveur.
+      - name: Préparer la clé SSH
+        env:
+          SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.PLESK_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
-          git add -f backend/dist backend/generated frontend/dist
-          git add -A
-          TREE=$(git write-tree)
-          PARENT=$(git rev-parse --verify --quiet origin/production || true)
-          COMMIT=$(git -c user.name='github-actions' -c user.email='github-actions@users.noreply.github.com' \
-            commit-tree "$TREE" ${PARENT:+-p "$PARENT"} \
-            -m "deploy: ${GITHUB_SHA:0:7}" -m "Artefacts construits depuis $GITHUB_SHA.")
-          git push origin "$COMMIT:refs/heads/production"
-          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
-          echo "publié : ${COMMIT:0:7} (parent ${PARENT:-aucun})"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
 
-      # ── Déclenchement ────────────────────────────────────────────────────
-      - name: Déclencher le déploiement cPanel
-        id: declencher
+      # Le code de sortie du script distant devient celui de l'étape : une
+      # migration en échec, une archive incomplète font échouer la CI.
+      - name: Envoyer et déployer
         env:
-          CP_USER: ${{ secrets.O2SWITCH_CPANEL_USER }}
-          CP_TOKEN: ${{ secrets.O2SWITCH_CPANEL_TOKEN }}
+          SSH_HOST: ${{ secrets.PLESK_SSH_HOST }}
         run: |
           set -euo pipefail
-          call() {
-            local ep="$1"; shift
-            curl -sS --fail-with-body --max-time 60 \
-              -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
-              --get "https://$CP_HOST:2083/execute/$ep" "$@"
-          }
-          call VersionControl/update \
-            --data-urlencode "repository_root=$REPO_ROOT" \
-            --data-urlencode "branch=production" > update.json
-          # L'ÉCHEC EST FATAL. Une première version se contentait d'afficher le
-          # statut : `update` a échoué en silence, et le déploiement est parti
-          # sur la branche que cPanel avait extraite au lieu de `deploy`. Un
-          # appel dont on lit le statut sans le vérifier ne vérifie rien.
-          python3 - <<'EOPY'
-          import json, sys
-          d = json.load(open('update.json'))
-          if d.get('status') != 1:
-              print('::error::update a échoué —', d.get('errors'))
-              sys.exit(1)
-          print('  update  ok, branche', (d.get('data') or {}).get('branch'))
-          EOPY
-          call VersionControlDeployment/create \
-            --data-urlencode "repository_root=$REPO_ROOT" > create.json
-          python3 - <<'EOPY' >> "$GITHUB_ENV"
-          import json, sys
-          d = json.load(open('create.json'))
-          if d.get('status') != 1:
-              print('::error::create a échoué —', d.get('errors'), file=sys.stderr)
-              sys.exit(1)
-          print('DEPLOY_ID=%s' % d['data']['deploy_id'])
-          print('  déploiement %s mis en file' % d['data']['deploy_id'], file=sys.stderr)
-          EOPY
+          tar czf - \
+            backend/dist backend/generated backend/prisma \
+            backend/package.json backend/package-lock.json \
+            frontend/dist frontend/src/content/fournees \
+            deploy/plesk-deploy.sh |
+            ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              "nellybabtb@$SSH_HOST"
 
-      # ── Attendre un résultat TERMINAL ────────────────────────────────────
-      #
-      # `create` répond « mis en file », jamais « exécuté ». Un pipeline qui s'en
-      # contenterait annoncerait des déploiements qui n'ont pas eu lieu.
-      #
-      # `repository_root` est OBLIGATOIRE ici : sans lui, l'appel renvoie les
-      # déploiements de TOUS les dépôts du compte, et on lit le résultat d'un
-      # autre projet en croyant lire le sien. C'est arrivé.
-      - name: Attendre le résultat du serveur
-        env:
-          CP_USER: ${{ secrets.O2SWITCH_CPANEL_USER }}
-          CP_TOKEN: ${{ secrets.O2SWITCH_CPANEL_TOKEN }}
-        run: |
-          set -uo pipefail
-          for i in $(seq 1 40); do
-            curl -sS --max-time 30 -H "Authorization: cpanel $CP_USER:$CP_TOKEN" \
-              --get "https://$CP_HOST:2083/execute/VersionControlDeployment/retrieve" \
-              --data-urlencode "repository_root=$REPO_ROOT" > etat.json || true
-            python3 - <<'EOPY' && exit 0
-          import json, os, sys
-          # On ne lit QUE le déploiement qu'on a déclenché. Sans ce
-          # rattachement, la boucle prend le premier résultat terminal venu —
-          # elle a déjà rapporté l'échec d'une sonde vieille de plusieurs
-          # heures comme s'il était le sien. C'est la propriété que la version
-          # précédente tenait en faisant circuler le SHA dans les deux sens.
-          cible = str(os.environ['DEPLOY_ID'])
-          try:
-              d = json.load(open('etat.json'))
-          except Exception:
-              sys.exit(1)
-          for dep in (d.get('data') or []):
-              if str(dep.get('deploy_id')) != cible:
-                  continue
-              ts = dep.get('timestamps') or {}
-              # La clé est `succeeded`. Chercher `successful` — que j'avais
-              # supposé — faisait tourner cette boucle jusqu'à expiration sur
-              # des déploiements pourtant réussis.
-              if 'succeeded' in ts or 'successful' in ts:
-                  print('  déploiement', cible, 'réussi'); raise SystemExit(0)
-              if 'failed' in ts:
-                  print('::error::déploiement %s en échec — %s' % (cible, dep.get('log_path')))
-                  raise SystemExit(2)
-          sys.exit(1)
-          EOPY
-            code=$?
-            [ $code = 2 ] && exit 1
-            sleep 15
-          done
-          echo "::error::aucun résultat terminal après 10 minutes"
-          exit 1
-
-      # Constater plutôt que supposer : un redémarrage réussi n'exclut pas que
-      # les deux moitiés du site soient désaccordées. C'est arrivé le 17 août.
       - name: Vérifier que le site répond
         run: |
           set -euo pipefail
