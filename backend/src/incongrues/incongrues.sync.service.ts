@@ -165,7 +165,20 @@ export class IncongruesSyncService {
     const revendique = incongruesUsername.toLowerCase();
     let crees = 0;
 
+    // Ce que le compte a supprimé ne revient pas : sans mix en base, une
+    // discussion passerait pour nouvelle et le mix réapparaîtrait.
+    const supprimees = new Set(
+      (
+        await this.prisma.deletedSource.findMany({
+          where: { userId },
+          select: { sourcePageUrl: true },
+        })
+      ).map((d) => d.sourcePageUrl),
+    );
+
     for (const discussion of discussions) {
+      if (supprimees.has(discussion.pageUrl)) continue;
+
       // Chaque discussion dans son propre `try` : un cloudcast supprimé chez
       // Mixcloud ne doit pas empêcher les treize autres de paraître.
       try {

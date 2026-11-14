@@ -73,6 +73,8 @@ model User {
 
   watchedSources WatchedSource[]
 
+  deletedSources DeletedSource[]
+
   @@map("users")
 }
 
@@ -293,4 +295,19 @@ model WatchedSource {
   @@unique([userId, url])
   @@index([userId, position])
   @@map("watched_sources")
+}
+
+/// La page source d'un mix que son propriétaire a supprimé. La synchronisation
+/// avec le forum importe toute discussion qui n'a pas de mix : sans cette
+/// trace, elle recréait le mix supprimé à son passage suivant. Seule la
+/// synchronisation la lit ; un import fait à la main n'en tient pas compte.
+model DeletedSource {
+  userId        String
+  sourcePageUrl String
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, sourcePageUrl])
+  @@map("deleted_sources")
 }
