@@ -29,6 +29,7 @@ preparer() {
   echo garde > "$api/uploads/garde.txt"
   echo ancien > "$api/dist/ancien.txt"
   echo ancien > "$api/package-lock.json.deployed"
+  mkdir -p "$api/node_modules" && echo ancien > "$api/node_modules/marqueur"
   echo ancien > "$T/home/httpdocs/assets/ancien.js"
 
   local s="$T/source"
@@ -46,6 +47,7 @@ preparer() {
   echo 'RewriteEngine On' > "$s/frontend/dist/.htaccess"
   echo '# n1' > "$s/frontend/src/content/fournees/1.md"
   cp "$SCRIPT" "$s/deploy/plesk-deploy.sh"
+  cp "$RACINE/deploy/prisma.deploy.config.mjs" "$s/deploy/"
 
   : > "$T/journal"
   cat > "$T/bin/npx" <<EOF
@@ -56,7 +58,9 @@ exit 0
 EOF
   cat > "$T/bin/npm" <<EOF
 #!/usr/bin/env bash
-echo "npm \$*" >> "$T/journal"
+echo "npm \$* (dans \$PWD)" >> "$T/journal"
+[ "\${FAUX_NPM_ECHOUE:-0}" = 1 ] && exit 1
+mkdir -p node_modules && echo nouveau > node_modules/marqueur
 EOF
   # `node` réel est nécessaire pour lire package.json : on garde le PATH.
   chmod +x "$T/bin/npx" "$T/bin/npm"
@@ -82,8 +86,12 @@ if lancer; then
   verifier '[ -f "$T/home/httpdocs/.htaccess" ]' ".htaccess non copié"
   verifier '[ -f "$T/home/httpdocs/fonts/police.woff2" ]' "fonts non copiées"
   verifier '[ -f "$(API)/tmp/restart.txt" ]' "restart.txt absent"
-  verifier '[ "$(head -1 "$T/journal")" = "npx --yes prisma@^7.9.1 migrate deploy" ]' \
-    "la première commande n'est pas la migration : $(head -1 "$T/journal")"
+  verifier 'grep -qxF "npx --yes prisma@^7.9.1 migrate deploy --config $T/source/deploy/prisma.deploy.config.mjs" "$T/journal"' \
+    "migration absente ou sans la config livrée : $(cat "$T/journal")"
+  verifier 'grep -qxF "npm ci --omit=dev (dans $T/source/backend)" "$T/journal"' \
+    "npm ci n'a pas tourné dans l'archive : $(cat "$T/journal")"
+  verifier '[ "$(cat "$(API)/node_modules/marqueur")" = nouveau ]' "node_modules non échangé"
+  verifier '[ ! -e "$(API)/node_modules.ancien" ]' "node_modules.ancien laissé en place"
 else
   echouer "sortie non nulle : $(tail -3 "$T/sortie")"
 fi
@@ -95,17 +103,29 @@ if FAUX_NPX_ECHOUE=1 lancer; then
 fi
 verifier '[ -f "$(API)/dist/ancien.txt" ]' "le code a été remplacé malgré l'échec"
 verifier '[ ! -e "$(API)/tmp/restart.txt" ]' "redémarrage demandé malgré l'échec"
+verifier '[ "$(cat "$(API)/node_modules/marqueur")" = ancien ]' "node_modules échangé malgré l'échec"
+
+echo "cas : npm ci en échec"
+preparer
+if FAUX_NPM_ECHOUE=1 lancer; then
+  echouer "sortie 0 malgré l'échec de npm ci"
+fi
+verifier '[ -f "$(API)/dist/ancien.txt" ]' "le code a été remplacé malgré l'échec de npm ci"
+verifier '[ "$(cat "$(API)/node_modules/marqueur")" = ancien ]' "node_modules touché malgré l'échec"
+verifier '! grep -q "^npx" "$T/journal"' "migrations lancées malgré l'échec de npm ci"
+verifier '[ ! -e "$(API)/tmp/restart.txt" ]' "redémarrage demandé malgré l'échec de npm ci"
 
 echo "cas : verrou inchangé"
 preparer
 echo nouveau > "$(API)/package-lock.json.deployed"
 lancer || echouer "sortie non nulle : $(tail -3 "$T/sortie")"
 verifier '! grep -q "^npm ci" "$T/journal"' "npm ci lancé alors que le verrou n'a pas changé"
+verifier '[ "$(cat "$(API)/node_modules/marqueur")" = ancien ]' "node_modules remplacé sans raison"
 
 echo "cas : verrou modifié"
 preparer
 lancer || echouer "sortie non nulle : $(tail -3 "$T/sortie")"
-verifier 'grep -qx "npm ci --omit=dev" "$T/journal"' "npm ci --omit=dev non lancé"
+verifier 'grep -q "^npm ci --omit=dev" "$T/journal"' "npm ci --omit=dev non lancé"
 verifier 'cmp -s "$(API)/package-lock.json" "$(API)/package-lock.json.deployed"' ".deployed non mis à jour"
 
 echo "cas : archive incomplète"

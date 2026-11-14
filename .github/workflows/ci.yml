@@ -41,6 +41,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        # La référence choisie au déclenchement manuel, comme la tâche `deploy` :
+        # sans elle, un `ref` partirait en production sur la foi des tests d'un
+        # autre arbre. Vide hors `workflow_dispatch`, donc sans effet ailleurs.
+        with:
+          ref: ${{ inputs.ref }}
 
       # Node 22 : la seule version qui satisfasse à la fois le `engines` du
       # frontend et la production, qui tourne sur le node 22 de Plesk
@@ -96,6 +101,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-node@v7
         with:
@@ -151,6 +158,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-node@v7
         with:
@@ -253,7 +262,7 @@ jobs:
             backend/dist backend/generated backend/prisma \
             backend/package.json backend/package-lock.json \
             frontend/dist frontend/src/content/fournees \
-            deploy/plesk-deploy.sh |
+            deploy/plesk-deploy.sh deploy/prisma.deploy.config.mjs |
             ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes \
               "nellybabtb@$SSH_HOST"
 

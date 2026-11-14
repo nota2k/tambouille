@@ -22,12 +22,15 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # 1. Tout ce qui est attendu dans l'archive est vérifié avant de rien toucher.
-# 2. Les migrations passent AVANT le code. Si elles échouent, on s'arrête :
-#    l'ancien code continue de tourner sur un schéma qu'il connaît. Seul le
-#    répertoire `prisma/` a été remplacé à ce stade, et l'appli en marche ne le
-#    lit pas — son client est dans `generated/`.
-# 3. Le code, puis les dépendances si le verrou a changé, puis le front.
-# 4. Le redémarrage, en dernier.
+# 2. Si le verrou a changé, les dépendances s'installent DANS L'ARCHIVE, pas
+#    sous l'appli en marche : un `npm ci` en place viderait `node_modules`
+#    pendant des minutes, et un échec le laisserait à moitié vide — Passenger
+#    ne redémarrerait plus au premier processus relancé.
+# 3. Les migrations, avec la configuration et le schéma de l'archive. Si elles
+#    échouent, on s'arrête : rien n'a encore été touché sur le serveur, l'ancien
+#    code continue de tourner sur un schéma qu'il connaît.
+# 4. Le code, puis l'échange de `node_modules` (un `mv`, quasi instantané),
+#    puis le front, puis le redémarrage.
 #
 # Sur o2switch, Prisma 7 ne tenait pas dans la limite mémoire des processus
 # cPanel et les migrations se lançaient à la main. Sur ce serveur, elles
@@ -48,7 +51,8 @@ echo "destination : $HOME_TAMBOUILLE"
 # ── 1. L'archive est-elle complète ? ──────────────────────────────────────────
 for attendu in backend/dist backend/generated backend/prisma \
   backend/package.json backend/package-lock.json \
-  frontend/dist frontend/src/content/fournees; do
+  frontend/dist frontend/src/content/fournees \
+  deploy/prisma.deploy.config.mjs; do
   [ -e "$SOURCE/$attendu" ] || {
     echo "ERREUR : $attendu absent de l'archive — rien n'a été modifié" >&2
     exit 1
@@ -65,21 +69,41 @@ remplacer() {
   echo "  remplacé : $dst"
 }
 
-# ── 2. Les migrations ─────────────────────────────────────────────────────────
-remplacer "$SOURCE/backend/prisma" "$API/prisma"
+# ── 2. Les dépendances, dans l'archive ────────────────────────────────────────
+# `npm ci` est permis ici : `node_modules` est un vrai répertoire, pas le lien
+# symbolique que CloudLinux imposait chez o2switch. Il ne tourne que si le
+# verrou a changé : sinon le `node_modules` en place convient déjà.
+NOUVEAUX_MODULES=0
+if ! cmp -s "$SOURCE/backend/package-lock.json" "$API/package-lock.json.deployed"; then
+  echo "  verrou modifié — installation dans l'archive"
+  (cd "$SOURCE/backend" && npm ci --omit=dev) || {
+    echo "ERREUR : npm ci a échoué — rien n'a été modifié" >&2
+    exit 1
+  }
+  NOUVEAUX_MODULES=1
+else
+  echo "  verrou inchangé — installation sautée"
+fi
 
+# ── 3. Les migrations ─────────────────────────────────────────────────────────
+# Avec deploy/prisma.deploy.config.mjs, livré dans l'archive : la configuration
+# du dépôt importe `prisma/config` et `dotenv`, des dépendances de
+# développement qu'un `npm ci --omit=dev` retire.
 PRISMA_VERSION=$(node -p "require('$SOURCE/backend/package.json').devDependencies.prisma")
 DATABASE_URL=$(grep -E '^DATABASE_URL=' "$API/.env" | head -1 | cut -d= -f2- | tr -d "\"'")
 [ -n "$DATABASE_URL" ] || { echo "ERREUR : DATABASE_URL introuvable dans .env" >&2; exit 1; }
 export DATABASE_URL
 
 echo "migrations (prisma@$PRISMA_VERSION)"
-(cd "$API" && npx --yes "prisma@$PRISMA_VERSION" migrate deploy) || {
+(cd "$SOURCE/backend" &&
+  npx --yes "prisma@$PRISMA_VERSION" migrate deploy \
+    --config "$SOURCE/deploy/prisma.deploy.config.mjs") || {
   echo "ERREUR : les migrations ont échoué — l'ancien code reste en ligne" >&2
   exit 1
 }
 
-# ── 3. Le code et les dépendances ─────────────────────────────────────────────
+# ── 4. Le code et les dépendances ─────────────────────────────────────────────
+remplacer "$SOURCE/backend/prisma" "$API/prisma"
 remplacer "$SOURCE/backend/dist" "$API/dist"
 remplacer "$SOURCE/backend/generated" "$API/generated"
 # Lu par le flux RSS des fournées (`FOURNEES_DIR`), qui n'existe pas sous
@@ -88,16 +112,13 @@ remplacer "$SOURCE/frontend/src/content/fournees" "$API/fournees"
 cp -f "$SOURCE/backend/package.json" "$SOURCE/backend/package-lock.json" "$API/"
 echo "  copiés   : package.json, package-lock.json"
 
-# `npm ci` est permis ici : `node_modules` est un vrai répertoire, pas le lien
-# symbolique que CloudLinux imposait chez o2switch. Il n'est lancé que si le
-# verrou a changé : il est lent, et il vide `node_modules` sous l'appli en
-# marche.
-if ! cmp -s "$API/package-lock.json" "$API/package-lock.json.deployed"; then
-  echo "  verrou modifié — installation"
-  (cd "$API" && npm ci --omit=dev)
+if [ "$NOUVEAUX_MODULES" = 1 ]; then
+  rm -rf "${API:?}/node_modules.ancien"
+  [ -e "$API/node_modules" ] && mv "$API/node_modules" "$API/node_modules.ancien"
+  mv "$SOURCE/backend/node_modules" "$API/node_modules"
+  rm -rf "${API:?}/node_modules.ancien"
   cp "$API/package-lock.json" "$API/package-lock.json.deployed"
-else
-  echo "  verrou inchangé — installation sautée"
+  echo "  échangé  : node_modules"
 fi
 
 # ── Le front ──────────────────────────────────────────────────────────────────

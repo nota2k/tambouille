@@ -28,9 +28,10 @@ push sur main ──▶ backend · frontend · e2e          les trois vérificat
                     │             vide ~/tambouille-deploy/transit, y déballe l'archive
                     │             exécute transit/deploy/plesk-deploy.sh :
                     │               vérifie que l'archive est complète
+                    │               npm ci --omit=dev DANS l'archive (si le verrou a changé)
                     │               prisma migrate deploy   (s'arrête s'il échoue)
                     │               remplace dist, generated, fournees
-                    │               npm ci --omit=dev       (si le verrou a changé)
+                    │               échange node_modules    (un mv)
                     │               remplace le front dans httpdocs
                     │               touch tmp/restart.txt
                     │◀──── code de sortie du script ─┘
@@ -82,6 +83,16 @@ recopier en `~/bin/tambouille-deploy-entry.sh` (mode 700).
 | ------ | --------------------------------------------------------------------------------------------------------------------------- |
 | `ref`  | Déploie une référence précise. **C'est le retour arrière** : redéployer un commit connu-bon, sans rien révoquer ni réécrire |
 
+Les trois vérifications testent la même référence que celle déployée. Deux
+limites au retour arrière :
+
+- **Les migrations ne reviennent pas.** Redéployer un ancien commit remet
+  l'ancien code sur le schéma actuel. Sûr tant que les migrations ne font
+  qu'ajouter ; pour une migration qui retire ou renomme, prévoir le retour à
+  la main.
+- **Un commit antérieur au passage à Plesk ne se déploie pas** : il ne contient
+  pas `deploy/plesk-deploy.sh`. Le point d'entrée le refuse sans rien toucher.
+
 ## Les règles de sûreté à ne pas défaire
 
 Elles sont écrites aussi dans `deploy/plesk-deploy.sh`, à côté des commandes
@@ -92,9 +103,13 @@ lancé par la CI) les garde.
   répertoire de l'API lui-même.** À sa racine vivent `.env`, `public/`, `tmp/`,
   et 222 Mo d'`uploads/` sauvegardés nulle part ailleurs. C'est la seule
   opération irréversible du déploiement.
-- **Les migrations avant le code.** Si elles échouent, le script s'arrête :
-  l'ancien code continue de tourner sur un schéma qu'il connaît. Seul
-  `prisma/` a été remplacé à ce stade, et l'appli en marche ne le lit pas.
+- **Rien ne bouge sur le serveur avant les migrations.** Les dépendances
+  s'installent dans l'archive, les migrations tournent depuis l'archive ; si
+  l'une ou l'autre échoue, le script s'arrête et l'ancien code continue de
+  tourner, sur un `node_modules` intact.
+- **`node_modules` s'échange, il ne se vide pas.** Un `npm ci` en place
+  laisserait l'appli sans dépendances pendant l'installation, et à moitié
+  installée en cas d'échec.
 - **Le Node de Plesk, pas celui du `PATH`.** Le script préfixe
   `/opt/plesk/node/22/bin`, celui que Passenger exécute.
 
@@ -104,8 +119,18 @@ Sur o2switch, la CLI Prisma 7 ne tenait pas dans la limite mémoire que
 CloudLinux imposait aux processus lancés par cPanel, et les migrations se
 lançaient à la main. Sur ce serveur, elle tourne — vérifié avec
 `prisma migrate status` le 14 novembre 2026 —, et le script lance
-`npx prisma@<version du package.json> migrate deploy` depuis le répertoire de
-l'API, avec le `DATABASE_URL` de son `.env`.
+`npx prisma@<version du package.json> migrate deploy` avec le `DATABASE_URL`
+du `.env` de l'API.
+
+Il passe `--config deploy/prisma.deploy.config.mjs`, livré dans l'archive, et
+non `backend/prisma.config.ts` : celui-ci importe `prisma/config` et `dotenv`,
+des dépendances de développement que `npm ci --omit=dev` ne pose pas.
+
+Une migration en échec est notée comme telle dans `_prisma_migrations`, et
+Prisma refuse ensuite tout `migrate deploy` (erreur P3009) tant qu'on ne l'a
+pas tranchée en SSH : corriger la base à la main, puis
+`npx prisma@7 migrate resolve --applied <nom>` — ou `--rolled-back <nom>` si
+la migration doit être rejouée —, avec la même option `--config`.
 
 Si une reprise de données doit s'intercaler entre deux migrations — une colonne
 à remplir avant qu'un `NOT NULL` ne la ferme —, la découper en deux
