@@ -63,7 +63,16 @@ export class ImportsService {
    * fichier (`refetch`).
    */
   async refetch(pageUrl: string, sourceRef: string): Promise<MixImport> {
-    const url = new URL(pageUrl);
+    let url: URL;
+    try {
+      url = new URL(pageUrl);
+    } catch {
+      // Une page saisie à la main avant que la validation ne l'exige : sans
+      // ce garde, `new URL` lève une TypeError, et le client reçoit un 500.
+      throw new BadRequestException(
+        "L'adresse de la source de ce mix n'est pas valide",
+      );
+    }
     const importer = this.importerFor(url);
     if (importer.refetch) return importer.refetch(url, sourceRef);
     const resolved = await importer.resolve(url);

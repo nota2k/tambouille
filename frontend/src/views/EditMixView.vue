@@ -81,6 +81,11 @@ const error = ref('')
  */
 const sourcePageUrl = ref<string | null>(null)
 const recuperation = ref(false)
+/** Affichés sous le bouton, et non en bas d'un formulaire que la tracklist peut rendre très long. */
+const erreurSource = ref('')
+const avertissementSource = ref('')
+/** Le champ de fichier de la pochette, pour le vider quand la source en fournit une. */
+const champPochette = ref<HTMLInputElement | null>(null)
 /**
  * La pochette trouvée par « Récupérer depuis la source ». Envoyée à
  * l'enregistrement, où le serveur la télécharge — sauf si un fichier a été
@@ -129,10 +134,13 @@ async function load() {
  * « Enregistrer » ou « Annuler » tranchent ensuite.
  */
 async function recupererDepuisLaSource() {
-  error.value = ''
+  erreurSource.value = ''
+  avertissementSource.value = ''
   recuperation.value = true
   try {
-    const { data } = await apiClient.post<MixImport>(`/mixes/${mixId.value}/source`)
+    const { data } = await apiClient.post<MixImport & { autreFichier?: boolean }>(
+      `/mixes/${mixId.value}/source`,
+    )
     title.value = data.title
     artist.value = data.artist ?? ''
     description.value = data.description
@@ -146,8 +154,19 @@ async function recupererDepuisLaSource() {
           }))
         : [{ timecode: '', artist: '', title: '' }]
     coverSourceUrl.value = data.coverSourceUrl ?? null
+    // « Tout remplacer » vaut aussi pour un fichier choisi à la main avant le
+    // clic : sans ça, il garderait la priorité, à l'aperçu comme à l'envoi.
+    if (data.coverSourceUrl) {
+      coverFile.value = null
+      coverPreview.value = null
+      if (champPochette.value) champPochette.value.value = ''
+    }
+    if (data.autreFichier) {
+      avertissementSource.value =
+        'Attention : la source désigne un autre fichier audio que celui de ce mix. Vérifiez que ce sont bien ses infos avant d’enregistrer.'
+    }
   } catch (err) {
-    error.value = apiErrorMessage(err, 'La source n’a pas pu être relue')
+    erreurSource.value = apiErrorMessage(err, 'La source n’a pas pu être relue')
   } finally {
     recuperation.value = false
   }
@@ -232,6 +251,10 @@ onMounted(load)
           Remplace tous les champs par ce que dit la source. Rien n'est enregistré avant «
           Enregistrer ».
         </p>
+        <p v-if="erreurSource" class="w-full text-sm text-red-400">{{ erreurSource }}</p>
+        <p v-if="avertissementSource" class="w-full text-sm text-amber-400">
+          {{ avertissementSource }}
+        </p>
       </div>
 
       <div>
@@ -279,6 +302,7 @@ onMounted(load)
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Pochette</label>
         <input
+          ref="champPochette"
           type="file"
           accept="image/jpeg,image/png,image/webp"
           class="w-full text-sm text-tambouille-muted file:mr-4 file:rounded-none file:border-0 file:bg-tambouille-surface-hover file:px-4 file:py-2 file:font-semibold hover:file:bg-tambouille-border"

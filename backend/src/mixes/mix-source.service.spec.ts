@@ -9,7 +9,12 @@ import type { ImportsService } from '../imports/imports.service';
 
 function harnais(mix: Record<string, unknown> | null) {
   const prisma = { mix: { findUnique: jest.fn().mockResolvedValue(mix) } };
-  const imports = { refetch: jest.fn().mockResolvedValue({ title: 'relu' }) };
+  const imports = {
+    refetch: jest.fn().mockResolvedValue({
+      title: 'relu',
+      sourceRef: 'https://ouiedire.net/a.mp3',
+    }),
+  };
   const service = new MixSourceService(
     prisma as unknown as PrismaService,
     imports as unknown as ImportsService,
@@ -52,10 +57,27 @@ describe('MixSourceService.refetch', () => {
     const { service, imports } = harnais(MIX);
     await expect(service.refetch('mix-1', 'moi')).resolves.toEqual({
       title: 'relu',
+      sourceRef: 'https://ouiedire.net/a.mp3',
+      autreFichier: false,
     });
     expect(imports.refetch).toHaveBeenCalledWith(
       'https://ouiedire.net/feed',
       'https://ouiedire.net/a.mp3',
+    );
+  });
+
+  it('prévient quand la source désigne un autre fichier audio que le mix', async () => {
+    // Pas un refus : chez Ouïedire, l'adresse du fichier d'une même émission
+    // peut changer. Mais une page de source modifiée à la main peut aussi
+    // désigner un tout autre mix — le formulaire doit le dire avant qu'on
+    // enregistre ses infos sur celui-ci.
+    const { service, imports } = harnais(MIX);
+    imports.refetch.mockResolvedValue({
+      title: 'autre',
+      sourceRef: 'https://ailleurs.test/b.mp3',
+    });
+    await expect(service.refetch('mix-1', 'moi')).resolves.toEqual(
+      expect.objectContaining({ autreFichier: true }),
     );
   });
 });
