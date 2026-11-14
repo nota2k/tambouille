@@ -507,6 +507,27 @@ export class MixesService {
     return { url: source.url, statusCode: 302 };
   }
 
+  /**
+   * Le mix existe et appartient à ce compte — sinon 404 ou 403.
+   *
+   * Appelé par le contrôleur AVANT d'importer une pochette distante : rien ne
+   * supprime un objet R2, donc une pochette importée pour une modification
+   * refusée resterait orpheline, et n'importe quel compte pourrait remplir le
+   * stockage en boucle. `update` refait le contrôle : il reste sûr appelé seul.
+   */
+  async assertCanEdit(id: string, userId: string): Promise<void> {
+    const mix = await this.prisma.mix.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+    if (!mix) {
+      throw new NotFoundException('Mix not found');
+    }
+    if (mix.userId !== userId) {
+      throw new ForbiddenException('You can only edit your own mixes');
+    }
+  }
+
   async update(
     id: string,
     userId: string,

@@ -324,12 +324,21 @@ export class MixesController {
     @Body() dto: UpdateMixDto,
     @UploadedFile() file?: R2File,
   ) {
+    // Le propriétaire d'abord, la pochette ensuite : voir `assertCanEdit`.
+    await this.mixesService.assertCanEdit(id, userId);
+
     // Un import raté rend `undefined` : la pochette actuelle reste.
     const coverUrl = await this.coverImportService.resolveCoverUrl(
       file?.key,
       dto.coverSourceUrl,
     );
-    return this.mixesService.update(id, userId, dto, coverUrl);
+    const mix = await this.mixesService.update(id, userId, dto, coverUrl);
+    // Dit au formulaire que la pochette qu'il montrait en aperçu n'a pas été
+    // prise : sans ça, l'ancienne reste en silence alors que l'écran
+    // promettait la nouvelle.
+    const pochetteNonImportee =
+      !file && Boolean(dto.coverSourceUrl) && coverUrl === undefined;
+    return { ...mix, pochetteNonImportee };
   }
 
   /**

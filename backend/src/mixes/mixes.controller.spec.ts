@@ -23,6 +23,7 @@ jest.mock('../common/upload.utils', () => ({
 
 import { MixesController } from './mixes.controller';
 import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
+import { ForbiddenException } from '@nestjs/common';
 import { CoverImportService } from './cover-import.service';
 import type { MixSourceService } from './mix-source.service';
 import { QueryMixesDto } from './dto/query-mixes.dto';
@@ -38,6 +39,7 @@ import type { IncongruesSyncService } from '../incongrues/incongrues.sync.servic
 function createServiceMock() {
   return {
     update: jest.fn().mockResolvedValue({ id: 'mix-1' }),
+    assertCanEdit: jest.fn().mockResolvedValue(undefined),
     // Faithful to the real service: it enforces the same rule, so removing the
     // controller's early check does not make this request start succeeding —
     // it only makes it succeed *later*, after the cover has been written. That
@@ -144,6 +146,43 @@ describe('MixesController', () => {
         USER_ID,
         expect.anything(),
         'covers/imported.jpg',
+      );
+    });
+
+    it("refuse un mix d'un autre compte AVANT de télécharger quoi que ce soit", async () => {
+      // Même règle qu'à la création : rien ne supprime un objet R2, donc une
+      // pochette importée pour une modification refusée resterait orpheline —
+      // et n'importe quel compte pourrait remplir le stockage en boucle.
+      mixesService.assertCanEdit.mockRejectedValue(
+        new ForbiddenException('You can only edit your own mixes'),
+      );
+      await expect(
+        controller.update('mix-1', 'autre', {
+          coverSourceUrl: COVER_SOURCE_URL,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(coverImport.importFromUrl).not.toHaveBeenCalled();
+      expect(mixesService.update).not.toHaveBeenCalled();
+    });
+
+    it("dit quand la pochette demandée n'a pas pu être importée", async () => {
+      (coverImport.importFromUrl as jest.Mock).mockResolvedValue(null);
+      await expect(
+        controller.update('mix-1', USER_ID, {
+          coverSourceUrl: COVER_SOURCE_URL,
+        }),
+      ).resolves.toEqual(
+        expect.objectContaining({ pochetteNonImportee: true }),
+      );
+    });
+
+    it('ne signale rien quand la pochette a été importée', async () => {
+      await expect(
+        controller.update('mix-1', USER_ID, {
+          coverSourceUrl: COVER_SOURCE_URL,
+        }),
+      ).resolves.toEqual(
+        expect.objectContaining({ pochetteNonImportee: false }),
       );
     });
 
