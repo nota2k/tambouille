@@ -120,10 +120,10 @@ Variables d'environnement (`backend/.env`) : `DATABASE_URL`, `JWT_SECRET`, `JWT_
 
 Le déploiement en production est décrit dans [`backend/README.md`](backend/README.md) :
 il part de lui-même à chaque fusion sur `main`, derrière les trois vérifications,
-et n'aboutit que si le serveur confirme avoir redémarré. Le déclenchement manuel
-reste disponible depuis *Actions › CI › Run workflow* : son entrée `ref` est le
-retour arrière. Les migrations, elles, ne partent pas toutes seules — le serveur
-refuse de redémarrer s'il en manque, plutôt que de servir un schéma en retard.
+et n'aboutit que si le script lancé sur le serveur Plesk a réussi. Le
+déclenchement manuel reste disponible depuis *Actions › CI › Run workflow* : son
+entrée `ref` est le retour arrière. Les migrations partent avec le déploiement,
+avant le code : si elles échouent, l'ancien code reste en ligne.
 
 ### 3. Frontend
 

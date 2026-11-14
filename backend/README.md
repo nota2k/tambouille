@@ -4,50 +4,77 @@ API NestJS. Pour l'installation et le démarrage en local, voir le
 [README racine](../README.md).
 
 Ce fichier documente le **déploiement**, parce que c'est ici que vivent les
-détails qui le contraignent : Passenger, le virtualenv Node de l'hébergeur, et
-les migrations Prisma.
+détails qui le contraignent : Passenger, le Node de l'hébergeur, et les
+migrations Prisma.
 
 ## Comment une version arrive en production
 
-Rien n'est manuel, et rien ne se déclenche tout seul non plus — le déploiement
-part sur commande, depuis _Actions › CI › Run workflow_.
+Chaque fusion sur `main` part en production d'elle-même, derrière les trois
+vérifications. Le déclenchement manuel reste, depuis _Actions › CI › Run
+workflow_.
 
 ```
-push / PR ──▶ backend · frontend · e2e          les trois vérifications
+push sur main ──▶ backend · frontend · e2e          les trois vérifications
                     │
                     ▼  needs
-              deploy (workflow_dispatch seulement)
+              deploy
                     │
      construit les deux paquets sur le runner
                     │
-     commite les artefacts ──────▶  branche `production`
+     tar czf - (artefacts + deploy/plesk-deploy.sh)
                     │
-     API cPanel (port 2083) ─────▶  VersionControl/update
-                    │               VersionControlDeployment/create
-                    │                       │
-                    │              ~/repositories/tambouille
-                    │              exécute .cpanel.yml :
-                    │                 git pull --ff-only
-                    │                 deploy/o2switch-deploy.sh
-                    │                   recopie vers ~/tambouille
-                    │                   npm install --omit=dev (si le verrou a changé)
-                    │                   vérifie le schéma, refuse de migrer
-                    │                   touch tmp/restart.txt
-                    │◀──── VersionControlDeployment/retrieve ─┘
-                    │
-     attend un résultat TERMINAL, échoue s'il n'arrive pas
+     ssh nellybabtb@serveur ──▶ commande forcée de la clé :
+                    │           ~/bin/tambouille-deploy-entry.sh
+                    │             vide ~/tambouille-deploy/transit, y déballe l'archive
+                    │             exécute transit/deploy/plesk-deploy.sh :
+                    │               vérifie que l'archive est complète
+                    │               prisma migrate deploy   (s'arrête s'il échoue)
+                    │               remplace dist, generated, fournees
+                    │               npm ci --omit=dev       (si le verrou a changé)
+                    │               remplace le front dans httpdocs
+                    │               touch tmp/restart.txt
+                    │◀──── code de sortie du script ─┘
                     │
      vérifie que l'API et le site répondent
 ```
 
-Compter environ **une minute** — 64 secondes au dernier déploiement mesuré.
+Le serveur est un Plesk mutualisé (pastis-hosting). Tambouille y a son propre
+abonnement, `tambouille.pantagruweb.club`, dont l'utilisateur système est
+`tambouille` :
 
-Deux répertoires distincts sur le serveur, et la distinction est le cœur du
-dispositif : `~/repositories/tambouille` est le dépôt que cPanel gère et où il
-tire ; `~/tambouille` est ce qu'Apache sert, et n'est plus un dépôt git du tout.
-Le script recopie du premier vers le second. Enregistrer le dépôt cPanel sur
-`~/tambouille` — ce qu'une première tentative a fait — ferait écrire un `git pull`
-directement dans la production.
+- l'API vit dans `/var/www/vhosts/tambouille.pantagruweb.club/api.tambouille.pantagruweb.club/`,
+  démarrée par le Node.js Toolkit de Plesk (Passenger) via `app.js`, qui charge
+  `dist/src/main.js` ; Node 22 dans `/opt/plesk/node/22/bin` ;
+- le front est servi depuis `httpdocs/`.
+
+La CI se connecte en **`nellybabtb`**, l'utilisateur de l'abonnement
+`nellybabillon.fr`, qui a les droits sur ce dossier par ACL. `tambouille`
+n'a pas de clé autorisée, et son dossier — en 770 pour cette ACL — ferait
+refuser toute clé par sshd.
+
+## La clé de déploiement est bridée
+
+La CI tient une clé dédiée, `tambouille-deploy`. Dans
+`~/.ssh/authorized_keys` de `nellybabtb`, elle est déclarée ainsi :
+
+```
+restrict,command="/var/www/vhosts/nellybabillon.fr/bin/tambouille-deploy-entry.sh" ssh-ed25519 … tambouille-deploy
+```
+
+Quoi que demande la connexion, c'est ce point d'entrée qui s'exécute : pas de
+shell, pas de redirection de port, et aucun accès aux autres sites de
+l'abonnement. Il est la copie de [`deploy/plesk-entry.sh`](../deploy/plesk-entry.sh)
+et ne change presque jamais : toute la logique vit dans
+[`deploy/plesk-deploy.sh`](../deploy/plesk-deploy.sh), qui **arrive avec
+chaque archive**. Le script exécuté est donc toujours le dernier publié.
+
+Le revers est à savoir : qui peut pousser sur `main` peut faire exécuter du
+code sur ce serveur, avec les droits de `nellybabtb`. C'est le niveau de
+confiance déjà accordé au code applicatif — dit ici plutôt que tenu par la
+structure.
+
+Si `plesk-entry.sh` change, la copie du serveur ne suit pas d'elle-même : la
+recopier en `~/bin/tambouille-deploy-entry.sh` (mode 700).
 
 ## Entrées du déclenchement manuel
 
@@ -55,66 +82,43 @@ directement dans la production.
 | ------ | --------------------------------------------------------------------------------------------------------------------------- |
 | `ref`  | Déploie une référence précise. **C'est le retour arrière** : redéployer un commit connu-bon, sans rien révoquer ni réécrire |
 
-## Pourquoi ni SSH ni FTP
-
-Le port 22 est filtré depuis un runner GitHub : le pare-feu du mutualisé
-n'accepte que des adresses déclarées, et sa liste blanche compte cinq
-emplacements quand les plages de sortie des runners se comptent en milliers de
-blocs CIDR. Ce n'est pas une adresse à trouver, c'est une impossibilité de
-structure.
-
-Le FTPS a fonctionné, et a été abandonné : faute de listage récursif, la seule
-comparaison des fichiers coûtait 141 secondes sur 248 pour quelques centaines de
-kilooctets, et comme le FTP transfère sans rien exécuter, migrations et
-redémarrage demandaient un cron vivant hors du dépôt.
-
-Le port 2083 répond. Un déploiement déclenché par l'API cPanel exécute réellement
-les tâches de `.cpanel.yml` — vérifié, pas supposé — ce qui supprime d'un coup le
-transport, le protocole de demande et de résultat, et le cron.
-
-## La propriété qu'on a perdue en chemin, et qu'il faut savoir perdue
-
-Avec le cron, le script exécuté vivait dans `~/bin/`, hors de portée de
-l'identifiant de déploiement : le pipeline pouvait déposer des fichiers, jamais
-choisir ce qui s'exécutait en réponse.
-
-**`.cpanel.yml` étant versionné, cette propriété n'existe plus.** Qui peut
-pousser sur le dépôt peut faire exécuter n'importe quoi sur le serveur. C'est le
-niveau de confiance qu'on accorde déjà au code applicatif — mais il est
-maintenant dit plutôt que tenu par la structure. Le jeton d'API, en
-`full_access`, dépasse lui aussi ce que le compte FTP cantonné permettait.
-
 ## Les règles de sûreté à ne pas défaire
 
-Toutes trois sont écrites aussi dans `deploy/o2switch-deploy.sh`, à côté des
-commandes qu'elles justifient — c'est là qu'elles servent.
+Elles sont écrites aussi dans `deploy/plesk-deploy.sh`, à côté des commandes
+qu'elles justifient, et son test ([`deploy/plesk-deploy.test.sh`](../deploy/plesk-deploy.test.sh),
+lancé par la CI) les garde.
 
-- **`npm install --omit=dev`, jamais `npm ci`.** `npm ci` supprime
-  `node_modules`, or CloudLinux exige que ce soit un lien symbolique vers le
-  virtualenv. Un `npm ci` a cassé la production le 17 août 2026 et il a fallu
-  rétablir le lien à la main.
-- **Activer le `nodevenv` avant toute commande Node.** Le `PATH` du serveur porte
-  un node 24.11.x qui ne satisfait pas le `engines` du projet et n'est pas celui
-  que Passenger exécute.
-- **Nommer un par un les répertoires remplacés, jamais de joker, et jamais
-  `backend/` lui-même.** À sa racine vivent `.env`, le lien `node_modules`,
-  `tmp/`, et 222 Mo d'`uploads/` sauvegardés nulle part ailleurs. C'est la seule
+- **Nommer un par un les répertoires remplacés, jamais de joker, et jamais le
+  répertoire de l'API lui-même.** À sa racine vivent `.env`, `public/`, `tmp/`,
+  et 222 Mo d'`uploads/` sauvegardés nulle part ailleurs. C'est la seule
   opération irréversible du déploiement.
+- **Les migrations avant le code.** Si elles échouent, le script s'arrête :
+  l'ancien code continue de tourner sur un schéma qu'il connaît. Seul
+  `prisma/` a été remplacé à ce stade, et l'appli en marche ne le lit pas.
+- **Le Node de Plesk, pas celui du `PATH`.** Le script préfixe
+  `/opt/plesk/node/22/bin`, celui que Passenger exécute.
 
-## Migrations : le déploiement les détecte, il ne les applique pas
+## Migrations : le déploiement les applique
 
-La CLI Prisma 7 instancie un module WebAssembly au démarrage, et cette allocation
-échoue sous la limite mémoire que CloudLinux applique aux processus lancés par
-cPanel. Le script compare donc les répertoires de `prisma/migrations` à ce que la
-base déclare avoir appliqué, et **s'arrête** s'il en manque, plutôt que de
-redémarrer sur un schéma en retard. La commande à lancer en SSH, où la limite est
-plus large, figure dans son message d'erreur.
+Sur o2switch, la CLI Prisma 7 ne tenait pas dans la limite mémoire que
+CloudLinux imposait aux processus lancés par cPanel, et les migrations se
+lançaient à la main. Sur ce serveur, elle tourne — vérifié avec
+`prisma migrate status` le 14 novembre 2026 —, et le script lance
+`npx prisma@<version du package.json> migrate deploy` depuis le répertoire de
+l'API, avec le `DATABASE_URL` de son `.env`.
+
+Si une reprise de données doit s'intercaler entre deux migrations — une colonne
+à remplir avant qu'un `NOT NULL` ne la ferme —, la découper en deux
+déploiements.
 
 ## Secrets
 
-Trois : `O2SWITCH_CPANEL_HOST`, `O2SWITCH_CPANEL_USER`, `O2SWITCH_CPANEL_TOKEN`
-(un jeton d'API cPanel nommé `github-deploy`). Les trois tâches de vérification
-n'en lisent aucun — elles restent donc exécutables depuis un fork.
+Trois : `PLESK_SSH_KEY` (la moitié privée de `tambouille-deploy`),
+`PLESK_SSH_HOST` (`167.86.109.6`) et `PLESK_SSH_KNOWN_HOSTS` (l'empreinte
+ed25519 du serveur, `ssh-keyscan -t ed25519 167.86.109.6`). Sans cette
+empreinte, la CI refuse de se connecter plutôt que d'accepter l'hôte à la volée.
+Les trois tâches de vérification n'en lisent aucun — elles restent donc
+exécutables depuis un fork.
 
 `backend/.env` vit sur le serveur et n'est jamais transféré : le déploiement ne
 peut pas l'écraser, et ne peut pas non plus le renseigner. Une variable nouvelle
@@ -146,8 +150,8 @@ abandonnée depuis, sa validation d'URL exigeant un hôte Discord, Slack ou
 Teams qu'aucune adresse Tambouille ne peut satisfaire.
 
 Préférer l'en-tête n'est pas une élégance : un secret dans un chemin finit
-**en clair dans les journaux d'accès** o2switch, constaté et non supposé, et il
-y reste dans les archives mensuelles compressées. Un secret ayant transité par
+**en clair dans les journaux d'accès** de l'hébergeur — constaté chez o2switch,
+non supposé —, et il y reste dans les archives mensuelles compressées. Un secret ayant transité par
 une URL doit être considéré comme lu dès que ces journaux sont partagés.
 
 **Ce qui sonne aujourd'hui**, c'est un workflow n8n à deux nœuds : un
@@ -284,8 +288,8 @@ binaire de la plateforme au déploiement, comme pour toute autre dépendance.
 
 ## Ce qui reste manuel
 
-- Appliquer une migration, pour la raison ci-dessus.
 - Ajouter une variable d'environnement en production.
-- Tout ce qui touche à cPanel : l'enregistrement du dépôt, le jeton, le pare-feu.
+- Tout ce qui touche à Plesk : la clé bridée et son point d'entrée, les droits
+  du dossier, la version de Node de l'appli.
 - Générer `INCONGRUES_WEBHOOK_SECRET` et déclarer le webhook côté Flarum, voir
   la section Secrets.
