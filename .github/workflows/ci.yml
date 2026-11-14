@@ -75,6 +75,12 @@ jobs:
       - run: npm run build
         working-directory: backend
 
+      # Hors ligne : une fausse arborescence, des doublures de `npx` et `npm`.
+      # C'est ce qui garde l'ordre migrations → code, et les répertoires
+      # jamais touchés, sans attendre un déploiement réel pour le découvrir.
+      - name: Tester le script de déploiement
+        run: bash deploy/plesk-deploy.test.sh
+
       # Non bloquant. Le dépôt compte 659 problèmes eslint côté backend, dont
       # environ 294 ne sont pas auto-corrigeables : les rendre bloquants
       # reviendrait à exiger une remise à plat de cette taille avant toute
