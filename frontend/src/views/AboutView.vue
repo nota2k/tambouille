@@ -61,6 +61,7 @@ useSeo({
       <li>Archive.org</li>
       <li>Ouïedire, LYL Radio, The Brain</li>
       <li>n'importe quel flux RSS de podcast</li>
+      <li>un lien direct vers un fichier audio (.mp3, .ogg, .flac…), laissé chez sa source</li>
     </ul>
     <p class="mt-3 leading-relaxed">
       Sur un import, tu choisis où vit l'audio : copié chez nous, ou laissé chez la source, qui

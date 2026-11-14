@@ -45,6 +45,10 @@ function createPrismaMock() {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    favorite: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
     playHistory: {
       upsert: jest.fn(),
       findMany: jest.fn(),
@@ -1064,6 +1068,52 @@ describe('MixesService', () => {
         expect.objectContaining({
           data: expect.objectContaining({ artist: null }),
         }),
+      );
+    });
+
+    it('trie du plus ancien au plus récent quand on le demande', async () => {
+      prisma.mix.findMany.mockResolvedValue([]);
+      prisma.mix.count.mockResolvedValue(0);
+
+      await service.findAll({ sort: 'oldest' });
+
+      expect(prisma.mix.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { createdAt: 'asc' } }),
+      );
+    });
+
+    it('applique la recherche AUX FAVORIS, qui l’ignoraient', async () => {
+      prisma.favorite.findMany.mockResolvedValue([]);
+      prisma.favorite.count.mockResolvedValue(0);
+
+      await service.listFavorites('user-1', { q: 'dub', page: 1, limit: 25 });
+
+      // Le DTO acceptait `q` et le service n'en faisait rien : la collection
+      // filtrait après coup, sur ce qu'elle avait chargé. Paginée, elle
+      // n'aurait plus cherché que dans la page affichée.
+      const appel = prisma.favorite.findMany.mock.calls[0][0] as {
+        where: { userId: string; mix: { AND: unknown[] } };
+      };
+      expect(appel.where.userId).toBe('user-1');
+      expect(appel.where.mix.AND).toContainEqual(
+        expect.objectContaining({
+          OR: expect.arrayContaining([
+            { title: { contains: 'dub', mode: 'insensitive' } },
+          ]),
+        }),
+      );
+    });
+
+    it('trie les favoris sur le MIX, pas sur la date de mise en favori', async () => {
+      prisma.favorite.findMany.mockResolvedValue([]);
+      prisma.favorite.count.mockResolvedValue(0);
+
+      await service.listFavorites('user-1', { sort: 'oldest' });
+
+      // « Plus ancien » désigne le mix, comme dans l'onglet voisin. Trier sur
+      // la date de mise en favori aurait donné un ordre que rien n'annonce.
+      expect(prisma.favorite.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { mix: { createdAt: 'asc' } } }),
       );
     });
 

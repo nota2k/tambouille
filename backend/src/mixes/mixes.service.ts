@@ -140,6 +140,68 @@ export function assertSourcePageHasASource(
 }
 
 /** Mix include shape. When `currentUserId` is set, also fetches whether that user favorited each mix. */
+/**
+ * Le filtre d'une liste de mix — recherche, tags, compte, fraîcheur.
+ *
+ * Partagé par le catalogue et par les favoris, qui doivent répondre pareil : un
+ * même terme cherché dans deux onglets voisins ne peut pas y avoir deux sens.
+ */
+export function filtreDeMix(query: QueryMixesDto) {
+  return {
+    AND: [
+      query.q
+        ? {
+            OR: [
+              { title: { contains: query.q, mode: 'insensitive' as const } },
+              {
+                description: {
+                  contains: query.q,
+                  mode: 'insensitive' as const,
+                },
+              },
+              { artist: { contains: query.q, mode: 'insensitive' as const } },
+              // Les tags aussi : la collection cherchait « titre OU tag » côté
+              // client, et passer la recherche au serveur sans cette ligne
+              // aurait retiré la moitié de ce qu'elle trouvait. `has` est une
+              // égalité exacte — c'est ce que fait une pastille de tag, qu'on
+              // clique ou qu'on recopie.
+              { tags: { has: query.q.trim().toLowerCase() } },
+            ],
+          }
+        : {},
+      query.tags
+        ? {
+            tags: {
+              hasEvery: query.tags
+                .split(',')
+                .map((t) => t.trim().toLowerCase())
+                .filter(Boolean),
+            },
+          }
+        : query.tag
+          ? { tags: { has: query.tag.toLowerCase() } }
+          : {},
+      query.username ? { user: { username: query.username } } : {},
+      // La fenêtre de fraîcheur. `Date.now()` est lu à chaque requête, donc
+      // la borne glisse avec le temps plutôt que d'être figée au démarrage.
+      query.sinceDays
+        ? {
+            createdAt: {
+              gte: new Date(Date.now() - query.sinceDays * 24 * 60 * 60 * 1000),
+            },
+          }
+        : {},
+    ],
+  };
+}
+
+/** Le tri d'une liste de mix, partagé par le catalogue et par les favoris. */
+export function orderByPour(sort: 'recent' | 'oldest' | 'plays' | undefined) {
+  if (sort === 'plays') return { playsCount: 'desc' as const };
+  if (sort === 'oldest') return { createdAt: 'asc' as const };
+  return { createdAt: 'desc' as const };
+}
+
 export function buildMixInclude(currentUserId?: string) {
   return {
     include: {
@@ -185,10 +247,30 @@ export class MixesService {
     private readonly coverImport: CoverImportService,
   ) {}
 
-  async findAllTags(): Promise<string[]> {
-    const rows = await this.prisma.$queryRaw<{ tag: string }[]>`
-      SELECT DISTINCT unnest(tags) AS tag FROM "mixes" ORDER BY tag
-    `;
+  /**
+   * Les tags employés, tous comptes confondus ou pour un seul.
+   *
+   * Le filtre par compte sert la liste déroulante de la collection : elle était
+   * dérivée des mix chargés, donc paginée à vingt-cinq elle n'aurait plus
+   * proposé qu'une partie des tags de la personne — sans que rien ne dise que
+   * les autres existent.
+   *
+   * Deux requêtes distinctes plutôt qu'un `WHERE` conditionnel interpolé :
+   * `$queryRaw` n'accepte pas un fragment de SQL comme paramètre, et le
+   * construire par concaténation ouvrirait une injection là où il n'y en a pas.
+   */
+  async findAllTags(username?: string): Promise<string[]> {
+    const rows = username
+      ? await this.prisma.$queryRaw<{ tag: string }[]>`
+          SELECT DISTINCT unnest(m.tags) AS tag
+          FROM "mixes" m
+          JOIN "users" u ON u.id = m."userId"
+          WHERE u.username = ${username}
+          ORDER BY tag
+        `
+      : await this.prisma.$queryRaw<{ tag: string }[]>`
+          SELECT DISTINCT unnest(tags) AS tag FROM "mixes" ORDER BY tag
+        `;
     return rows.map((r) => r.tag);
   }
 
@@ -297,53 +379,9 @@ export class MixesService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const where = {
-      AND: [
-        query.q
-          ? {
-              OR: [
-                { title: { contains: query.q, mode: 'insensitive' as const } },
-                {
-                  description: {
-                    contains: query.q,
-                    mode: 'insensitive' as const,
-                  },
-                },
-                { artist: { contains: query.q, mode: 'insensitive' as const } },
-              ],
-            }
-          : {},
-        query.tags
-          ? {
-              tags: {
-                hasEvery: query.tags
-                  .split(',')
-                  .map((t) => t.trim().toLowerCase())
-                  .filter(Boolean),
-              },
-            }
-          : query.tag
-            ? { tags: { has: query.tag.toLowerCase() } }
-            : {},
-        query.username ? { user: { username: query.username } } : {},
-        // La fenêtre de fraîcheur. `Date.now()` est lu à chaque requête, donc
-        // la borne glisse avec le temps plutôt que d'être figée au démarrage.
-        query.sinceDays
-          ? {
-              createdAt: {
-                gte: new Date(
-                  Date.now() - query.sinceDays * 24 * 60 * 60 * 1000,
-                ),
-              },
-            }
-          : {},
-      ],
-    };
+    const where = filtreDeMix(query);
 
-    const orderBy =
-      query.sort === 'plays'
-        ? { playsCount: 'desc' as const }
-        : { createdAt: 'desc' as const };
+    const orderBy = orderByPour(query.sort);
 
     const [items, total] = await Promise.all([
       this.prisma.mix.findMany({
@@ -861,15 +899,28 @@ export class MixesService {
     await this.prisma.favorite.deleteMany({ where: { userId, mixId } });
   }
 
+  /**
+   * Les favoris d'un compte, filtrés et triés comme le catalogue.
+   *
+   * `q`, `tag` et `sort` étaient acceptés par le DTO et IGNORÉS ici : la
+   * collection les appliquait après coup, sur ce qu'elle avait chargé. Tant
+   * qu'elle chargeait tout, cela revenait au même ; paginée, la recherche
+   * n'aurait plus porté que sur la page affichée — un mix absent de l'écran
+   * n'aurait pas été trouvé, sans que rien ne le dise.
+   *
+   * Le tri porte sur le MIX et non sur la date de mise en favori : c'est ce que
+   * les libellés « plus récent » et « plus ancien » annoncent, et ce que fait
+   * déjà l'onglet voisin.
+   */
   async listFavorites(userId: string, query: QueryMixesDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where = { userId };
+    const where = { userId, mix: filtreDeMix(query) };
 
     const [favorites, total] = await Promise.all([
       this.prisma.favorite.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { mix: orderByPour(query.sort) },
         skip: (page - 1) * limit,
         take: limit,
         include: { mix: { include: buildMixInclude(userId).include } },

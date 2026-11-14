@@ -16,6 +16,28 @@ const userSummarySelect = {
   avatarUrl: true,
 } as const;
 
+/**
+ * Les `n` tags les plus fréquents d'un ensemble de mix.
+ *
+ * À égalité, l'ordre alphabétique tranche : sans lui, deux tags à trois
+ * occurrences se seraient succédé au gré de l'ordre des lignes rendues par la
+ * base, et le bandeau d'un profil aurait changé d'un rechargement à l'autre
+ * sans que rien n'ait bougé.
+ */
+export function tagsLesPlusFrequents(
+  mixes: { tags: string[] }[],
+  n: number,
+): string[] {
+  const comptes = new Map<string, number>();
+  for (const mix of mixes) {
+    for (const tag of mix.tags) comptes.set(tag, (comptes.get(tag) ?? 0) + 1);
+  }
+  return [...comptes.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, n)
+    .map(([tag]) => tag);
+}
+
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -73,6 +95,32 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    /*
+     * Les deux agrégats du bandeau, calculés SUR TOUT LE CATALOGUE du compte.
+     *
+     * Ils vivaient côté client, dérivés de la liste de mix affichée. Tant
+     * qu'elle valait cinquante, l'écart passait inaperçu ; paginée à
+     * vingt-cinq, la page aurait annoncé « 40 mix · 3 h » en ayant additionné
+     * la durée de vingt-cinq d'entre eux. Une statistique fausse est pire
+     * qu'absente : rien à l'écran ne dit qu'elle ne porte que sur une page.
+     *
+     * Deux requêtes plutôt qu'un `include` : l'agrégat de durée et le décompte
+     * des tags ne se calculent pas dans la même passe, et aucun des deux ne
+     * ramène de lignes.
+     */
+    const [duree, mixesPourTags] = await Promise.all([
+      this.prisma.mix.aggregate({
+        where: { userId: user.id },
+        _sum: { durationSec: true },
+      }),
+      // Les tags sont un tableau Postgres : Prisma ne sait pas les grouper, on
+      // ne rapatrie donc que la colonne. Une ligne par mix, sans jointure.
+      this.prisma.mix.findMany({
+        where: { userId: user.id },
+        select: { tags: true },
+      }),
+    ]);
+
     let isFollowing = false;
     if (currentUserId && currentUserId !== user.id) {
       const follow = await this.prisma.follow.findUnique({
@@ -95,6 +143,10 @@ export class UsersService {
       coverUrl: user.coverUrl,
       createdAt: user.createdAt,
       mixesCount: user._count.mixes,
+      /** Somme des durées connues, en secondes. `0` quand aucune n'est renseignée. */
+      totalDurationSec: duree._sum.durationSec ?? 0,
+      /** Les deux tags les plus portés par ce compte, du plus fréquent au moins. */
+      topTags: tagsLesPlusFrequents(mixesPourTags, 2),
       followersCount: user._count.followedBy,
       followingCount: user._count.following,
       isFollowing,
