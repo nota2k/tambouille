@@ -242,9 +242,18 @@ export class ArchiveImporter implements SourceImporter {
       throw new NotFoundException(MIX_PERDU_DANS_SA_SOURCE);
     }
     const [, identifier, fileName] = match;
-    return this.importItem(
-      `${decodeURIComponent(identifier)}/${decodeURIComponent(fileName)}`,
-    );
+    try {
+      return await this.importItem(
+        `${decodeURIComponent(identifier)}/${decodeURIComponent(fileName)}`,
+      );
+    } catch (err) {
+      // Le même message que les autres sources : l'écran d'édition n'a pas à
+      // savoir que celle-ci dit « fichier » là où un flux dit « épisode ».
+      if (err instanceof NotFoundException) {
+        throw new NotFoundException(MIX_PERDU_DANS_SA_SOURCE);
+      }
+      throw err;
+    }
   }
 
   async importItem(value: string): Promise<MixImport> {

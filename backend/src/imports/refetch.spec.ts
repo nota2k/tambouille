@@ -3,7 +3,7 @@
 // la page de la source (`sourcePageUrl`) et le fichier audio (`sourceRef`).
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 jest.mock('../common/safe-fetch', () => ({ safeFetch: jest.fn() }));
 import { safeFetch } from '../common/safe-fetch';
@@ -58,6 +58,17 @@ describe('ImportsService.refetch', () => {
     await expect(
       service.refetch('https://a.test/page', 'https://a.test/x.mp3'),
     ).resolves.toBe(unMix);
+  });
+
+  it('répond 400, et non 500, quand la page enregistrée n’est pas une URL', async () => {
+    const service = new ImportsService([importeur({})]);
+    await expect(
+      service.refetch('pas une url', 'https://a.test/x.mp3'),
+    ).rejects.toThrow(
+      new BadRequestException(
+        "L'adresse de la source de ce mix n'est pas valide",
+      ),
+    );
   });
 
   it('refuse une liste : rien ne dit lequel de ses items est le mix', async () => {
@@ -128,6 +139,15 @@ describe('ArchiveImporter.refetch', () => {
     );
     expect(mix.sourceRef).toBe(sourceRef);
     expect(safeFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('dit le message commun quand le fichier a quitté l’item', async () => {
+    await expect(
+      new ArchiveImporter().refetch(
+        new URL(`https://archive.org/details/${ID}`),
+        `https://archive.org/download/${ID}/disparu.mp3`,
+      ),
+    ).rejects.toThrow(new NotFoundException(PERDU));
   });
 
   it("répond 404 quand sourceRef n'est pas un fichier Archive.org", async () => {
