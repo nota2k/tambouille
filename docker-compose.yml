@@ -16,6 +16,10 @@ services:
     image: axllent/mailpit:v1.30.7
     container_name: tambouille-mailpit
     restart: unless-stopped
+    environment:
+      # Sans ça, Mailpit cherche le nom DNS inverse du client avant de saluer :
+      # 8 s sous OrbStack, plus que les 5 s qu'attend MailService.
+      MP_SMTP_DISABLE_RDNS: "true"
     ports:
       - "1025:1025"   # SMTP
       - "8025:8025"   # web UI
