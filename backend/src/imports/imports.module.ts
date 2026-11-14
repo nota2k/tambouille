@@ -8,6 +8,7 @@ import { SoundcloudImporter } from './soundcloud.importer';
 import { OuiedireImporter } from './ouiedire.importer';
 import { LylImporter } from './lyl.importer';
 import { BrainImporter } from './brain.importer';
+import { AudioLinkImporter } from './audio-link.importer';
 import { PodcastImporter } from './podcast.importer';
 import { FlarumClient } from './flarum.client';
 import { MusiquesIncongruesImporter } from './musiques-incongrues.importer';
@@ -24,6 +25,7 @@ import { MusiquesIncongruesImporter } from './musiques-incongrues.importer';
     BrainImporter,
     FlarumClient,
     MusiquesIncongruesImporter,
+    AudioLinkImporter,
     PodcastImporter,
     ImportsService,
     {
@@ -39,6 +41,11 @@ import { MusiquesIncongruesImporter } from './musiques-incongrues.importer';
       // `MusiquesIncongruesImporter` ne réclame que `/d/...` : `/t/musique`,
       // qui n'appartient à personne en particulier, reste au message « lien
       // non reconnu », qui dit la vérité.
+      //
+      // `AudioLinkImporter` doit précéder le podcast : sans lui, un lien vers
+      // un .mp3 serait téléchargé comme un flux et buterait sur sa limite de
+      // taille. Il passe après les importeurs dédiés, pour qu'un lien de
+      // fichier Archive.org garde ses métadonnées.
       inject: [
         MixcloudImporter,
         SoundcloudImporter,
@@ -47,6 +54,7 @@ import { MusiquesIncongruesImporter } from './musiques-incongrues.importer';
         LylImporter,
         BrainImporter,
         MusiquesIncongruesImporter,
+        AudioLinkImporter,
         PodcastImporter,
       ],
       useFactory: (
@@ -57,6 +65,7 @@ import { MusiquesIncongruesImporter } from './musiques-incongrues.importer';
         lyl: LylImporter,
         brain: BrainImporter,
         musiquesIncongrues: MusiquesIncongruesImporter,
+        audioLink: AudioLinkImporter,
         podcast: PodcastImporter,
       ) => [
         mixcloud,
@@ -66,6 +75,7 @@ import { MusiquesIncongruesImporter } from './musiques-incongrues.importer';
         lyl,
         brain,
         musiquesIncongrues,
+        audioLink,
         podcast,
       ],
     },
