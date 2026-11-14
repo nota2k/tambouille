@@ -1,6 +1,12 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   decodeRef,
+  MIX_PERDU_DANS_SA_SOURCE,
   type MixImport,
   type SourceImporter,
   type SourceItem,
@@ -48,6 +54,23 @@ export class ImportsService {
     return Array.isArray(resolved)
       ? { kind: 'list', items: resolved }
       : { kind: 'mix', mix: resolved };
+  }
+
+  /**
+   * Relit la source d'un mix déjà importé — « Récupérer depuis la source » de
+   * l'écran d'édition. Une liste ne suffit pas : rien n'y dit lequel de ses
+   * items est le mix, sauf pour les importeurs qui savent le retrouver par son
+   * fichier (`refetch`).
+   */
+  async refetch(pageUrl: string, sourceRef: string): Promise<MixImport> {
+    const url = new URL(pageUrl);
+    const importer = this.importerFor(url);
+    if (importer.refetch) return importer.refetch(url, sourceRef);
+    const resolved = await importer.resolve(url);
+    if (Array.isArray(resolved)) {
+      throw new NotFoundException(MIX_PERDU_DANS_SA_SOURCE);
+    }
+    return resolved;
   }
 
   async importItem(ref: string): Promise<MixImport> {

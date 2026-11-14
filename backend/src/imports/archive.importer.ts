@@ -8,6 +8,7 @@ import { safeFetch } from '../common/safe-fetch';
 import { stripHtml } from '../common/strip-html';
 import {
   encodeRef,
+  MIX_PERDU_DANS_SA_SOURCE,
   type MixImport,
   type SourceImporter,
   type SourceItem,
@@ -222,6 +223,28 @@ export class ArchiveImporter implements SourceImporter {
     return items.length === 1
       ? this.importItem(items[0]!.ref.replace(/^archive:/, ''))
       : items;
+  }
+
+  /**
+   * L'identifiant et le nom du fichier se lisent dans `sourceRef`, que
+   * `importItem` a lui-même construit : `/download/<id>/<fichier>`, chaque
+   * segment encodé à part.
+   */
+  async refetch(_pageUrl: URL, sourceRef: string): Promise<MixImport> {
+    let ref: URL;
+    try {
+      ref = new URL(sourceRef);
+    } catch {
+      throw new NotFoundException(MIX_PERDU_DANS_SA_SOURCE);
+    }
+    const match = /^\/download\/([^/]+)\/(.+)$/.exec(ref.pathname);
+    if (ref.hostname !== 'archive.org' || !match) {
+      throw new NotFoundException(MIX_PERDU_DANS_SA_SOURCE);
+    }
+    const [, identifier, fileName] = match;
+    return this.importItem(
+      `${decodeURIComponent(identifier)}/${decodeURIComponent(fileName)}`,
+    );
   }
 
   async importItem(value: string): Promise<MixImport> {
