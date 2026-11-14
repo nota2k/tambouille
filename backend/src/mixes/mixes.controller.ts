@@ -109,8 +109,8 @@ export class MixesController {
   }
 
   @Get('tags')
-  findAllTags() {
-    return this.mixesService.findAllTags();
+  findAllTags(@Query('username') username?: string) {
+    return this.mixesService.findAllTags(username);
   }
 
   /**

@@ -89,6 +89,10 @@ export interface UserProfile {
   coverUrl: string | null
   createdAt: string
   mixesCount: number
+  /** Somme des durées connues de tous ses mix, en secondes — pas seulement ceux affichés. */
+  totalDurationSec: number
+  /** Ses deux tags les plus portés, calculés sur tout son catalogue. */
+  topTags: string[]
   followersCount: number
   followingCount: number
   isFollowing: boolean

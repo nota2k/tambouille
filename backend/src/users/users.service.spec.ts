@@ -1,4 +1,4 @@
-import { UsersService } from './users.service';
+import { tagsLesPlusFrequents, UsersService } from './users.service';
 
 // Le profil public est la frontière de fuite du dispositif de vérification :
 // le jeton y paraîtrait sous le nom de son porteur, offert à qui le recopie,
@@ -26,6 +26,10 @@ describe('UsersService.getPublicProfile', () => {
           _count: { mixes: 0, followedBy: 0, following: 0 },
         }),
       },
+      mix: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { durationSec: null } }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       follow: { findUnique: jest.fn().mockResolvedValue(null) },
     };
     return { sujet: new UsersService(prisma as never), prisma };
@@ -48,5 +52,44 @@ describe('UsersService.getPublicProfile', () => {
     expect(profil).toEqual(
       expect.objectContaining({ id: 'u1', username: 'nota' }),
     );
+  });
+});
+
+describe('tagsLesPlusFrequents', () => {
+  it('classe du plus fréquent au moins fréquent', () => {
+    const mixes = [
+      { tags: ['dub', 'house'] },
+      { tags: ['dub'] },
+      { tags: ['dub', 'house'] },
+      { tags: ['ambient'] },
+    ];
+
+    expect(tagsLesPlusFrequents(mixes, 2)).toEqual(['dub', 'house']);
+  });
+
+  it('tranche les égalités par ordre alphabétique, pour que le profil ne bouge pas', () => {
+    // Trois tags à une occurrence chacun. Sans départage, l'ordre suivrait
+    // celui des lignes rendues par la base — et le bandeau d'un profil
+    // changerait d'un rechargement à l'autre sans que rien n'ait bougé.
+    const mixes = [
+      { tags: ['zouk'] },
+      { tags: ['ambient'] },
+      { tags: ['dub'] },
+    ];
+
+    expect(tagsLesPlusFrequents(mixes, 2)).toEqual(['ambient', 'dub']);
+    // Le même ensemble, présenté dans un autre ordre, donne le même résultat.
+    expect(tagsLesPlusFrequents([...mixes].reverse(), 2)).toEqual([
+      'ambient',
+      'dub',
+    ]);
+  });
+
+  it('rend moins que demandé plutôt que de combler', () => {
+    expect(tagsLesPlusFrequents([{ tags: ['dub'] }], 2)).toEqual(['dub']);
+  });
+
+  it('rend une liste vide quand aucun mix ne porte de tag', () => {
+    expect(tagsLesPlusFrequents([{ tags: [] }, { tags: [] }], 2)).toEqual([]);
   });
 });

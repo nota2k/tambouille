@@ -8,13 +8,16 @@ import { formatDuration } from '@/utils/time'
 import { toggleUserFollow } from '@/utils/follows'
 import MixListItem from '@/components/MixListItem.vue'
 import PlaylistCard from '@/components/PlaylistCard.vue'
+import PaginationBar from '@/components/PaginationBar.vue'
+import { PAR_PAGE } from '@/utils/pagination'
+import { poserLaPage } from '@/composables/useSmoothScroll'
 import AvatarStack from '@/components/AvatarStack.vue'
 import FeedLink from '@/components/FeedLink.vue'
 import WatchedSourcesPanel from '@/components/WatchedSourcesPanel.vue'
 import { createPlaylist, fetchUserPlaylists } from '@/utils/playlists'
 import { shareUrl } from '@/utils/share'
 import { useSeo } from '@/composables/useSeo'
-import type { AuthorSummary, Mix, PlaylistSummary, UserProfile } from '@/types'
+import type { AuthorSummary, Mix, MixListResponse, PlaylistSummary, UserProfile } from '@/types'
 
 /** Followers, following and playlists now live in the two-column section, not in tabs. */
 type Tab = 'mixes' | 'favorites'
@@ -30,6 +33,29 @@ const playlists = ref<PlaylistSummary[]>([])
 const followers = ref<AuthorSummary[]>([])
 const following = ref<AuthorSummary[]>([])
 const activeTab = ref<Tab>('mixes')
+
+/**
+ * Une pagination par onglet, et non une seule partagée.
+ *
+ * Les deux listes n'ont ni la même longueur ni le même contenu : revenir sur
+ * l'onglet « Mix » à la page 4 parce qu'on en était là dans les favoris
+ * afficherait une page qu'on n'a jamais demandée, voire une page vide.
+ */
+const pageMixes = ref(1)
+const pagesMixes = ref(1)
+const pageFavoris = ref(1)
+const pagesFavoris = ref(1)
+
+/*
+ * Les totaux viennent du serveur, jamais de `.length`.
+ *
+ * Les compteurs d'onglets lisaient la longueur du tableau chargé. À cinquante,
+ * l'écart ne se voyait que sur les gros comptes ; à vingt-cinq, « Favoris (25) »
+ * se serait affiché pour quiconque en a davantage. Un compteur faux est pire
+ * qu'absent : rien ne dit qu'il ne compte qu'une page.
+ */
+const totalFavoris = ref(0)
+const totalPlaylists = ref(0)
 const loading = ref(true)
 const followBusy = ref(false)
 
@@ -58,41 +84,78 @@ const isOwnProfile = computed(() => authStore.user?.username === route.params.us
 async function loadProfile() {
   loading.value = true
   activeTab.value = 'mixes'
+  // Un autre compte, d'autres listes : la page 4 du précédent n'a pas de sens
+  // ici, et donnerait une liste vide sans que rien ne l'explique.
+  pageMixes.value = 1
+  pageFavoris.value = 1
   try {
     const username = route.params.username as string
-    const [
-      { data: userData },
-      { data: mixesData },
-      { data: followersData },
-      { data: followingData },
-      playlistsData,
-    ] = await Promise.all([
-      apiClient.get<UserProfile>(`/users/${username}`),
-      apiClient.get<{ items: Mix[] }>('/mixes', { params: { username, limit: 50 } }),
-      apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/followers`, {
-        params: { limit: 50 },
-      }),
-      apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/following`, {
-        params: { limit: 50 },
-      }),
-      fetchUserPlaylists(username, { limit: 50 }),
-    ])
+    const [{ data: userData }, { data: followersData }, { data: followingData }, playlistsData] =
+      await Promise.all([
+        apiClient.get<UserProfile>(`/users/${username}`),
+        // Les deux colonnes latérales ne sont pas paginées : elles affichent
+        // des vignettes empilées, pas une liste qu'on parcourt. Leur plafond
+        // reste ce qu'il était.
+        apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/followers`, {
+          params: { limit: 50 },
+        }),
+        apiClient.get<{ items: AuthorSummary[] }>(`/users/${username}/following`, {
+          params: { limit: 50 },
+        }),
+        fetchUserPlaylists(username, { limit: 50 }),
+      ])
     profile.value = userData
-    mixes.value = mixesData.items
     followers.value = followersData.items
     following.value = followingData.items
     playlists.value = playlistsData.items
-    if (authStore.user?.username === username) {
-      const { data: favoritesData } = await apiClient.get<{ items: Mix[] }>('/mixes/me/favorites', {
-        params: { limit: 50 },
-      })
-      favorites.value = favoritesData.items
-    } else {
-      favorites.value = []
-    }
+    totalPlaylists.value = playlistsData.total
+
+    await Promise.all([chargerLesMixes(username), chargerLesFavoris(username)])
   } finally {
     loading.value = false
   }
+}
+
+/** Les mix du compte, une page à la fois. */
+async function chargerLesMixes(username: string) {
+  const { data } = await apiClient.get<MixListResponse>('/mixes', {
+    params: { username, page: pageMixes.value, limit: PAR_PAGE },
+  })
+  mixes.value = data.items
+  pagesMixes.value = data.totalPages
+}
+
+/**
+ * Les favoris, seulement sur son propre profil.
+ *
+ * L'API ne rend que ceux du compte connecté : demandés depuis le profil de
+ * quelqu'un d'autre, ils afficheraient les siens sous le nom d'un autre.
+ */
+async function chargerLesFavoris(username: string) {
+  if (authStore.user?.username !== username) {
+    favorites.value = []
+    pagesFavoris.value = 1
+    totalFavoris.value = 0
+    return
+  }
+  const { data } = await apiClient.get<MixListResponse>('/mixes/me/favorites', {
+    params: { page: pageFavoris.value, limit: PAR_PAGE },
+  })
+  favorites.value = data.items
+  pagesFavoris.value = data.totalPages
+  totalFavoris.value = data.total
+}
+
+function allerAuxMixes(cible: number) {
+  pageMixes.value = cible
+  poserLaPage(0)
+  void chargerLesMixes(String(route.params.username))
+}
+
+function allerAuxFavoris(cible: number) {
+  pageFavoris.value = cible
+  poserLaPage(0)
+  void chargerLesFavoris(String(route.params.username))
 }
 
 /**
@@ -193,22 +256,21 @@ async function toggleFollow() {
  * profil neuf, « 0 abonné · 0 playlist » annonce surtout que le site est vide,
  * alors que « 4 mix · 6 h 12 » dit quelque chose de vrai dès le premier upload.
  * Null quand aucune durée n'est connue — la mention disparaît alors.
+ *
+ * ── Calculé par l'API, et non plus ici ──────────────────────────────────────
+ *
+ * Il additionnait les durées de la liste affichée. Tant qu'elle valait
+ * cinquante mix, l'écart restait invisible ; paginée à vingt-cinq, la page
+ * aurait annoncé « 40 mix » à côté du temps de vingt-cinq d'entre eux. Les deux
+ * chiffres se seraient contredits dans la même phrase.
+ *
+ * `totalDurationSec` et `topTags` portent maintenant sur tout le catalogue du
+ * compte — voir `UsersService.getPublicProfile`.
  */
-const totalDuration = computed(() =>
-  formatDuration(mixes.value.reduce((sum, mix) => sum + (mix.durationSec ?? 0), 0)),
-)
+const totalDuration = computed(() => formatDuration(profile.value?.totalDurationSec ?? 0))
 
 /** Les tags les plus fréquents chez cette personne : « surtout italo disco et new-wave ». */
-const signatureTags = computed(() => {
-  const counts = new Map<string, number>()
-  for (const mix of mixes.value) {
-    for (const tag of mix.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
-  }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
-    .map(([tag]) => tag)
-})
+const signatureTags = computed(() => profile.value?.topTags ?? [])
 
 watch(() => route.params.username, loadProfile)
 onMounted(loadProfile)
@@ -347,13 +409,13 @@ onMounted(loadProfile)
             "
             @click="activeTab = 'favorites'"
           >
-            Favoris ({{ favorites.length }})
+            Favoris ({{ totalFavoris }})
           </button>
           <RouterLink
             :to="{ name: 'user-playlists', params: { username: profile.username } }"
             class="pb-3 hover:text-tambouille-text"
           >
-            Playlists ({{ playlists.length }})
+            Playlists ({{ totalPlaylists }})
           </RouterLink>
         </div>
 
@@ -370,6 +432,12 @@ onMounted(loadProfile)
                 Aucun mix pour l'instant.
               </p>
               <MixListItem v-for="mix in mixes" v-else :key="mix.id" :mix="mix" />
+              <PaginationBar
+                :page="pageMixes"
+                :total-pages="pagesMixes"
+                :disabled="loading"
+                @update:page="allerAuxMixes"
+              />
             </template>
 
             <template v-else-if="activeTab === 'favorites'">
@@ -377,6 +445,12 @@ onMounted(loadProfile)
                 Aucun favori pour l'instant.
               </p>
               <MixListItem v-for="mix in favorites" v-else :key="mix.id" :mix="mix" />
+              <PaginationBar
+                :page="pageFavoris"
+                :total-pages="pagesFavoris"
+                :disabled="loading"
+                @update:page="allerAuxFavoris"
+              />
             </template>
           </div>
 

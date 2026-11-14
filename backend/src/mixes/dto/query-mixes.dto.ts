@@ -18,10 +18,16 @@ export class QueryMixesDto {
   @IsString()
   username?: string;
 
+  /**
+   * `oldest` existe pour la collection, qui l'offrait déjà — mais en inversant
+   * le tableau déjà chargé. Sur une page de vingt-cinq, cette inversion aurait
+   * rendu « le plus ancien des vingt-cinq plus récents », ce qui n'est pas ce
+   * que le libellé promet.
+   */
   @IsOptional()
   @IsString()
-  @IsIn(['recent', 'plays'])
-  sort?: 'recent' | 'plays';
+  @IsIn(['recent', 'oldest', 'plays'])
+  sort?: 'recent' | 'oldest' | 'plays';
 
   /**
    * Ne garder que les mix déposés depuis tant de jours.
