@@ -614,6 +614,18 @@ export class MixesService {
       throw new ForbiddenException('You can only delete your own mixes');
     }
 
+    // Avant la suppression : si celle-ci échoue, la trace reste sans effet,
+    // car le mix existe encore et la synchronisation le reconnaît déjà.
+    if (mix.sourcePageUrl) {
+      await this.prisma.deletedSource.upsert({
+        where: {
+          userId_sourcePageUrl: { userId, sourcePageUrl: mix.sourcePageUrl },
+        },
+        create: { userId, sourcePageUrl: mix.sourcePageUrl },
+        update: {},
+      });
+    }
+
     await this.prisma.mix.delete({ where: { id } });
 
     // The row goes first on purpose. Deleting from R2 first and then failing on

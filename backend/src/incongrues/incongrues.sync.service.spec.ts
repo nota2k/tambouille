@@ -60,6 +60,7 @@ function harnais(over: { discussions?: FlarumDiscussion[] } = {}) {
   };
   const prisma = {
     user: { findMany: jest.fn().mockResolvedValue([]) },
+    deletedSource: { findMany: jest.fn().mockResolvedValue([]) },
   };
   const sujet = new IncongruesSyncService(
     flarum as never,
@@ -186,6 +187,36 @@ describe('IncongruesSyncService.syncUser', () => {
 
     await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(1);
     expect(mixes.createFromImport).toHaveBeenCalledWith('u1', MIX);
+  });
+
+  // Constaté en production : « Badd Block mix 2 », supprimé cinq fois, revenait
+  // au passage suivant — une discussion sans mix passait pour une nouveauté.
+  it('ne recrée pas un mix que le compte a supprimé', async () => {
+    const { sujet, flarum, importeur, mixes, prisma } = harnais();
+    prisma.deletedSource.findMany.mockResolvedValue([
+      { sourcePageUrl: discussion('1').pageUrl },
+    ]);
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(0);
+    expect(prisma.deletedSource.findMany).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+      select: { sourcePageUrl: true },
+    });
+    expect(mixes.createFromImport).not.toHaveBeenCalled();
+    expect(importeur.importDiscussion).not.toHaveBeenCalled();
+    expect(flarum.getDiscussion).not.toHaveBeenCalled();
+  });
+
+  it('importe les autres discussions du compte malgré une suppression', async () => {
+    const { sujet, mixes, prisma } = harnais({
+      discussions: [discussion('1'), discussion('2')],
+    });
+    prisma.deletedSource.findMany.mockResolvedValue([
+      { sourcePageUrl: discussion('1').pageUrl },
+    ]);
+
+    await expect(sujet.syncUser('u1', 'nota')).resolves.toBe(1);
+    expect(mixes.createFromImport).toHaveBeenCalledTimes(1);
   });
 
   it('ne crée rien quand findBySource reconnaît déjà le mix', async () => {

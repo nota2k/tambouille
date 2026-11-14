@@ -57,6 +57,9 @@ function createPrismaMock() {
     follow: {
       findMany: jest.fn(),
     },
+    deletedSource: {
+      upsert: jest.fn(),
+    },
   };
 }
 
@@ -1360,6 +1363,42 @@ describe('remove', () => {
     expect(prisma.mix.delete).toHaveBeenCalled();
   });
 
+  // Sans cette trace, la synchronisation avec le forum, qui réimporte toute
+  // discussion sans mix, recréait le mix au passage suivant.
+  it('retient la page source d’un mix supprimé, pour son propriétaire', async () => {
+    const PAGE = 'https://www.musiques-incongrues.net/d/15653-badd-block-mix-2';
+    const { prisma, service } = serviceOwning({
+      id: MIX_ID,
+      userId: USER_ID,
+      audioUrl: null,
+      coverUrl: null,
+      sourcePageUrl: PAGE,
+    });
+
+    await service.remove(MIX_ID, USER_ID);
+
+    expect(prisma.deletedSource.upsert).toHaveBeenCalledWith({
+      where: { userId_sourcePageUrl: { userId: USER_ID, sourcePageUrl: PAGE } },
+      create: { userId: USER_ID, sourcePageUrl: PAGE },
+      update: {},
+    });
+    expect(prisma.mix.delete).toHaveBeenCalled();
+  });
+
+  it('ne retient rien pour un mix sans page source', async () => {
+    const { prisma, service } = serviceOwning({
+      id: MIX_ID,
+      userId: USER_ID,
+      audioUrl: AUDIO_KEY,
+      coverUrl: null,
+      sourcePageUrl: null,
+    });
+
+    await service.remove(MIX_ID, USER_ID);
+
+    expect(prisma.deletedSource.upsert).not.toHaveBeenCalled();
+  });
+
   it('deletes nothing when the mix belongs to someone else', async () => {
     const { prisma, service } = serviceOwning({
       id: MIX_ID,
@@ -1372,6 +1411,7 @@ describe('remove', () => {
       ForbiddenException,
     );
     expect(prisma.mix.delete).not.toHaveBeenCalled();
+    expect(prisma.deletedSource.upsert).not.toHaveBeenCalled();
     expect(asMock).not.toHaveBeenCalled();
   });
 
