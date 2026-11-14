@@ -9,7 +9,7 @@ inverted: true
 curator: nota2k
 from: 2025-11-14
 to: 2025-12-10
-mixes: [nota2k/go-go-america-want-9, nota2k/want-12, nota2k/extatic-london-dancefloor-want-13, nota2k/welcome-to-our-new-galaxy-want-06
+mixes: [nota2k/go-go-america-want-9, nota2k/want-12, nota2k/extatic-london-dancefloor-want-13, nota2k/welcome-to-our-new-galaxy-want-06]
 ---
 
 <!-- Exemple du gabarit large : quatre mix, identifiants factices, dates
