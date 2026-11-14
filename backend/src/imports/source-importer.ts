@@ -39,7 +39,19 @@ export interface SourceImporter {
   /** One mix, or a list to choose from. */
   resolve(url: URL): Promise<MixImport | SourceItem[]>;
   importItem(ref: string): Promise<MixImport>;
+  /**
+   * Retrouve un mix déjà importé, d'après ce qu'il en a gardé : la page de sa
+   * source et son fichier audio. Facultatif — sans lui, `ImportsService` passe
+   * par `resolve`, ce qui suffit aux sources dont la page désigne un seul mix.
+   * Les sources dont la page est une liste (un flux, un item Archive.org à
+   * plusieurs fichiers) le fournissent, pour retrouver le bon en une lecture.
+   */
+  refetch?(pageUrl: URL, sourceRef: string): Promise<MixImport>;
 }
+
+/** Ce que dit `refetch` quand le mix n'est plus, ou pas, dans sa source. */
+export const MIX_PERDU_DANS_SA_SOURCE =
+  "Ce mix n'a pas été retrouvé dans sa source";
 
 /** `ref` is opaque to the client and round-trips verbatim. Prefixing it with
  *  the importer name is what lets `ImportsService` route `importItem` without

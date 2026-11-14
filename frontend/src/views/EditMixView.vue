@@ -10,7 +10,7 @@ import { mixRoute } from '@/utils/routes'
 import TracklistEditor from '@/components/TracklistEditor.vue'
 import MixAudioPreview from '@/components/MixAudioPreview.vue'
 import TagsField from '@/components/TagsField.vue'
-import type { Mix } from '@/types'
+import type { Mix, MixImport } from '@/types'
 import { useSeo } from '@/composables/useSeo'
 import { apiErrorMessage } from '@/utils/apiError'
 
@@ -75,6 +75,19 @@ const coverPreview = ref<string | null>(null)
 const saving = ref(false)
 const error = ref('')
 
+/**
+ * La page de la source du mix. Sans elle — fichier envoyé, lien direct vers un
+ * fichier audio —, il n'y a rien à relire et le bouton ne s'affiche pas.
+ */
+const sourcePageUrl = ref<string | null>(null)
+const recuperation = ref(false)
+/**
+ * La pochette trouvée par « Récupérer depuis la source ». Envoyée à
+ * l'enregistrement, où le serveur la télécharge — sauf si un fichier a été
+ * choisi à la main, qui l'emporte, comme à l'import.
+ */
+const coverSourceUrl = ref<string | null>(null)
+
 async function load() {
   loading.value = true
   try {
@@ -94,6 +107,7 @@ async function load() {
     tags.value = data.tags.join(', ')
     existingAudioUrl.value = data.audioUrl
     existingCoverUrl.value = data.coverUrl
+    sourcePageUrl.value = data.sourcePageUrl
     trackRows.value =
       data.tracklist.length > 0
         ? data.tracklist.map((entry) => ({
@@ -106,6 +120,36 @@ async function load() {
     notFound.value = true
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * Relit la source et remplace TOUT le formulaire par ce qu'elle dit — titre,
+ * artiste, description, tags, tracklist, pochette. Rien n'est enregistré :
+ * « Enregistrer » ou « Annuler » tranchent ensuite.
+ */
+async function recupererDepuisLaSource() {
+  error.value = ''
+  recuperation.value = true
+  try {
+    const { data } = await apiClient.post<MixImport>(`/mixes/${mixId.value}/source`)
+    title.value = data.title
+    artist.value = data.artist ?? ''
+    description.value = data.description
+    tags.value = data.tags.join(', ')
+    trackRows.value =
+      data.tracklist.length > 0
+        ? data.tracklist.map((entry) => ({
+            timecode: formatTime(entry.timecodeSec),
+            artist: entry.artist,
+            title: entry.title,
+          }))
+        : [{ timecode: '', artist: '', title: '' }]
+    coverSourceUrl.value = data.coverSourceUrl ?? null
+  } catch (err) {
+    error.value = apiErrorMessage(err, 'La source n’a pas pu être relue')
+  } finally {
+    recuperation.value = false
   }
 }
 
@@ -139,6 +183,7 @@ async function onSubmit() {
   formData.append('tags', tags.value)
   formData.append('tracklist', JSON.stringify(tracklist.entries))
   if (coverFile.value) formData.append('cover', coverFile.value)
+  else if (coverSourceUrl.value) formData.append('coverSourceUrl', coverSourceUrl.value)
 
   try {
     await apiClient.patch(`/mixes/${mixId.value}`, formData, {
@@ -163,6 +208,21 @@ onMounted(load)
     <div v-else-if="notFound" class="py-16 text-center text-tambouille-muted">Mix introuvable.</div>
 
     <form v-else class="space-y-5" @submit.prevent="onSubmit">
+      <div v-if="sourcePageUrl" class="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          :disabled="recuperation"
+          class="tb-btn-outline"
+          @click="recupererDepuisLaSource"
+        >
+          {{ recuperation ? 'Récupération…' : 'Récupérer depuis la source' }}
+        </button>
+        <p class="text-xs text-tambouille-muted">
+          Remplace tous les champs par ce que dit la source. Rien n'est enregistré avant «
+          Enregistrer ».
+        </p>
+      </div>
+
       <div>
         <label class="mb-1 block text-sm text-tambouille-muted">Titre</label>
         <input v-model="title" type="text" required maxlength="120" class="w-full tb-field" />
@@ -214,8 +274,8 @@ onMounted(load)
           @change="onCoverChange"
         />
         <img
-          v-if="coverPreview || existingCoverUrl"
-          :src="coverPreview ?? mediaUrl(existingCoverUrl)"
+          v-if="coverPreview || coverSourceUrl || existingCoverUrl"
+          :src="coverPreview ?? coverSourceUrl ?? mediaUrl(existingCoverUrl)"
           loading="lazy"
           decoding="async"
           class="mt-3 h-32 w-32 rounded-none object-cover"

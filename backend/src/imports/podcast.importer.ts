@@ -8,6 +8,7 @@ import { safeFetch } from '../common/safe-fetch';
 import { stripHtml } from '../common/strip-html';
 import {
   encodeRef,
+  MIX_PERDU_DANS_SA_SOURCE,
   type MixImport,
   type SourceImporter,
   type SourceItem,
@@ -176,7 +177,25 @@ export class PodcastImporter implements SourceImporter {
     const entry = feed.items.find((candidate) => candidate.guid === guid);
     if (!entry)
       throw new NotFoundException("Cet épisode n'est plus dans le flux");
+    return this.versMix(feed, entry, feedUrl);
+  }
 
+  /** L'épisode se retrouve par son fichier : c'est ce que le mix a gardé. */
+  async refetch(pageUrl: URL, sourceRef: string): Promise<MixImport> {
+    const feedUrl = pageUrl.toString();
+    const feed = await this.readFeed(feedUrl);
+    const entry = feed.items.find(
+      (candidate) => candidate.audioUrl === sourceRef,
+    );
+    if (!entry) throw new NotFoundException(MIX_PERDU_DANS_SA_SOURCE);
+    return this.versMix(feed, entry, feedUrl);
+  }
+
+  private versMix(
+    feed: ReturnType<typeof parseFeed>,
+    entry: FeedEntry,
+    feedUrl: string,
+  ): MixImport {
     const author = feed.channelAuthor ?? feed.channelTitle;
 
     return {
