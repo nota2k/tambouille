@@ -24,6 +24,7 @@ jest.mock('../common/upload.utils', () => ({
 import { MixesController } from './mixes.controller';
 import { MixesService, assertExactlyOneAudioSource } from './mixes.service';
 import { CoverImportService } from './cover-import.service';
+import type { MixSourceService } from './mix-source.service';
 import { QueryMixesDto } from './dto/query-mixes.dto';
 import type { UploadedFile as R2File } from '../common/upload.utils';
 import type { IncongruesSyncService } from '../incongrues/incongrues.sync.service';
@@ -36,6 +37,7 @@ import type { IncongruesSyncService } from '../incongrues/incongrues.sync.servic
  */
 function createServiceMock() {
   return {
+    update: jest.fn().mockResolvedValue({ id: 'mix-1' }),
     // Faithful to the real service: it enforces the same rule, so removing the
     // controller's early check does not make this request start succeeding —
     // it only makes it succeed *later*, after the cover has been written. That
@@ -111,7 +113,52 @@ describe('MixesController', () => {
       mixesService as unknown as MixesService,
       coverImport as unknown as CoverImportService,
       incongrues as unknown as IncongruesSyncService,
+      {} as unknown as MixSourceService,
     );
+  });
+
+  describe('update — la pochette par adresse', () => {
+    it("un fichier envoyé l'emporte : l'adresse n'est pas téléchargée", async () => {
+      await controller.update(
+        'mix-1',
+        USER_ID,
+        { coverSourceUrl: COVER_SOURCE_URL },
+        uploadedFile('covers/envoyee.webp'),
+      );
+      expect(coverImport.importFromUrl).not.toHaveBeenCalled();
+      expect(mixesService.update).toHaveBeenCalledWith(
+        'mix-1',
+        USER_ID,
+        expect.anything(),
+        'covers/envoyee.webp',
+      );
+    });
+
+    it("sans fichier, la pochette est importée depuis l'adresse", async () => {
+      await controller.update('mix-1', USER_ID, {
+        coverSourceUrl: COVER_SOURCE_URL,
+      });
+      expect(coverImport.importFromUrl).toHaveBeenCalledWith(COVER_SOURCE_URL);
+      expect(mixesService.update).toHaveBeenCalledWith(
+        'mix-1',
+        USER_ID,
+        expect.anything(),
+        'covers/imported.jpg',
+      );
+    });
+
+    it('un import raté laisse la pochette actuelle', async () => {
+      (coverImport.importFromUrl as jest.Mock).mockResolvedValue(null);
+      await controller.update('mix-1', USER_ID, {
+        coverSourceUrl: COVER_SOURCE_URL,
+      });
+      expect(mixesService.update).toHaveBeenCalledWith(
+        'mix-1',
+        USER_ID,
+        expect.anything(),
+        undefined,
+      );
+    });
   });
 
   describe('by-source — le contrôle de doublon', () => {

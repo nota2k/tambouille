@@ -29,6 +29,7 @@ import {
   assertSourcePageHasASource,
 } from './mixes.service';
 import { CoverImportService } from './cover-import.service';
+import { MixSourceService } from './mix-source.service';
 import { IncongruesSyncService } from '../incongrues/incongrues.sync.service';
 import { CreateMixDto } from './dto/create-mix.dto';
 import { UpdateMixDto } from './dto/update-mix.dto';
@@ -64,6 +65,7 @@ export class MixesController {
     private readonly coverImportService: CoverImportService,
     @Inject(forwardRef(() => IncongruesSyncService))
     private readonly incongruesSync: IncongruesSyncService,
+    private readonly mixSource: MixSourceService,
   ) {}
 
   @Get()
@@ -316,14 +318,30 @@ export class MixesController {
       limits: { fileSize: COVER_MAX_BYTES },
     }),
   )
-  update(
+  async update(
     @Param('id') id: string,
     @CurrentUserId() userId: string,
     @Body() dto: UpdateMixDto,
     @UploadedFile() file?: R2File,
   ) {
-    const coverUrl = file ? file.key : undefined;
+    // Un import raté rend `undefined` : la pochette actuelle reste.
+    const coverUrl = await this.coverImportService.resolveCoverUrl(
+      file?.key,
+      dto.coverSourceUrl,
+    );
     return this.mixesService.update(id, userId, dto, coverUrl);
+  }
+
+  /**
+   * Ce que la source d'un mix en dit aujourd'hui — « Récupérer depuis la
+   * source », dans l'écran d'édition. N'écrit rien : le formulaire se remplit,
+   * et c'est son enregistrement qui décide.
+   */
+  @Post(':id/source')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  refetchSource(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.mixSource.refetch(id, userId);
   }
 
   @Delete(':id')

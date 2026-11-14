@@ -87,4 +87,14 @@ export class UpdateMixDto {
   @MaxLength(2048)
   @IsUrl({ protocols: ['https'], require_protocol: true })
   sourcePageUrl?: string;
+
+  /**
+   * Une pochette à télécharger, quand « Récupérer depuis la source » en a
+   * trouvé une. Comme à la création : le serveur la récupère et la stocke, et
+   * un fichier envoyé dans la même requête l'emporte.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  coverSourceUrl?: string;
 }
