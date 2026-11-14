@@ -186,9 +186,20 @@ async function onSubmit() {
   else if (coverSourceUrl.value) formData.append('coverSourceUrl', coverSourceUrl.value)
 
   try {
-    await apiClient.patch(`/mixes/${mixId.value}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    const { data } = await apiClient.patch<{ pochetteNonImportee?: boolean }>(
+      `/mixes/${mixId.value}`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+    // Le reste est enregistré, mais la pochette montrée en aperçu n'a pas été
+    // prise : on reste ici pour le dire, plutôt que de repartir en silence sur
+    // l'ancienne pochette.
+    if (data.pochetteNonImportee) {
+      coverSourceUrl.value = null
+      error.value =
+        'Enregistré, sauf la pochette : elle n’a pas pu être téléchargée depuis la source. Vous pouvez en choisir une à la main.'
+      return
+    }
     router.push(retourAuMix.value)
   } catch (err) {
     error.value = apiErrorMessage(err, 'Échec de la mise à jour')

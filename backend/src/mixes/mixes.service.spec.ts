@@ -1546,4 +1546,38 @@ describe('MixesService.resolveAudio', () => {
       serviceFor(null).resolveAudio(MIX_ID, BASES),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  describe('assertCanEdit — avant toute écriture', () => {
+    let prisma: ReturnType<typeof createPrismaMock>;
+    let service: MixesService;
+
+    beforeEach(() => {
+      prisma = createPrismaMock();
+      service = new MixesService(
+        prisma as unknown as PrismaService,
+        createCoverImportMock() as unknown as CoverImportService,
+      );
+    });
+
+    it('répond 404 sans mix', async () => {
+      prisma.mix.findUnique.mockResolvedValue(null);
+      await expect(service.assertCanEdit('mix-1', USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('répond 403 à un autre compte', async () => {
+      prisma.mix.findUnique.mockResolvedValue({ id: 'mix-1', userId: 'autre' });
+      await expect(service.assertCanEdit('mix-1', USER_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('laisse passer le propriétaire', async () => {
+      prisma.mix.findUnique.mockResolvedValue({ id: 'mix-1', userId: USER_ID });
+      await expect(
+        service.assertCanEdit('mix-1', USER_ID),
+      ).resolves.toBeUndefined();
+    });
+  });
 });
